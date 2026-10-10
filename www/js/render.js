@@ -1,7 +1,7 @@
 /* ==========================================================================
    BANNERFALL - drawing
-   All art is drawn with code (canvas paths), so the app has no image files to
-   load and stays tiny and fully offline. Swap in sprites here later if you like.
+   All art is drawn with code (canvas paths). Enemies march from RIGHT to LEFT.
+   Defenders face right; enemies face left (mirrored horizontally).
    ========================================================================== */
 (function () {
   'use strict';
@@ -9,47 +9,116 @@
   const G = BF.GRID;
   const TAU = Math.PI * 2;
 
-  // ---- unit glyphs, drawn inside a 40x40 box centred on 0,0 (facing up) ----
-  function glyph(ctx, role, color, flip) {
+  /* ---------- person glyphs (drawn in a 40×40 box centred on 0,0) ----------
+     enemy=false → figure faces RIGHT (defender toward incoming enemies)
+     enemy=true  → figure faces LEFT  (enemy marching toward gate)          */
+  function glyph(ctx, role, color, enemy) {
     ctx.save();
-    if (flip) ctx.scale(1, -1); // enemies face down the board
+    if (enemy) ctx.scale(-1, 1); // mirror: face left
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.4;
+
+    // Head (all roles)
+    ctx.beginPath(); ctx.arc(0, -12, 5, 0, TAU); ctx.fill();
+
     switch (role) {
-      case 'spear':
-        ctx.beginPath(); ctx.moveTo(0, 14); ctx.lineTo(0, -8); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(-5, -6); ctx.lineTo(5, -6); ctx.closePath(); ctx.fill();
+      case 'spear': {
+        // Torso
+        ctx.lineWidth = 2.8; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 6); ctx.stroke();
+        // Back arm (left)
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(-6, 2); ctx.stroke();
+        // Forward arm gripping spear
+        ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(7, -7); ctx.stroke();
+        // Spear shaft (long diagonal)
+        ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(-4, 15); ctx.lineTo(13, -15); ctx.stroke();
+        // Spear tip
+        ctx.beginPath(); ctx.moveTo(13, -15); ctx.lineTo(9, -11); ctx.lineTo(17, -13); ctx.closePath(); ctx.fill();
+        // Legs
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(-4, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(4, 18); ctx.stroke();
         break;
-      case 'sword':
+      }
+      case 'sword': {
+        // Torso
+        ctx.lineWidth = 2.8; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(0, 6); ctx.stroke();
+        // Shield on back arm (to the left of the body)
+        ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(-8, 0); ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(0, -15); ctx.lineTo(3, -9); ctx.lineTo(3, 5); ctx.lineTo(-3, 5); ctx.lineTo(-3, -9);
-        ctx.closePath(); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(-8, 6.5); ctx.lineTo(8, 6.5); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(0, 7); ctx.lineTo(0, 13); ctx.stroke();
+        ctx.roundRect(-15, -5, 8, 13, 2);
+        ctx.fill();
+        // Sword arm (raised right)
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(8, -10); ctx.stroke();
+        // Sword blade
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(8, -10); ctx.lineTo(18, -20); ctx.stroke();
+        // Crossguard
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(12, -13); ctx.stroke();
+        // Legs
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(-4, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(4, 18); ctx.stroke();
         break;
-      case 'archer':
-        ctx.save();
-        ctx.rotate(-Math.PI / 2);                 // bow faces up
-        ctx.beginPath(); ctx.arc(-6, 0, 14, -1.15, 1.15); ctx.stroke();
+      }
+      case 'archer': {
+        // Torso (slightly lean forward)
+        ctx.lineWidth = 2.8; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(-1, 6); ctx.stroke();
+        // Bow (arc to the right)
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(10, -3, 12, Math.PI * 0.68, Math.PI * 1.32); ctx.stroke();
+        // Bowstring
+        const bx1 = 10 + 12 * Math.cos(Math.PI * 0.68), by1 = -3 + 12 * Math.sin(Math.PI * 0.68);
+        const bx2 = 10 + 12 * Math.cos(Math.PI * 1.32), by2 = -3 + 12 * Math.sin(Math.PI * 1.32);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(bx1, by1); ctx.lineTo(-3, -3); ctx.lineTo(bx2, by2); ctx.stroke();
+        // Arrow
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-6, -3); ctx.lineTo(7, -3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(7, -3); ctx.lineTo(4, -6); ctx.lineTo(4, 0); ctx.closePath(); ctx.fill();
+        // Arms
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(7, -7); ctx.stroke(); // upper arm to bow
+        ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(-3, -3); ctx.stroke(); // drawing arm
+        // Legs
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(-4, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-1, 6); ctx.lineTo(3, 18); ctx.stroke();
+        break;
+      }
+      case 'mage': {
+        // Wide robe body
+        ctx.lineWidth = 8;
+        ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 8); ctx.stroke();
+        ctx.lineWidth = 1.5;
+        // Robe hem
+        ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(-5, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(7, 8); ctx.lineTo(5, 18); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-7, 8); ctx.lineTo(7, 8); ctx.stroke();
+        // Staff (held on the left)
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-9, 16); ctx.lineTo(-7, -16); ctx.stroke();
+        // Orb on staff
+        ctx.beginPath(); ctx.arc(-7, -18, 4.5, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath(); ctx.arc(-7, -18, 8, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Arm holding staff
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(-8, -3); ctx.stroke();
+        // Right arm (casting)
+        ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(10, -7); ctx.stroke();
+        // Magic sparks from fingertips
         ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.moveTo(-6 + 14 * Math.cos(-1.15), 14 * Math.sin(-1.15));
-        ctx.lineTo(-6 + 14 * Math.cos(1.15), 14 * Math.sin(1.15));
+        ctx.moveTo(10, -7); ctx.lineTo(15, -4);
+        ctx.moveTo(11, -9); ctx.lineTo(17, -7);
         ctx.stroke();
-        ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(13, 0); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(10, -3.5); ctx.lineTo(10, 3.5); ctx.closePath(); ctx.fill();
-        ctx.restore();
         break;
-      case 'mage':
-        ctx.beginPath(); ctx.moveTo(-6, 14); ctx.lineTo(4, -6); ctx.stroke();
-        ctx.beginPath(); ctx.arc(6, -10, 5, 0, TAU); ctx.fill();
-        ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(6, -19); ctx.lineTo(6, -16.5); ctx.moveTo(14, -10); ctx.lineTo(11.5, -10); ctx.moveTo(-2, -10); ctx.lineTo(0.5, -10); ctx.stroke();
-        break;
+      }
     }
     ctx.restore();
   }
@@ -65,32 +134,40 @@
     ctx.closePath();
   }
 
-  // A round shield for your units, a hexagon for the enemy
   function token(ctx, x, y, r, f, role, enemy, hit) {
     ctx.save();
     ctx.translate(x, y);
+    // Shadow below unit
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.ellipse(0, r * 0.88, r * 0.85, r * 0.28, 0, 0, TAU); ctx.fill();
+    // Token shape: circle for defenders, hexagon for enemies
     if (enemy) hexPath(ctx, r); else { ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); }
     const g = ctx.createRadialGradient(0, -r * 0.4, r * 0.1, 0, 0, r);
     g.addColorStop(0, '#2d3342'); g.addColorStop(1, '#141821');
     ctx.fillStyle = g; ctx.fill();
-    if (enemy) { ctx.fillStyle = 'rgba(190,40,40,.16)'; ctx.fill(); }
+    if (enemy) { ctx.fillStyle = 'rgba(190,40,40,.18)'; ctx.fill(); }
     ctx.lineWidth = Math.max(2, r * 0.15);
     ctx.strokeStyle = f.color; ctx.stroke();
+    // Person figure scaled to fit the token
     ctx.scale(r / 20, r / 20);
     const base = role === 'champion' || role === 'warlord' ? 'sword' : role;
     glyph(ctx, base, enemy ? '#f2dccf' : f.accent, enemy);
-    if (role === 'champion' || role === 'warlord') {   // crown / horns
+    // Champion crown / warlord horns (drawn above head)
+    if (role === 'champion' || role === 'warlord') {
       ctx.fillStyle = '#e8c566';
       ctx.beginPath();
       if (role === 'champion') {
-        ctx.moveTo(-9, 24); ctx.lineTo(-9, 28); ctx.lineTo(-5, 25); ctx.lineTo(0, 30); ctx.lineTo(5, 25); ctx.lineTo(9, 28); ctx.lineTo(9, 24);
+        // Crown above head (y ≈ -17)
+        ctx.moveTo(-8, -17); ctx.lineTo(-8, -21); ctx.lineTo(-4, -18);
+        ctx.lineTo(0, -23); ctx.lineTo(4, -18); ctx.lineTo(8, -21); ctx.lineTo(8, -17);
       } else {
-        ctx.moveTo(-14, 22); ctx.lineTo(-20, 32); ctx.lineTo(-9, 25); ctx.lineTo(9, 25); ctx.lineTo(20, 32); ctx.lineTo(14, 22);
+        // Warlord horns (wider, more dramatic)
+        ctx.moveTo(-12, -17); ctx.lineTo(-18, -28); ctx.lineTo(-8, -21);
+        ctx.lineTo(8, -21); ctx.lineTo(18, -28); ctx.lineTo(12, -17);
       }
       ctx.closePath(); ctx.fill();
     }
+    // Hit flash
     if (hit > 0) {
       ctx.globalAlpha = Math.min(0.65, hit * 6);
       ctx.fillStyle = '#fff';
@@ -101,10 +178,8 @@
   BF.drawToken = token;
 
   function bar(ctx, x, y, w, frac, color) {
-    ctx.fillStyle = 'rgba(0,0,0,.55)';
-    ctx.fillRect(x - w / 2, y, w, 4);
-    ctx.fillStyle = color;
-    ctx.fillRect(x - w / 2, y, Math.max(0, w * frac), 4);
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(x - w / 2, y, w, 4);
+    ctx.fillStyle = color; ctx.fillRect(x - w / 2, y, Math.max(0, w * frac), 4);
   }
 
   // ---- the whole battlefield ----
@@ -113,30 +188,35 @@
     ctx.clearRect(0, 0, G.cw, G.ch);
     const me = b.faction, foe = b.owner;
 
-    // ground
-    const bg = ctx.createLinearGradient(0, 0, 0, G.h);
-    bg.addColorStop(0, '#171a22'); bg.addColorStop(1, '#10131a');
+    // Background gradient
+    const bg = ctx.createLinearGradient(0, 0, G.cw, 0);
+    bg.addColorStop(0, '#10141e'); bg.addColorStop(1, '#171a22');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, G.cw, G.ch);
-    for (let c = 0; c < G.cols; c++) {
-      if (c % 2 === 0) { ctx.fillStyle = 'rgba(255,255,255,.03)'; ctx.fillRect(c * G.cell, 0, G.cell, G.h); }
-    }
-    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1;
-    for (let r = 1; r < G.rows; r++) { ctx.beginPath(); ctx.moveTo(0, r * G.cell); ctx.lineTo(G.cw, r * G.cell); ctx.stroke(); }
-    // enemy side glow
-    const eg = ctx.createLinearGradient(0, 0, 0, 90);
-    eg.addColorStop(0, hexA(foe.color, 0.28)); eg.addColorStop(1, hexA(foe.color, 0));
-    ctx.fillStyle = eg; ctx.fillRect(0, 0, G.cw, 90);
 
-    // range band of an inspected unit
+    // Alternating lane shading (horizontal rows)
+    for (let r = 0; r < G.rows; r++) {
+      if (r % 2 === 0) { ctx.fillStyle = 'rgba(255,255,255,.025)'; ctx.fillRect(0, r * G.cell, G.cw, G.cell); }
+    }
+    // Vertical column dividers
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1;
+    for (let c = 1; c < G.cols; c++) {
+      ctx.beginPath(); ctx.moveTo(c * G.cell, 0); ctx.lineTo(c * G.cell, G.h); ctx.stroke();
+    }
+    // Enemy-spawn glow on the RIGHT side
+    const eg = ctx.createLinearGradient(G.cw, 0, G.cw - 88, 0);
+    eg.addColorStop(0, hexA(foe.color, 0.28)); eg.addColorStop(1, hexA(foe.color, 0));
+    ctx.fillStyle = eg; ctx.fillRect(G.cw - 88, 0, 88, G.h);
+
+    // Range band of an inspected unit (extends to the RIGHT)
     if (ui.inspect && !ui.inspect.dead) {
       const d = ui.inspect;
       ctx.fillStyle = 'rgba(232,197,102,.09)';
-      ctx.fillRect(d.col * G.cell + 3, d.y - d.range, G.cell - 6, d.range + 4);
+      ctx.fillRect(d.x + 3, d.row * G.cell + 3, d.range, G.cell - 6);
       ctx.strokeStyle = 'rgba(232,197,102,.45)'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(d.col * G.cell + 3, d.y - d.range, G.cell - 6, d.range + 4);
+      ctx.strokeRect(d.x + 3, d.row * G.cell + 3, d.range, G.cell - 6);
     }
 
-    // placement hints
+    // Placement / sell hints
     if (ui.selected || ui.sell) {
       for (let c = 0; c < G.cols; c++) {
         for (let r = 0; r < G.rows; r++) {
@@ -152,23 +232,24 @@
       }
     }
 
-    // defenders
+    // Defenders (lunge RIGHT toward incoming enemies when attacking)
     for (const d of b.defenders) {
-      const lunge = d.atk > 0 && !d.ranged ? -5 * (d.atk / 0.18) : 0;
-      token(ctx, d.x, d.y + lunge, 22, me, d.type, false, d.hit);
+      const lunge = d.atk > 0 && !d.ranged ? 5 * (d.atk / 0.18) : 0;
+      token(ctx, d.x + lunge, d.y, 22, me, d.type, false, d.hit);
       if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - 31, 34, d.hp / d.maxHp, '#7fcf86');
     }
 
-    // enemies (drawn top to bottom so lower ones overlap)
-    const foes = b.enemies.slice().sort((a, c) => a.y - c.y);
+    // Enemies (sorted rightmost first so most-advanced appear on top)
+    const foes = b.enemies.slice().sort((a, c) => c.x - a.x);
     for (const e of foes) {
       const r = 18 * e.size;
-      const lunge = e.atk > 0 && !e.ranged ? 5 * (e.atk / 0.18) : 0;
-      token(ctx, e.x, e.y + lunge, r, foe, e.role, true, e.hit);
+      // Enemies lunge LEFT (toward defenders) when attacking
+      const lunge = e.atk > 0 && !e.ranged ? -5 * (e.atk / 0.18) : 0;
+      token(ctx, e.x + lunge, e.y, r, foe, e.role, true, e.hit);
       if (e.hp < e.maxHp - 0.5) bar(ctx, e.x, e.y - r - 9, 32 * Math.min(1.4, e.size), e.hp / e.maxHp, '#e0605a');
     }
 
-    // projectiles
+    // Projectiles
     for (const s of b.shots) {
       const k = Math.min(1, s.t / s.dur);
       const x = s.x1 + (s.x2 - s.x1) * k, y = s.y1 + (s.y2 - s.y1) * k;
@@ -190,17 +271,29 @@
       ctx.globalAlpha = 1;
     }
 
-    // gate
+    // LEFT GATE WALL (what enemies are trying to reach)
     const f = b.baseHp / b.baseMax;
-    ctx.fillStyle = '#242a36'; ctx.fillRect(0, G.h, G.cw, G.ch - G.h);
-    ctx.fillStyle = '#323a49';
-    for (let x = 0; x < G.cw; x += 24) ctx.fillRect(x + 2, G.h, 14, 7);
+    const wallW = 14;
+    ctx.fillStyle = '#242a36'; ctx.fillRect(0, 0, wallW, G.h);
+    // Battlement crenellations along the left edge
+    for (let gy = 4; gy < G.h - 10; gy += 22) ctx.fillRect(0, gy, wallW - 3, 14);
+    // Gate HP bar (vertical, just right of the wall)
     const gc = f > 0.5 ? '#7fcf86' : f > 0.25 ? '#e8c566' : '#e0605a';
-    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(10, G.h + 9, G.cw - 20, 5);
-    ctx.fillStyle = gc; ctx.fillRect(10, G.h + 9, (G.cw - 20) * f, 5);
-    if (ui.gateFlash > 0) { ctx.fillStyle = 'rgba(224,96,90,' + Math.min(0.35, ui.gateFlash) + ')'; ctx.fillRect(0, G.h - 40, G.cw, 40 + (G.ch - G.h)); }
+    const barH = G.h - 24;
+    ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(wallW + 2, 12, 5, barH);
+    ctx.fillStyle = gc; ctx.fillRect(wallW + 2, 12 + barH * (1 - f), 5, barH * f);
+    // Gate flash when an enemy leaks through
+    if (ui.gateFlash > 0) {
+      ctx.fillStyle = 'rgba(224,96,90,' + Math.min(0.38, ui.gateFlash) + ')';
+      ctx.fillRect(0, 0, wallW + 30, G.h);
+    }
 
-    // floating text
+    // Bottom strip (below grid – decorative terrain border)
+    ctx.fillStyle = '#10131a'; ctx.fillRect(0, G.h, G.cw, G.ch - G.h);
+    ctx.fillStyle = '#1c2030';
+    for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.h, 14, 6);
+
+    // Floating damage / gold numbers
     ctx.textAlign = 'center';
     ctx.font = '700 13px "Avenir Next","Segoe UI",system-ui,sans-serif';
     for (const t of b.floats) {
@@ -211,7 +304,7 @@
       ctx.globalAlpha = 1;
     }
 
-    // wave banner
+    // Wave banner
     if (ui.banner && ui.banner.t > 0) {
       ctx.globalAlpha = Math.max(0, Math.min(1, ui.banner.t / 0.6));
       ctx.fillStyle = 'rgba(10,12,18,.62)'; ctx.fillRect(0, G.h / 2 - 28, G.cw, 56);

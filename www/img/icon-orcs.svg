@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg-orcs" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#2a1008"/>
+      <stop offset="100%" stop-color="#160804"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#bg-orcs)" stroke="#b5482f" stroke-width="1.5" opacity="0.7"/>
+  <!-- Axe handle -->
+  <rect x="30" y="6" width="4" height="52" rx="2" fill="#6b3020"/>
+  <rect x="31" y="10" width="2" height="44" rx="1" fill="#8a4028" opacity="0.6"/>
+  <!-- Top axe head (left blade) -->
+  <path d="M32 14 L10 6 L6 20 L32 26 Z" fill="#b5482f"/>
+  <!-- Top axe head (right blade) -->
+  <path d="M32 14 L54 6 L58 20 L32 26 Z" fill="#c04838"/>
+  <!-- Top edge highlights -->
+  <line x1="6" y1="6" x2="10" y2="20" stroke="#f0a98e" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="58" y1="6" x2="54" y2="20" stroke="#f0a98e" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Bottom axe head (left blade) -->
+  <path d="M32 38 L10 46 L14 58 L32 50 Z" fill="#b5482f"/>
+  <!-- Bottom axe head (right blade) -->
+  <path d="M32 38 L54 46 L50 58 L32 50 Z" fill="#c04838"/>
+  <!-- Bottom edge highlights -->
+  <line x1="14" y1="58" x2="10" y2="46" stroke="#f0a98e" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- Centre ring on handle -->
+  <circle cx="32" cy="32" r="4" fill="none" stroke="#4a2515" stroke-width="2.5"/>
+  <circle cx="32" cy="32" r="2" fill="#4a2515"/>
+  <!-- Decorative studs on axe head -->
+  <circle cx="20" cy="14" r="1.5" fill="#f0a98e" opacity="0.6"/>
+  <circle cx="44" cy="14" r="1.5" fill="#f0a98e" opacity="0.6"/>
+</svg>

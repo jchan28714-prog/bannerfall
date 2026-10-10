@@ -1,17 +1,19 @@
 /* ==========================================================================
    BANNERFALL - battle engine
-   Pure game logic: no drawing, no DOM. That is what lets tools/balance-check.js
-   play thousands of battles in Node to test the balance.
+   Pure game logic: no drawing, no DOM.
 
-   Board: 5 columns x 6 rows. Enemies march DOWN a column and stop to fight the
-   first defender in their way. Anything that reaches the bottom damages your gate.
+   Board: 5 columns x 6 rows. Enemies march from the RIGHT side of the board
+   and stop to fight the first defender blocking their lane. Anything that
+   reaches the left gate wall damages your gate.
+
+   Income comes ONLY from killing enemies (no passive drip). Starting gold
+   and kill bounties are the two sources of funds.
    ========================================================================== */
 (function () {
   'use strict';
   const BF = (globalThis.BF = globalThis.BF || {});
   const G = BF.GRID;
 
-  // Small seeded random generator (same seed = same battle, handy for testing)
   BF.rng = function (seed) {
     let a = seed >>> 0;
     return function () {
@@ -22,7 +24,7 @@
     };
   };
 
-  BF.ENEMY_RANGED_STOP = 70; // how far from your front line enemy archers and mages stand
+  BF.ENEMY_RANGED_STOP = 70; // px from a defender where ranged enemies stop to shoot
 
   const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
@@ -33,12 +35,15 @@
       this.owner = BF.factionById(this.terr.owner);
       this.up = Object.assign({ treasury: 0, barracks: 0, walls: 0 }, opts.upgrades || {});
       this.rand = BF.rng(opts.seed != null ? opts.seed : (Math.random() * 2147483647) | 0);
-      this.fx = opts.fx !== false; // set false for fast headless tests
+      this.fx = opts.fx !== false;
 
       const m = this.faction.mods;
-      this.gold = BF.ECON.startGold + 40 * this.up.treasury;
-      this.tribute = opts.tribute || 0; // territories already conquered
-      this.income = BF.ECON.baseIncome * m.income * (1 + 0.04 * this.up.treasury) * (1 + BF.ECON.tribute * this.tribute);
+      // Starting gold includes tribute bonus for territories already held
+      this.gold = BF.ECON.startGold + 40 * this.up.treasury
+        + Math.round(BF.ECON.startGold * BF.ECON.tribute * (opts.tribute || 0));
+      this.tribute = opts.tribute || 0;
+      // bountyMult incorporates faction mod + treasury upgrade
+      this.bountyMult = m.bounty * (1 + 0.08 * this.up.treasury);
       this.baseMax = Math.round((BF.ECON.baseHp + 15 * this.up.walls) * m.baseHp);
       this.baseHp = this.baseMax;
       this.defMult = 1 + 0.06 * this.up.barracks;
@@ -52,12 +57,12 @@
       this.grid = Array.from({ length: G.cols }, () => Array(G.rows).fill(null));
       this.schedule = this._buildSchedule();
       this.next = 0;
-      this.over = null; // null | 'win' | 'lose'
+      this.over = null;
       this.stars = 0;
       this.kills = 0;
       this.leaked = 0;
       this.nid = 1;
-      this.events = []; // short strings for the UI to play sounds from ('hit', 'coin', ...)
+      this.events = [];
     }
 
     // ---------- enemy wave plan ----------
@@ -69,13 +74,9 @@
         archer: w >= 1 || i >= 1 ? 0.2 + 0.06 * w + 0.05 * i : 0,
         mage: i >= 2 && w >= 2 ? 0.1 + 0.03 * w + 0.03 * i : 0,
       };
-      let total = 0;
-      for (const k in wt) total += wt[k];
+      let total = 0; for (const k in wt) total += wt[k];
       let r = this.rand() * total;
-      for (const k in wt) {
-        r -= wt[k];
-        if (r <= 0) return k;
-      }
+      for (const k in wt) { r -= wt[k]; if (r <= 0) return k; }
       return 'spear';
     }
 
@@ -85,18 +86,19 @@
       for (let w = 0; w < T.waves; w++) {
         const n = Math.round((2 + 1.3 * w) * T.countScale);
         const gap = Math.max(0.8, 2.4 - 0.07 * w - 0.05 * i);
-        const focus = [Math.floor(r() * G.cols), Math.floor(r() * G.cols)];
+        // Pick two focus ROWS (horizontal lanes) for this wave
+        const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
         for (let k = 0; k < n; k++) {
-          const col = r() < 0.6 ? focus[r() < 0.5 ? 0 : 1] : Math.floor(r() * G.cols);
-          out.push({ t, col, role: this._pickRole(w), wave: w });
+          const row = r() < 0.6 ? focus[r() < 0.5 ? 0 : 1] : Math.floor(r() * G.rows);
+          out.push({ t, row, role: this._pickRole(w), wave: w });
           t += gap * (0.7 + 0.6 * r());
         }
         if (w === T.waves - 1) {
           const champs = T.final ? 2 : i >= 1 ? 1 + Math.floor(i / 3) : 0;
           for (let c = 0; c < champs; c++) {
-            out.push({ t: t + 1 + c * 2.5, col: Math.floor(r() * G.cols), role: 'champion', wave: w });
+            out.push({ t: t + 1 + c * 2.5, row: Math.floor(r() * G.rows), role: 'champion', wave: w });
           }
-          if (T.final) out.push({ t: t + 4, col: 2, role: 'warlord', wave: w });
+          if (T.final) out.push({ t: t + 4, row: Math.floor(G.rows / 2), role: 'warlord', wave: w });
         }
         t += 7;
       }
@@ -113,16 +115,16 @@
       const big = s.role === 'champion' || s.role === 'warlord';
       const roleKey = big ? 'sword' : s.role;
       const u = this.owner.units[roleKey];
-      // Normalise so every legion's enemies have the same raw strength as Men's at the same
-      // territory. Difficulty then depends only on how far you have pushed, while each legion
-      // keeps its own shape (tanky orcs, fragile goblins, ...).
       const core = (x) => Math.sqrt(x.dmg * x.rate * (x.aoe ? 1.5 : 1) * x.hp);
       const norm = core(BF.factionById('men').units[roleKey]) / core(u);
       const menCost = BF.factionById('men').units[roleKey].cost;
+
+      // Enemies enter from the RIGHT, lane fixed by row
       const e = {
-        id: this.nid++, side: 'enemy', role: s.role, col: s.col,
-        x: s.col * G.cell + G.cell / 2, y: -20, cd: 0.5, hit: 0, atk: 0, dead: false,
-        aoe: 0, size: 1,
+        id: this.nid++, side: 'enemy', role: s.role, row: s.row,
+        x: G.cw + 20,
+        y: s.row * G.cell + G.cell / 2,
+        cd: 0.5, hit: 0, atk: 0, dead: false, aoe: 0, size: 1,
       };
       if (s.role === 'champion') {
         Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 46, speed: 15, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.35 });
@@ -132,8 +134,8 @@
         const melee = s.role === 'spear' || s.role === 'sword';
         Object.assign(e, {
           hp: u.hp * norm * T.hpScale, dmg: u.dmg * norm * T.dmgScale, rate: u.rate,
-          range: melee ? 40 : BF.ENEMY_RANGED_STOP, // ranged enemies close in so they can be answered
-           speed: BF.ROLE[s.role].speed, leak: BF.ROLE[s.role].leak,
+          range: melee ? 40 : BF.ENEMY_RANGED_STOP,
+          speed: BF.ROLE[s.role].speed, leak: BF.ROLE[s.role].leak,
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
         });
       }
@@ -156,7 +158,8 @@
       const m = this.defMult;
       const d = {
         id: this.nid++, side: 'def', type, col, row,
-        x: col * G.cell + G.cell / 2, y: row * G.cell + G.cell / 2,
+        x: col * G.cell + G.cell / 2,
+        y: row * G.cell + G.cell / 2,
         hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m, rate: u.rate, range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.3, hit: 0, atk: 0, dead: false,
       };
@@ -176,15 +179,9 @@
     }
 
     // ---------- combat helpers ----------
-    _float(x, y, text, color) {
-      if (this.fx) this.floats.push({ x, y, text, color, t: 0, dur: 1.1 });
-    }
-    _shot(x1, y1, x2, y2, kind, color, dur) {
-      if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur });
-    }
-    _ring(x, y, r, color) {
-      if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 });
-    }
+    _float(x, y, text, color) { if (this.fx) this.floats.push({ x, y, text, color, t: 0, dur: 1.1 }); }
+    _shot(x1, y1, x2, y2, kind, color, dur) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur }); }
+    _ring(x, y, r, color) { if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 }); }
 
     _killDef(d) {
       d.dead = true;
@@ -198,7 +195,7 @@
       if (e.hp <= 0) {
         e.dead = true;
         this.kills++;
-        const g = Math.round(e.bounty * this.faction.mods.bounty);
+        const g = Math.round(e.bounty * this.bountyMult);
         this.gold += g;
         this._float(e.x, Math.max(10, e.y - 16), '+' + g, '#e8c566');
         this.events.push('coin');
@@ -215,14 +212,14 @@
     _defAttack(d, tgt) {
       d.atk = 0.18;
       if (d.ranged) {
-        this._shot(d.x, d.y - 10, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16);
+        // Shot originates to the RIGHT of the defender (firing toward incoming enemies)
+        this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16);
       }
       if (d.aoe) {
         this._ring(tgt.x, tgt.y, d.aoe, '#c9a6ff');
         for (const e of this.enemies) {
           if (e.dead) continue;
-          const dd = dist(e.x, e.y, tgt.x, tgt.y);
-          if (dd <= d.aoe) this._hurtEnemy(e, e === tgt ? d.dmg : d.dmg * 0.6);
+          if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? d.dmg : d.dmg * 0.6);
         }
       } else {
         this._hurtEnemy(tgt, d.dmg);
@@ -231,7 +228,10 @@
 
     _enemyAttack(e, tgt) {
       e.atk = 0.18;
-      if (e.ranged) this._shot(e.x, e.y + 8, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16);
+      if (e.ranged) {
+        // Shot originates to the LEFT of the enemy (attacking defenders to their left)
+        this._shot(e.x - 8, e.y, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16);
+      }
       if (e.aoe) {
         this._ring(tgt.x, tgt.y, e.aoe, '#ff9a7a');
         for (const d of this.defenders) {
@@ -248,26 +248,27 @@
       if (this.over) return;
       const mods = this.faction.mods;
       this.time += dt;
-      this.gold += this.income * dt;
+      // NO passive income – gold comes only from killing enemies
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
       }
 
-      // Defenders: pick the nearest enemy in their column that is in range
+      // Defenders: pick the nearest enemy in their LANE (same row) to the RIGHT
       for (const d of this.defenders) {
         if (d.dead) continue;
-        const regen = Math.max(1, mods.regen); // everyone mends slowly, elves faster
+        const regen = Math.max(1, mods.regen);
         if (d.hp < d.maxHp) d.hp = Math.min(d.maxHp, d.hp + regen * dt);
         d.cd -= dt;
         d.hit = Math.max(0, d.hit - dt);
         d.atk = Math.max(0, d.atk - dt);
         if (d.cd > 0) continue;
-        let tgt = null, best = -1e9;
+        let tgt = null, best = 1e9;
         for (const e of this.enemies) {
-          if (e.dead || e.col !== d.col) continue;
-          const gap = d.y - e.y;
-          if (gap > -6 && gap <= d.range && e.y > best) { best = e.y; tgt = e; }
+          if (e.dead || e.row !== d.row) continue;
+          // gap = how far to the right the enemy is (positive = enemy ahead of defender)
+          const gap = e.x - d.x;
+          if (gap > -6 && gap <= d.range && e.x < best) { best = e.x; tgt = e; }
         }
         if (tgt) {
           const wild = mods.berserk && !d.ranged && d.hp < d.maxHp * 0.5;
@@ -276,7 +277,7 @@
         }
       }
 
-      // Enemies: fight the first defender ahead, otherwise keep marching
+      // Enemies: march LEFT; fight first defender blocking their lane
       for (const e of this.enemies) {
         if (e.dead) continue;
         e.cd -= dt;
@@ -284,26 +285,29 @@
         e.atk = Math.max(0, e.atk - dt);
         let tgt = null, best = 1e9;
         for (const d of this.defenders) {
-          if (d.dead || d.col !== e.col) continue;
-          const gap = d.y - e.y;
+          if (d.dead || d.row !== e.row) continue;
+          // gap = how far to the LEFT the defender is (positive = defender is ahead of enemy)
+          const gap = e.x - d.x;
           if (gap > -20 && gap < best) { best = gap; tgt = d; }
         }
         if (tgt && best <= e.range) {
           if (e.cd <= 0) { e.cd = 1 / e.rate; this._enemyAttack(e, tgt); }
         } else {
-          // Enemies queue single-file: they cannot walk through the one ahead of them
+          // Queue single-file: enemies can't walk through the one ahead (to their left)
           let blocked = false;
           for (const o of this.enemies) {
-            if (o === e || o.dead || o.col !== e.col) continue;
-            const g = o.y - e.y;
-            if ((g > 0 || (g === 0 && o.id < e.id)) && g < 26 + 8 * Math.max(e.size, o.size)) { blocked = true; break; }
+            if (o === e || o.dead || o.row !== e.row) continue;
+            const g = e.x - o.x; // positive = o is to the left (ahead)
+            if ((g > 0 || (g === 0 && o.id < e.id)) && g < 26 + 8 * Math.max(e.size, o.size)) {
+              blocked = true; break;
+            }
           }
-          if (!blocked) e.y += e.speed * dt;
-          if (e.y >= G.h + 6) {
+          if (!blocked) e.x -= e.speed * dt; // march LEFT
+          if (e.x <= -6) {
             e.dead = true;
             this.leaked++;
             this.baseHp -= e.leak;
-            this._float(e.x, G.h - 6, '-' + e.leak, '#ff6b5e');
+            this._float(14, e.y, '-' + e.leak, '#ff6b5e');
             this.events.push('leak');
           }
         }
@@ -313,23 +317,18 @@
       this.defenders = this.defenders.filter((d) => !d.dead);
 
       if (this.fx) {
-        for (const list of [this.shots, this.floats, this.rings]) {
-          for (const o of list) o.t += dt;
-        }
+        for (const list of [this.shots, this.floats, this.rings]) for (const o of list) o.t += dt;
         this.shots = this.shots.filter((o) => o.t < o.dur);
         this.floats = this.floats.filter((o) => o.t < o.dur);
         this.rings = this.rings.filter((o) => o.t < o.dur);
       }
 
       if (this.baseHp <= 0) {
-        this.baseHp = 0;
-        this.over = 'lose';
-        this.events.push('lose');
+        this.baseHp = 0; this.over = 'lose'; this.events.push('lose');
       } else if (this.next >= this.schedule.length && this.enemies.length === 0) {
         const f = this.baseHp / this.baseMax;
         this.stars = f >= 0.8 ? 3 : f >= 0.4 ? 2 : 1;
-        this.over = 'win';
-        this.events.push('win');
+        this.over = 'win'; this.events.push('win');
       }
     }
   };

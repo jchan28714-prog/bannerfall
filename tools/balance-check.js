@@ -1,7 +1,7 @@
 /* Run with:  node tools/balance-check.js
-   1) Prints every unit's price next to its real strength, so you can see that gold cost tracks power.
-   2) Plays hundreds of battles with a simple bot to check the difficulty ramps up as you conquer.
-   Pass a number for how many seeds per battle (default 6):  node tools/balance-check.js 12 */
+   1) Prints every unit's price next to its real strength.
+   2) Plays hundreds of battles with a simple bot to check difficulty ramps.
+   Pass a seed count:  node tools/balance-check.js 12 */
 require('../www/js/data.js');
 require('../www/js/engine.js');
 const BF = globalThis.BF;
@@ -9,7 +9,7 @@ const G = BF.GRID;
 
 // ---------- 1. price table ----------
 console.log('\nUNIT PRICES (cost should rise with power)\n');
-console.log('legion    unit             cost   hp   dps   range  power  gold/power');
+console.log('legion    unit             cost   hp   dps   range  power');
 for (const f of BF.FACTIONS) {
   for (const r of BF.ROLES) {
     const u = f.units[r];
@@ -19,20 +19,18 @@ for (const f of BF.FACTIONS) {
       f.short.padEnd(9), u.name.padEnd(16),
       String(u.cost).padStart(5), String(u.hp).padStart(4),
       dps.toFixed(1).padStart(5), String(u.range).padStart(6),
-      p.toFixed(1).padStart(6), (u.cost / p).toFixed(2).padStart(8)
+      p.toFixed(1).padStart(6)
     );
   }
 }
-const men = BF.factionById('men').units;
-const anchors = { spear: 100, sword: 250, archer: 300, mage: 450 };
-let okAnchors = true;
-for (const k in anchors) if (men[k].cost !== anchors[k]) okAnchors = false;
-console.log('\nMen price anchors (100/250/300/450):', okAnchors ? 'OK' : 'MISMATCH ' + JSON.stringify(Object.fromEntries(Object.entries(men).map(([k, v]) => [k, v.cost]))));
 
 // ---------- 2. bot ----------
-function runBot(fid, idx, upg, seed) {
-  const terr = BF.buildCampaign(fid)[idx];
-  const b = new BF.Battle({ factionId: fid, territory: terr, upgrades: upg, seed, fx: false, tribute: idx });
+// The bot plays for Men faction against increasing difficulty territories.
+// Enemies now march horizontally (right→left), using `e.row` for lane.
+const MEN_TERRS = BF.buildCampaign('men').filter(t => t.id !== BF.FACTION_HOME['men']);
+
+function runBot(terrObj, upg, seed) {
+  const b = new BF.Battle({ factionId: 'men', territory: terrObj, upgrades: upg, seed, fx: false, tribute: MEN_TERRS.indexOf(terrObj) });
   const f = b.faction;
   let acc = 0;
   while (!b.over && b.time < 1200) {
@@ -40,84 +38,63 @@ function runBot(fid, idx, upg, seed) {
     acc += 1 / 30;
     if (acc < 0.4) continue;
     acc = 0;
-    buy(b, f);
+    buyHorizontal(b, f);
   }
-  return { win: b.over === 'win', hp: b.baseHp / b.baseMax, stars: b.stars, time: b.time };
+  return { win: b.over === 'win', hp: b.baseHp / b.baseMax, stars: b.stars };
 }
 
-// A simple "kill zone" player: remembers which lanes enemies use, then builds a
-// sword wall with archers behind it, then a spear, a mage, and so on.
-const seen = new WeakMap();
-function laneWeights(b) {
-  let m = seen.get(b);
-  if (!m) { m = { ids: new Set(), cnt: Array(G.cols).fill(0) }; seen.set(b, m); }
-  for (const e of b.enemies) if (!m.ids.has(e.id)) { m.ids.add(e.id); m.cnt[e.col]++; }
-  return m.cnt;
-}
-
-function buy(b, f) {
+// Bot for horizontal waves: place swords as front line (col 3-4, high rows),
+// archers behind them (col 1-2), covering active lanes (rows with enemies).
+function buyHorizontal(b, f) {
   const U = f.units;
-  const cnt = laneWeights(b);
-  const score = (c) => {
-    let thr = 0;
-    for (const e of b.enemies) if (e.col === c) thr += 1 + (e.y + 20) / G.h + (e.size > 1 ? 3 : 0);
-    return cnt[c] * 1.0 + thr * 2;
-  };
-  const cols = [...Array(G.cols).keys()].sort((a, c) => score(c) - score(a));
-  for (const col of cols) {
-    if (score(col) <= 0) continue;
-    const mine = b.defenders.filter((d) => d.col === col);
-    const has = (t) => mine.filter((d) => d.type === t).length;
-    const front = mine.filter((d) => d.type === 'sword').sort((p, q) => p.y - q.y)[0];
+  // Track which rows have enemy activity
+  const rowThreat = Array(G.rows).fill(0);
+  for (const e of b.enemies) rowThreat[e.row] = (rowThreat[e.row] || 0) + 1 + (1 - e.x / G.cw) * 2;
 
-    const order = ['sword', 'archer', 'archer', 'spear', 'mage', 'sword', 'archer', 'mage', 'spear', 'archer', 'sword', 'mage'];
-    const have = { sword: 0, archer: 0, spear: 0, mage: 0 };
-    let want = null;
-    for (const t of order) {
-      have[t]++;
-      if (has(t) < have[t]) { want = t; break; }
-    }
-    if (!want) continue;
-    const emergency = mine.length === 0 && b.enemies.some((e) => e.col === col && e.y > 170);
-    if (U[want].cost > b.gold) {
-      if (emergency && U.spear.cost <= b.gold) want = 'spear'; else return; // save up
-    }
+  const hotRows = [...Array(G.rows).keys()].sort((a, c) => rowThreat[c] - rowThreat[a]);
 
-    let row = -1;
-    if (want === 'sword') {
-      row = [2, 1, 3].find((r) => b.canPlace(col, r)) ?? -1;
-      if (front) row = -1;
-      if (front && has('sword') < 2) row = [front.row + 1].find((r) => b.canPlace(col, r)) ?? -1;
-    } else if (want === 'spear') {
-      const anchor = front ? front.row : 1;
-      row = [anchor + 1, anchor + 2, anchor - 1].find((r) => r >= 0 && r < G.rows && b.canPlace(col, r)) ?? -1;
-    } else {
-      const stopY = front ? front.y - BF.ENEMY_RANGED_STOP : 40;
-      for (let r = G.rows - 1; r >= 0; r--) {
-        const y = r * G.cell + 36;
-        if (b.canPlace(col, r) && (!front || r > front.row) && y - stopY <= U[want].range - 8) { row = r; break; }
+  for (const row of hotRows) {
+    if (rowThreat[row] <= 0) continue;
+    const mine = b.defenders.filter((d) => d.row === row);
+    const hasSword = mine.some((d) => d.type === 'sword');
+    const hasArcher = mine.some((d) => d.type === 'archer');
+
+    // Place sword at col 3 or 4 (far right = meets enemies early)
+    if (!hasSword && U.sword.cost <= b.gold) {
+      for (const col of [3, 4, 2]) {
+        if (b.place('sword', col, row).ok) return;
       }
     }
-    if (row < 0) continue;
-    if (b.place(want, col, row).ok) return;
+    // Place archer at col 0 or 1 (near gate = long firing lane)
+    if (hasSword && !hasArcher && U.archer.cost <= b.gold) {
+      for (const col of [0, 1]) {
+        if (b.place('archer', col, row).ok) return;
+      }
+    }
+    // Extra spears to reinforce
+    if (hasSword && U.spear.cost <= b.gold) {
+      for (const col of [2, 3]) {
+        if (b.place('spear', col, row).ok) return;
+      }
+    }
   }
 }
 
 const SEEDS = parseInt(process.argv[2] || '6', 10);
-console.log('\nBOT BATTLES (' + SEEDS + ' seeds each). Upgrades scale with progress: level = round(index x 0.6)\n');
-console.log('legion    ' + BF.TERRITORY_TEMPLATES.map((t, i) => ('T' + (i + 1)).padStart(9)).join(''));
-for (const f of BF.FACTIONS) {
-  let line = f.short.padEnd(10);
-  for (let i = 0; i < BF.TERRITORY_TEMPLATES.length; i++) {
-    const lv = Math.min(5, Math.round(i * 0.6));
-    const upg = { treasury: lv, barracks: lv, walls: lv };
-    let wins = 0, hp = 0;
-    for (let s = 1; s <= SEEDS; s++) {
-      const r = runBot(f.id, i, upg, 1000 * i + s);
-      if (r.win) { wins++; hp += r.hp; }
-    }
-    line += (Math.round((wins / SEEDS) * 100) + '%' + (wins ? '/' + Math.round((hp / wins) * 100) : '')).padStart(9);
+const SAMPLE = MEN_TERRS.slice(0, 8); // first 8 territories for Men
+
+console.log('\nBOT BATTLES – Men vs first ' + SAMPLE.length + ' territories (' + SEEDS + ' seeds)\n');
+console.log('territory'.padEnd(26) + 'win%  hp%');
+for (const t of SAMPLE) {
+  const d = t.index || 0;
+  const lv = Math.min(5, Math.round(d * 0.6));
+  const upg = { treasury: lv, barracks: lv, walls: lv };
+  let wins = 0, hp = 0;
+  for (let s = 1; s <= SEEDS; s++) {
+    const r = runBot(t, upg, 1000 * d + s);
+    if (r.win) { wins++; hp += r.hp; }
   }
-  console.log(line);
+  const pct = Math.round((wins / SEEDS) * 100);
+  console.log(t.name.padEnd(26) + String(pct + '%').padStart(4) + (wins ? '  ' + Math.round((hp / wins) * 100) + '%' : ''));
 }
-console.log('\n(each cell: win-rate % / average gate health left on wins)\n');
+console.log('\n(win-rate / average gate HP on wins)\n');

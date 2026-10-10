@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg-goblins" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e2008"/>
+      <stop offset="100%" stop-color="#101004"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#bg-goblins)" stroke="#a3a93a" stroke-width="1.5" opacity="0.7"/>
+  <!-- Three daggers at 0°, 120°, 240° -->
+  <!-- Dagger 1 (top, pointing up-right) -->
+  <g transform="rotate(-30 32 32)">
+    <rect x="30.5" y="10" width="3" height="18" rx="1.2" fill="#e3e68f"/>
+    <polygon points="32,8 29.5,12 34.5,12" fill="#a3a93a"/>
+    <rect x="27" y="27" width="10" height="3" rx="1.5" fill="#a3a93a"/>
+    <rect x="30.5" y="30" width="3" height="7" rx="1" fill="#7a8020"/>
+  </g>
+  <!-- Dagger 2 (lower-left) -->
+  <g transform="rotate(90 32 32)">
+    <rect x="30.5" y="10" width="3" height="18" rx="1.2" fill="#e3e68f"/>
+    <polygon points="32,8 29.5,12 34.5,12" fill="#a3a93a"/>
+    <rect x="27" y="27" width="10" height="3" rx="1.5" fill="#a3a93a"/>
+    <rect x="30.5" y="30" width="3" height="7" rx="1" fill="#7a8020"/>
+  </g>
+  <!-- Dagger 3 (lower-right) -->
+  <g transform="rotate(210 32 32)">
+    <rect x="30.5" y="10" width="3" height="18" rx="1.2" fill="#e3e68f"/>
+    <polygon points="32,8 29.5,12 34.5,12" fill="#a3a93a"/>
+    <rect x="27" y="27" width="10" height="3" rx="1.5" fill="#a3a93a"/>
+    <rect x="30.5" y="30" width="3" height="7" rx="1" fill="#7a8020"/>
+  </g>
+  <!-- Centre coin -->
+  <circle cx="32" cy="32" r="9" fill="#a3a93a" stroke="#e3e68f" stroke-width="1.8"/>
+  <circle cx="32" cy="32" r="5.5" fill="none" stroke="#e3e68f" stroke-width="1" opacity="0.7"/>
+  <!-- Coin G mark -->
+  <text x="32" y="36" text-anchor="middle" font-family="Georgia,serif" font-weight="bold" font-size="8" fill="#e3e68f">G</text>
+</svg>

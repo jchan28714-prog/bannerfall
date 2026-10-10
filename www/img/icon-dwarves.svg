@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="bg-dwarves" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#241a06"/>
+      <stop offset="100%" stop-color="#140e02"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="url(#bg-dwarves)" stroke="#c08a3e" stroke-width="1.5" opacity="0.7"/>
+  <!-- Hammer handle -->
+  <rect x="30" y="30" width="4" height="28" rx="2" fill="#7a5020"/>
+  <rect x="31" y="34" width="2" height="22" rx="1" fill="#9a6828" opacity="0.5"/>
+  <!-- Grip wrapping -->
+  <line x1="30" y1="40" x2="34" y2="40" stroke="#9a6828" stroke-width="1.2" opacity="0.7"/>
+  <line x1="30" y1="46" x2="34" y2="46" stroke="#9a6828" stroke-width="1.2" opacity="0.7"/>
+  <line x1="30" y1="52" x2="34" y2="52" stroke="#9a6828" stroke-width="1.2" opacity="0.7"/>
+  <!-- Hammer head main body -->
+  <rect x="13" y="8" width="38" height="26" rx="4.5" fill="#c08a3e"/>
+  <!-- Hammer head striking face (left, darker) -->
+  <rect x="13" y="8" width="13" height="26" rx="4.5" fill="#a87630"/>
+  <!-- Main face highlight -->
+  <rect x="15" y="11" width="7" height="3" rx="1.5" fill="#f1d09a" opacity="0.65"/>
+  <!-- Rune mark on face -->
+  <text x="37" y="27" text-anchor="middle" font-family="Georgia,serif" font-size="16" fill="#f1d09a" opacity="0.75">ᚦ</text>
+  <!-- Mountain silhouette on hammer face (subtle) -->
+  <path d="M18 29 L22 19 L26 23 L30 15 L34 23 L38 19 L42 29 Z"
+        fill="#f1d09a" opacity="0.18"/>
+  <!-- Hammer head top ridge -->
+  <rect x="13" y="8" width="38" height="4" rx="2" fill="#d4a050" opacity="0.5"/>
+</svg>
