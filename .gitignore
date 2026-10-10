@@ -3,3 +3,7 @@ ios/App/Pods/
 ios/App/build/
 ios/DerivedData/
 .DS_Store
+
+# Capacitor generated
+ios/App/App/public/
+
