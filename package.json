@@ -1,0 +1,16 @@
+{
+  "name": "bannerfall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline medieval defence game. Wrap with Capacitor for iOS.",
+  "scripts": {
+    "dev": "npx http-server www -p 8080 -c-1 --cors -o",
+    "serve": "npx http-server www -p 8080 -c-1",
+    "balance": "node tools/balance-check.js",
+    "sync": "npx cap sync ios",
+    "ios": "npx cap open ios"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

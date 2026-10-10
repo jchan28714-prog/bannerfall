@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f1117">
+  <title>Bannerfall</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- 1. Choose your legion -->
+    <section id="screen-legion" class="screen active"></section>
+
+    <!-- 2. World map -->
+    <section id="screen-map" class="screen"></section>
+
+    <!-- 3. Battle -->
+    <section id="screen-battle" class="screen">
+      <header id="hud">
+        <div class="hud-gold"><span class="coin"></span><b id="hud-gold">0</b></div>
+        <div class="hud-wave">
+          <div id="hud-wave-text">Wave 1</div>
+          <div class="hud-wave-bar"><i id="hud-wave-fill"></i></div>
+        </div>
+        <div class="hud-btns">
+          <button id="btn-speed" class="icon-btn" aria-label="Game speed">1×</button>
+          <button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>
+        </div>
+      </header>
+      <div id="field"><canvas id="cv"></canvas><div id="hint" class="hint hidden">Pick a unit below, then tap a tile to deploy it.</div></div>
+      <footer id="tray"></footer>
+    </section>
+
+    <div id="modal" class="modal hidden"></div>
+  </div>
+
+  <!-- Plain scripts (no modules, no internet): open this page straight from disk or from the iOS app -->
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
