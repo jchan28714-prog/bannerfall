@@ -143,7 +143,7 @@
       e.id = this.nid++; e.side = 'enemy'; e.role = s.role; e.row = s.row;
       e.x = G.cw + 20;
       e.y = s.row * G.cell + G.cell / 2;
-      e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1;
+      e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
       if (s.role === 'champion') {
         Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 46, speed: 15, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.35 });
       } else if (s.role === 'warlord') {
@@ -197,10 +197,11 @@
       return true;
     }
 
-    // ---------- faction ability (30-second cooldown) ----------
+    // ---------- spawn a free unit (ability / auto-recruit) ----------
     _spawnFreeUnit(type, row) {
       const u = this.faction.units[type];
-      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : 0);
+      if (!u) return;
+      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : type === 'og' ? -3 : 0);
       this.defenders.push({
         id: this.nid++, side: 'def', type, row,
         x: BF.SPAWN_X, y: row * G.cell + G.cell / 2,
@@ -208,7 +209,7 @@
         hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
         dmg: u.dmg * this.defMult, rate: u.rate, range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost,
-        cd: 0.35, hit: 0, atk: 0, dead: false,
+        cd: 0.35, hit: 0, atk: 0, dead: false, isOg: type === 'og',
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
       });
     }
@@ -220,35 +221,72 @@
       this.abilityCd = ab.cooldown;
       const fid = this.faction.id;
 
+      // Find most-threatened lane for OG Force deployment
+      const rowScore = Array(G.rows).fill(0);
+      for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
+      const ogRow = rowScore.indexOf(Math.max(...rowScore));
+
       if (fid === 'men') {
-        const rows = new Set(this.defenders.filter((d) => !d.dead).map((d) => d.row));
-        if (rows.size === 0) { for (let r = 0; r < 3; r++) rows.add(r); }
-        for (const row of rows) this._spawnFreeUnit('sword', row);
-      } else if (fid === 'elves') {
-        for (const d of this.defenders) {
-          if (d.dead || d.type !== 'archer') continue;
-          let tgt = null, best = 1e9;
-          for (const e of this.enemies) {
-            if (e.dead || e.row !== d.row) continue;
-            const gap = e.x - d.x;
-            if (gap > -6 && gap <= d.range && gap < best) { best = gap; tgt = e; }
-          }
-          if (!tgt) continue;
-          for (let i = 0; i < 3; i++) {
-            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#c8e8a0', 0.08 + i * 0.06, 20);
-            if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.3);
+        // Summon Paladin + holy bolt strikes front enemy in every lane
+        this._spawnFreeUnit('og', ogRow);
+        for (let r = 0; r < G.rows; r++) {
+          let front = null, minX = 1e9;
+          for (const e of this.enemies) { if (!e.dead && e.row === r && e.x < minX) { minX = e.x; front = e; } }
+          if (front) {
+            this._shot(front.x, front.y - 88, front.x, front.y, 'bolt', '#e8e0a8', 0.30);
+            this._hurtEnemy(front, 30 + this.waveNow() * 3);
+            this._ring(front.x, front.y, 32, '#e8e0a8');
           }
         }
+      } else if (fid === 'elves') {
+        // Summon Spirit Warden + hurricane blasts all enemies back
+        this._spawnFreeUnit('og', ogRow);
+        for (const e of this.enemies) {
+          if (!e.dead) {
+            e.x = Math.min(G.cw - 10, e.x + 88);
+            this._shot(e.x - 88, e.y, e.x, e.y, 'arrow', '#90e070', 0.14);
+            this._ring(e.x, e.y, 30, '#60c040');
+          }
+        }
+        this._ring(G.cw * 0.5, G.h * 0.5, G.cw * 0.42, '#60c040');
       } else if (fid === 'orcs') {
+        // Summon Demonic Giant + volcanic burst scorches all enemies
+        this._spawnFreeUnit('og', ogRow);
         this.abilityBuff = 8;
         for (const d of this.defenders) { if (!d.dead) d.frenzied = true; }
+        for (const e of this.enemies) {
+          if (!e.dead) {
+            this._hurtEnemy(e, 28 + this.waveNow() * 2.5);
+            this._ring(e.x, e.y, 40, '#e05020');
+            this._ring(e.x, e.y, 22, '#f09040');
+          }
+        }
       } else if (fid === 'goblins') {
+        // Summon Scrap Mech + acid rain + bonus stabbers in enemy lanes
+        this._spawnFreeUnit('og', ogRow);
         const rows = new Set(this.enemies.filter((e) => !e.dead).map((e) => e.row));
-        if (rows.size === 0) { for (let r = 0; r < 2; r++) rows.add(r); }
+        if (rows.size === 0) { for (let r = 0; r < 3; r++) rows.add(r); }
         for (const row of rows) this._spawnFreeUnit('spear', row);
+        for (const e of this.enemies) {
+          if (!e.dead) {
+            this._hurtEnemy(e, 22 + this.waveNow() * 2);
+            this._ring(e.x, e.y, 28, '#80c828');
+          }
+        }
       } else if (fid === 'dwarves') {
+        // Summon Runesmith Golem + earthquake slows all enemies 4s
+        this._spawnFreeUnit('og', ogRow);
         this.abilityBuff = 8;
         for (const d of this.defenders) { if (!d.dead) d.ironclad = true; }
+        for (const e of this.enemies) {
+          if (!e.dead) {
+            e.slowDur = 4;
+            this._ring(e.x, e.y, 36, '#c89020');
+          }
+        }
+        for (let r = 0; r < G.rows; r++) {
+          this._ring(G.cw * 0.45, r * G.cell + G.cell / 2, G.cw * 0.38, '#d0a030');
+        }
       }
 
       this.events.push('ability');
@@ -408,6 +446,7 @@
         e.cd -= dt;
         e.hit = Math.max(0, e.hit - dt);
         e.atk = Math.max(0, e.atk - dt);
+        if (e.slowDur > 0) e.slowDur = Math.max(0, e.slowDur - dt);
         let tgt = null, best = 1e9;
         for (const d of this.defenders) {
           if (d.dead || d.row !== e.row) continue;
@@ -426,7 +465,7 @@
               blocked = true; break;
             }
           }
-          if (!blocked) e.x -= e.speed * dt;
+          if (!blocked) e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
           if (e.x <= 10) {  // enemy has entered the castle gate
             e.dead = true;
             this.leaked++;
@@ -459,14 +498,11 @@
       }
     }
 
-    // ---------- auto-recruit: spawn free unit in the most-threatened lane ----------
+    // ---------- auto-recruit: spawn a spearman in every lane every 30s ----------
     _autoRecruit() {
-      const rowScore = Array(G.rows).fill(0);
-      for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
-      for (const d of this.defenders) if (!d.dead) rowScore[d.row] -= d.hp * 0.5;
-      const row = rowScore.indexOf(Math.max(...rowScore));
-      const hasMage = this.enemies.some((e) => !e.dead && e.row === row && e.role === 'mage');
-      this._spawnFreeUnit(hasMage ? 'spear' : 'sword', row);
+      for (let row = 0; row < G.rows; row++) {
+        this._spawnFreeUnit('spear', row);
+      }
     }
 
     // ---------- seconds until next enemy spawns (0 when all waves are done) ----------

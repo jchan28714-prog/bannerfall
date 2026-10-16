@@ -343,8 +343,20 @@
     ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 0.7, r * 0.2, 0, 0, TAU); ctx.fill();
     // Figure (no badge circle — drawn directly)
     ctx.scale(r / 20, r / 20);
-    const base = (role === 'champion' || role === 'warlord') ? 'sword' : role;
+    const OG_GLYPH = { men:'sword', elves:'archer', orcs:'sword', goblins:'mage', dwarves:'sword' };
+    const base = role === 'og' ? (OG_GLYPH[f.id] || 'sword') : (role === 'champion' || role === 'warlord') ? 'sword' : role;
     glyph(ctx, base, enemy ? f.color : f.accent, enemy, f.id, atkPhase || 0, walkPhase || 0);
+    // OG Force elite crown
+    if (role === 'og') {
+      ctx.fillStyle = '#e8c566';
+      ctx.beginPath();
+      ctx.moveTo(-9, -18); ctx.lineTo(-12, -27); ctx.lineTo(-5, -22);
+      ctx.lineTo(0, -30); ctx.lineTo(5, -22); ctx.lineTo(12, -27); ctx.lineTo(9, -18);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 1.8; ctx.globalAlpha = 0.55;
+      ctx.beginPath(); ctx.arc(0, 0, 21, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     // Champion crown / warlord horns
     if (role === 'champion' || role === 'warlord') {
       ctx.fillStyle = '#e8c566';
@@ -596,14 +608,24 @@
     eg.addColorStop(0, hexA(foe.color, 0.28)); eg.addColorStop(1, hexA(foe.color, 0));
     ctx.fillStyle = eg; ctx.fillRect(G.cw - 90, 0, 90, G.h);
 
-    // Lane tap hints when a unit type is selected
+    // Lane tap targets — full-row highlight + border so players know they can tap anywhere
     if (ui.selected) {
       for (let r = 0; r < G.rows; r++) {
-        ctx.fillStyle = 'rgba(232,197,102,.06)';
-        ctx.fillRect(0, r * G.cell + 2, G.cw, G.cell - 4);
-        ctx.fillStyle = 'rgba(232,197,102,.45)';
-        ctx.beginPath(); ctx.arc(BF.SPAWN_X + 12, r * G.cell + G.cell / 2, 4, 0, TAU); ctx.fill();
+        const ry = r * G.cell;
+        ctx.fillStyle = 'rgba(232,197,102,.07)';
+        ctx.fillRect(2, ry + 2, G.cw - 4, G.cell - 4);
+        ctx.strokeStyle = 'rgba(232,197,102,.38)'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(2, ry + 2, G.cw - 4, G.cell - 4);
+        // Arrow pointing into lane from the left edge
+        const cy = ry + G.cell / 2;
+        ctx.fillStyle = 'rgba(232,197,102,.65)';
+        ctx.beginPath(); ctx.moveTo(8, cy - 6); ctx.lineTo(22, cy); ctx.lineTo(8, cy + 6); ctx.closePath(); ctx.fill();
       }
+    }
+    // Visible lane separator lines (always shown)
+    ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1;
+    for (let r = 1; r < G.rows; r++) {
+      ctx.beginPath(); ctx.moveTo(BF.CASTLE_W + 2, r * G.cell); ctx.lineTo(G.cw, r * G.cell); ctx.stroke();
     }
 
     // Range band for inspected unit
@@ -684,8 +706,16 @@
           ctx.globalAlpha = 1;
         }
       }
-      token(ctx, dx, dy, 22, me, d.type, false, d.hit, ap, wp);
-      if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - 31, 34, d.hp / d.maxHp, '#7fcf86');
+      // OG Force: radiant golden aura before token
+      if (d.isOg) {
+        const pulse = 0.5 + 0.5 * M.sin(T * 3 + d.id * 0.7);
+        ctx.globalAlpha = 0.22 + pulse * 0.18;
+        ctx.fillStyle = '#e8c566';
+        ctx.beginPath(); ctx.ellipse(dx, dy, 38, 28, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      token(ctx, dx, dy, d.isOg ? 28 : 22, me, d.type, false, d.hit, ap, wp);
+      if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? 42 : 31), 34, d.hp / d.maxHp, '#7fcf86');
     }
 
     // ── ENEMIES (sorted rightmost first so frontrunners draw on top) ───
@@ -695,6 +725,13 @@
       const ap = e.atk / 0.18;
       const wp = T * 4.2;
       const lunge = e.atk > 0 && !e.ranged ? -5 * (e.atk / 0.18) : 0;
+      // Earthquake slow VFX: icy-blue aura
+      if (e.slowDur > 0) {
+        ctx.globalAlpha = 0.35 * (e.slowDur / 4);
+        ctx.fillStyle = '#80a8e0';
+        ctx.beginPath(); ctx.ellipse(e.x + lunge, e.y, r + 8, r * 0.65, 0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       token(ctx, e.x + lunge, e.y, r, foe, e.role, true, e.hit, ap, wp);
       if (e.hp < e.maxHp - 0.5) bar(ctx, e.x, e.y - r - 9, 32 * M.min(1.4, e.size), e.hp / e.maxHp, '#e0605a');
     }
@@ -709,6 +746,23 @@
       if (s.kind === 'orb') {
         ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;    ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
+      } else if (s.kind === 'bolt') {
+        // Jagged lightning bolt (Holy Smite VFX) — full path from source to target
+        const flash = M.max(0, 1 - k * 1.8);
+        ctx.globalAlpha = flash;
+        ctx.strokeStyle = s.color; ctx.lineWidth = 2.5;
+        const seg = 7, seed = (M.floor(s.t * 12) * 100003) | 0;
+        const hf = (n) => { let v = ((n + seed) * 2654435761) >>> 0; return (v >>> 0) / 4294967296; };
+        ctx.beginPath(); ctx.moveTo(s.x1, s.y1);
+        for (let i = 1; i < seg; i++) {
+          const t2 = i / seg;
+          ctx.lineTo(s.x1 + (s.x2 - s.x1) * t2 + (hf(i * 3) - 0.5) * 18,
+                     s.y1 + (s.y2 - s.y1) * t2 + (hf(i * 3 + 1) - 0.5) * 14);
+        }
+        ctx.lineTo(s.x2, s.y2); ctx.stroke();
+        ctx.globalAlpha = flash * 0.45; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2); ctx.stroke();
+        ctx.globalAlpha = 1;
       } else {
         // Tangent direction follows the parabolic arc
         const ddx = s.x2 - s.x1;

@@ -29,13 +29,13 @@
     tribute: 0.08,      // extra starting gold per territory already conquered
   };
 
-  // ---- Faction special abilities (30-second cooldown) ----
+  // ---- Faction ultimate abilities — each summons an OG Force + area effect ----
   BF.ABILITIES = {
-    men:     { name: 'Iron Wall',    key: 'IW', desc: 'Free swordsman in each occupied lane',      cooldown: 30 },
-    elves:   { name: 'Arrow Volley', key: 'AV', desc: 'Each archer fires 3 rapid shots instantly', cooldown: 30 },
-    orcs:    { name: 'Blood Frenzy', key: 'BF', desc: 'All defenders attack 75% faster for 8s',   cooldown: 30 },
-    goblins: { name: 'Scurry Rush',  key: 'SR', desc: 'Free stabber in every lane with enemies',  cooldown: 30 },
-    dwarves: { name: 'Ironclad',     key: 'IC', desc: 'All defenders take 60% less damage for 8s', cooldown: 30 },
+    men:     { name: 'Holy Smite',  key: 'HS', desc: 'Summons a Paladin; holy bolts strike every lane',       cooldown: 45 },
+    elves:   { name: 'Hurricane',   key: 'HU', desc: 'Summons Spirit Warden; hurricane blasts enemies back',  cooldown: 40 },
+    orcs:    { name: 'Eruption',    key: 'ER', desc: 'Summons Demonic Giant; volcanic burst scorches all foes',cooldown: 40 },
+    goblins: { name: 'Acid Rain',   key: 'AR', desc: 'Summons Scrap Mech; acid shower melts all enemies',     cooldown: 40 },
+    dwarves: { name: 'Earthquake',  key: 'EQ', desc: 'Summons Runesmith Golem; tremor slows all enemies 4s',  cooldown: 45 },
   };
 
   // ---- Permanent upgrades bought with Glory (earned by conquering) ----
@@ -143,6 +143,20 @@
       u.cost = BF.costOf(u, f.mods.armor);
     }
   }
+
+  // ---- OG Forces: elite champions summoned by ultimate abilities ----
+  const OG_DEFS = {
+    men:     { name: 'Paladin',         hp: 420, dmg: 40, rate: 0.70, range: 52,  aoe: 55 },
+    elves:   { name: 'Spirit Warden',   hp: 350, dmg: 28, rate: 0.60, range: 300, aoe: 90 },
+    orcs:    { name: 'Demonic Giant',   hp: 580, dmg: 50, rate: 0.80, range: 56,  aoe: 60 },
+    goblins: { name: 'Scrap Mech',      hp: 260, dmg: 20, rate: 2.20, range: 180, aoe: 80 },
+    dwarves: { name: 'Runesmith Golem', hp: 750, dmg: 32, rate: 0.65, range: 58,  aoe: 55 },
+  };
+  for (const f of BF.FACTIONS) {
+    const og = OG_DEFS[f.id];
+    if (og) { og.role = 'og'; og.cost = 500; f.units.og = og; }
+  }
+
   BF.factionById = (id) => BF.FACTIONS.find((f) => f.id === id);
 
   // Normalise champion/warlord role names to their base role for weakness lookup
@@ -270,7 +284,7 @@
   };
 
   // ---- Auto-recruit: free reinforcement spawned every N seconds in the most threatened lane ----
-  BF.AUTO_RECRUIT = { interval: 60 };
+  BF.AUTO_RECRUIT = { interval: 30 };
 
   // ---- Tier-1 unit touch abilities (tap a deployed unit to activate) ----
   BF.TOUCH_ABILITIES = {
