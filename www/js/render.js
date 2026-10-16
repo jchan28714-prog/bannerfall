@@ -198,25 +198,48 @@
         break;
       }
       case 'mage': {
-        // Robe flare
-        ctx.fillStyle = accentColor; ctx.globalAlpha = 0.38;
+        const charge = ap > 0.05 ? M.min(1, (ap - 0.05) / 0.7) : 0;
+        // Robe flare — brightens with charge
+        ctx.fillStyle = accentColor; ctx.globalAlpha = 0.38 + charge * 0.22;
         ctx.beginPath(); ctx.roundRect(-bw/2-3, -bh/2, bw+6, bh+10, [2,2,8,8]); ctx.fill();
         ctx.globalAlpha = 1;
         // Staff (off-hand)
         const sTop = { x: -bw/2 - 6, y: -bh/2 - 18 };
         ctx.strokeStyle = '#5a3a14'; ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.moveTo(-bw/2 - 4, bh/2 + 2); ctx.lineTo(sTop.x, sTop.y); ctx.stroke();
-        // Orb – pulses with walk cycle
+        // Orb – pulses with walk cycle, glows during charge
+        const orbR = 5 + charge * 3.5;
         const orbPulse = 0.7 + 0.3 * sin(walkPhase * 1.3);
         ctx.fillStyle = '#7a40d0';
-        ctx.beginPath(); ctx.arc(sTop.x, sTop.y - 5, 5, 0, TAU); ctx.fill();
-        ctx.globalAlpha = orbPulse * 0.42;
+        ctx.beginPath(); ctx.arc(sTop.x, sTop.y - 5, orbR, 0, TAU); ctx.fill();
+        ctx.globalAlpha = orbPulse * 0.42 + charge * 0.3;
         ctx.fillStyle = '#b080ff';
-        ctx.beginPath(); ctx.arc(sTop.x, sTop.y - 5, 10, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(sTop.x, sTop.y - 5, orbR * 2.1, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
         // Off-hand arm to staff
         ctx.lineWidth = 3; ctx.strokeStyle = accentColor;
         ctx.beginPath(); ctx.moveTo(-bw/2 + 1, -bh/2 + 3); ctx.lineTo(-bw/2 - 5, -bh/2 - 1); ctx.stroke();
+        // Orbiting rune particles during charge-up
+        if (ap > 0.05) {
+          for (let j = 0; j < 3; j++) {
+            const a = walkPhase * 2.2 + j * (TAU / 3);
+            const oR = 9 + charge * 5;
+            const rx = sTop.x + cos(a) * oR;
+            const ry = (sTop.y - 5) + sin(a) * oR * 0.45;
+            ctx.globalAlpha = 0.3 + charge * 0.55;
+            ctx.fillStyle = j === 0 ? '#c0a0ff' : j === 1 ? '#80c0ff' : '#ffc0f0';
+            ctx.beginPath(); ctx.arc(rx, ry, 2 + charge * 1.2, 0, TAU); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+        }
+        // Pre-cast expanding ring at high charge
+        if (ap > 0.68) {
+          const rf = (ap - 0.68) / 0.32;
+          ctx.globalAlpha = 0.65 * (1 - rf);
+          ctx.strokeStyle = '#d0a0ff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(sTop.x, sTop.y - 5, 5 + rf * 14, 0, TAU); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
         // Casting sparks during attack
         if (ap > 0.06) {
           ctx.globalAlpha = M.min(1, ap * 2);
@@ -585,6 +608,12 @@
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
 
+    // Scaled token radii — derived from cell size so 8-row layouts stay readable
+    const DR  = M.round(G.cell * 0.38);   // defender token radius (~16 for cell=42)
+    const ER  = M.round(G.cell * 0.32);   // enemy token radius   (~13 for cell=42)
+    const OGR = M.round(G.cell * 0.47);   // OG Force token radius (~20 for cell=42)
+    const AUR = M.round(G.cell * 0.47);   // aura/ring radius
+
     // Colorful biome background (sky + terrain + clouds + particles)
     drawBackground(ctx, b.terr ? b.terr.id : null, b.owner ? b.owner.id : null, T);
 
@@ -649,7 +678,7 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 10);
         ctx.globalAlpha = 0.22 + pulse * 0.18;
         ctx.fillStyle = '#e04040';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 26, 18, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
       }
       // Shield aura (dwarves Ironclad)
@@ -657,7 +686,7 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 6);
         ctx.globalAlpha = 0.18 + pulse * 0.14;
         ctx.fillStyle = '#60a0e8';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 26, 18, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
       }
       // Shield Wall aura (spear touch ability)
@@ -665,7 +694,7 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 6);
         ctx.globalAlpha = 0.2 + pulse * 0.15;
         ctx.fillStyle = '#60c8e8';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 26, 18, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
       }
       // Rally aura (sword touch ability)
@@ -673,7 +702,7 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 8 + d.id);
         ctx.globalAlpha = 0.18 + pulse * 0.14;
         ctx.fillStyle = '#e8c566';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 26, 18, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
       }
       // Sell mode overlay
@@ -681,12 +710,12 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 5 + d.id);
         ctx.globalAlpha = 0.28 + pulse * 0.18;
         ctx.fillStyle = '#e0605a';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 24, 17, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, AUR - 2, M.round((AUR - 2) * 0.68), 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
         const refund = M.round(d.cost * BF.ECON.sellRefund);
         ctx.fillStyle = '#ff9a8a'; ctx.textAlign = 'center';
         ctx.font = '700 10px "Avenir Next",system-ui,sans-serif';
-        ctx.fillText('+' + refund, dx, dy - 28);
+        ctx.fillText('+' + refund, dx, dy - (DR + 12));
       }
 
       // Touch-ability ready: golden pulse ring; shrinking arc when on cooldown
@@ -695,14 +724,14 @@
           const pulse = 0.5 + 0.5 * M.sin(T * 4 + d.id * 0.8);
           ctx.globalAlpha = 0.28 + pulse * 0.22;
           ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(dx, dy, 26 + pulse * 3, 0, TAU); ctx.stroke();
+          ctx.beginPath(); ctx.arc(dx, dy, AUR + pulse * 2, 0, TAU); ctx.stroke();
           ctx.globalAlpha = 1;
         } else {
           const ab = BF.TOUCH_ABILITIES[d.type];
           const frac = 1 - d.touchCd / ab.cooldown;
           ctx.globalAlpha = 0.45;
           ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.arc(dx, dy, 26, -M.PI / 2, -M.PI / 2 + TAU * frac); ctx.stroke();
+          ctx.beginPath(); ctx.arc(dx, dy, AUR, -M.PI / 2, -M.PI / 2 + TAU * frac); ctx.stroke();
           ctx.globalAlpha = 1;
         }
       }
@@ -711,17 +740,17 @@
         const pulse = 0.5 + 0.5 * M.sin(T * 3 + d.id * 0.7);
         ctx.globalAlpha = 0.22 + pulse * 0.18;
         ctx.fillStyle = '#e8c566';
-        ctx.beginPath(); ctx.ellipse(dx, dy, 38, 28, 0, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(dx, dy, OGR + 14, OGR + 5, 0, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;
       }
-      token(ctx, dx, dy, d.isOg ? 28 : 22, me, d.type, false, d.hit, ap, wp);
-      if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? 42 : 31), 34, d.hp / d.maxHp, '#7fcf86');
+      token(ctx, dx, dy, d.isOg ? OGR : DR, me, d.type, false, d.hit, ap, wp);
+      if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? OGR + 14 : DR + 11), 34, d.hp / d.maxHp, '#7fcf86');
     }
 
     // ── ENEMIES (sorted rightmost first so frontrunners draw on top) ───
     const foes = b.enemies.slice().sort((a, c) => c.x - a.x);
     for (const e of foes) {
-      const r = 18 * e.size;
+      const r = ER * e.size;
       const ap = e.atk / 0.18;
       const wp = T * 4.2;
       const lunge = e.atk > 0 && !e.ranged ? -5 * (e.atk / 0.18) : 0;

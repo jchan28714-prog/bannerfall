@@ -13,7 +13,7 @@
 
   // ---- Board geometry (logical units; the canvas scales this to any screen) ----
   // Landscape-first: wider than tall (aspect ≈ 1.5)
-  BF.GRID = { rows: 6, cell: 56, w: 504, h: 336, cw: 504, ch: 356 };
+  BF.GRID = { rows: 8, cell: 42, w: 504, h: 336, cw: 504, ch: 356 };
   BF.CASTLE_W  = 54;   // pixel width of the castle gate drawing
   BF.SPAWN_X   = 66;   // x where new defenders appear (emerge from the castle)
   BF.MARCH_SPD = 17;   // px/s base march speed for defenders

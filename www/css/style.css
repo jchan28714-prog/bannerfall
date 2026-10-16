@@ -208,16 +208,34 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   letter-spacing: .03em;
 }
 
-/* ---------- auto-recruit progress ---------- */
-.hud-recruit-row {
-  display: flex; align-items: center; gap: 5px; margin-top: 3px;
+/* ---------- manual recruit circular button ---------- */
+.recruit-circ {
+  position: relative; flex: none;
+  width: clamp(40px, 10vw, 50px); height: clamp(40px, 10vw, 50px);
+  border-radius: 50%;
+  background: linear-gradient(160deg, #1d243a, #141820);
+  border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  transition: border-color .2s, box-shadow .2s;
 }
-.recruit-lbl { font-size: 9px; color: var(--dim); white-space: nowrap; }
-.recruit-bar {
-  flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden;
+.recruit-svg {
+  position: absolute; inset: -1px;
+  width: calc(100% + 2px); height: calc(100% + 2px);
+  transform: rotate(-90deg); pointer-events: none;
 }
-.recruit-bar i { display: block; height: 100%; background: var(--ok); transition: width .6s linear; }
-.recruit-cd { font-size: 9px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 24px; text-align: right; }
+.rc-track { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 2.5; }
+.rc-fill {
+  fill: none; stroke: var(--ok); stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 113.1; stroke-dashoffset: 113.1;
+  transition: stroke-dashoffset 0.3s linear;
+}
+.recruit-circ #recruit-icon { font-size: var(--t-xs); line-height: 1; }
+.recruit-cd2 { font-size: 8px; color: var(--dim); font-variant-numeric: tabular-nums; line-height: 1; }
+.recruit-circ.ready { border-color: var(--ok); box-shadow: 0 0 8px rgba(127,207,134,.3); }
+.recruit-circ.ready #recruit-icon { animation: recruit-flash 1s ease-in-out infinite; }
+.recruit-circ.ready .rc-fill { stroke-dashoffset: 0; }
+.recruit-circ[disabled] { opacity: .4; pointer-events: none; }
+@keyframes recruit-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
 /* ---------- action bar (Repair / Merc) ---------- */
 #act-bar {

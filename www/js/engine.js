@@ -71,7 +71,7 @@
       this.events = [];
       this.abilityCd = 0;   // seconds until ability can be used again
       this.abilityBuff = 0; // seconds remaining for the active timed buff
-      this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 60;
+      this.autoRecruitCd = 0; // 0 = ready immediately; player activates manually
     }
 
     // ---------- enemy wave plan ----------
@@ -99,28 +99,33 @@
     }
 
     _buildSchedule() {
-      const T = this.terr, i = T.index, r = this.rand, out = [];
-      let t = 5;
-      for (let w = 0; w < T.waves; w++) {
-        const wd = (i <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
-        const n = wd
-          ? Math.round(wd.count * T.countScale)
-          : Math.round((2 + 1.3 * w) * T.countScale);
-        const gap = Math.max(0.8, 2.4 - 0.07 * w - 0.05 * i);
-        const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
+      // 3-minute match design: waves spread across WINDOW seconds so the last
+      // enemies spawn ~t=140 and combat wraps around t=165-180.
+      const T = this.terr, idx = T.index, r = this.rand, out = [];
+      const W = T.waves;
+      const WINDOW = 140;
+
+      for (let w = 0; w < W; w++) {
+        const waveT = 5 + (W > 1 ? w * (WINDOW / (W - 1)) : 0);
+        const wd = (idx <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
+        const n = Math.max(3, wd
+          ? Math.round(wd.count * T.countScale * 1.4)
+          : Math.round((3 + 1.6 * w) * T.countScale));
+        const gap = Math.max(0.5, 1.7 - 0.04 * w - 0.03 * idx);
+        const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
+        let t = waveT;
         for (let k = 0; k < n; k++) {
-          const row = r() < 0.6 ? focus[r() < 0.5 ? 0 : 1] : Math.floor(r() * G.rows);
+          const row = r() < 0.55 ? focus[Math.floor(r() * 3)] : Math.floor(r() * G.rows);
           out.push({ t, row, role: this._pickRole(w), wave: w });
           t += gap * (0.7 + 0.6 * r());
         }
-        if (w === T.waves - 1) {
-          const champs = T.final ? 2 : i >= 1 ? 1 + Math.floor(i / 3) : 0;
+        if (w === W - 1) {
+          const champs = T.final ? 2 : idx >= 1 ? 1 + Math.floor(idx / 3) : 0;
           for (let c = 0; c < champs; c++) {
             out.push({ t: t + 1 + c * 2.5, row: Math.floor(r() * G.rows), role: 'champion', wave: w });
           }
           if (T.final) out.push({ t: t + 4, row: Math.floor(G.rows / 2), role: 'warlord', wave: w });
         }
-        t += 7;
       }
       return out.sort((a, b) => a.t - b.t);
     }
@@ -387,12 +392,10 @@
         }
       }
 
-      // Auto-recruit: free unit in the most-threatened lane every 60 seconds
-      this.autoRecruitCd -= dt;
-      if (this.autoRecruitCd <= 0) {
-        this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 60;
-        this._autoRecruit();
-        this.events.push('reinforce');
+      // Manual recruit cooldown countdown (fires only when player triggers)
+      if (this.autoRecruitCd > 0) {
+        this.autoRecruitCd = Math.max(0, this.autoRecruitCd - dt);
+        if (this.autoRecruitCd === 0) this.events.push('recruitReady');
       }
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
@@ -498,7 +501,15 @@
       }
     }
 
-    // ---------- auto-recruit: spawn a spearman in every lane every 30s ----------
+    // ---------- manual recruit: player-triggered — one spear per lane ----------
+    manualRecruit() {
+      if (this.autoRecruitCd > 0 || this.over) return false;
+      this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
+      this._autoRecruit();
+      this.events.push('reinforce');
+      return true;
+    }
+
     _autoRecruit() {
       for (let row = 0; row < G.rows; row++) {
         this._spawnFreeUnit('spear', row);

@@ -487,6 +487,14 @@
     $('#btn-ability').title = ab ? ab.name + ': ' + ab.desc : '';
     $('#btn-ability').style.setProperty('--c', f.color);
     buildTray();
+    // Wire recruit button
+    const recBtn = $('#btn-recruit');
+    if (recBtn) {
+      recBtn.onclick = () => {
+        if (!B || B.over) return;
+        if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
+      };
+    }
     show('battle');
     fit();
     const hint = $('#hint');
@@ -507,7 +515,11 @@
 
     if (uiS.sellMode) {
       const near = B.unitNear(cx, cy);
-      if (near) { B.sellUnit(near.id); Sound.play('sell'); syncTray(); }
+      if (near) {
+        B.sellUnit(near.id); Sound.play('sell');
+        uiS.sellMode = false; $('#btn-sell').classList.remove('on'); // snap to purchase mode
+        syncTray();
+      }
       return;
     }
     if (uiS.selected) {
@@ -545,13 +557,18 @@
       cdEl.textContent = show ? 'Next wave in ' + Math.ceil(cd) + 's' : '';
     }
     syncActBtns();
-    // Auto-recruit progress bar
-    const rFill = $('#recruit-bar-fill');
-    if (rFill && BF.AUTO_RECRUIT) {
-      const frac = 1 - B.autoRecruitCd / BF.AUTO_RECRUIT.interval;
-      rFill.style.width = M.round(M.max(0, M.min(1, frac)) * 100) + '%';
-      const rCdEl = $('#recruit-cd');
-      if (rCdEl) rCdEl.textContent = B.autoRecruitCd > 0.5 ? M.ceil(B.autoRecruitCd) + 's' : '⚔';
+    // Manual recruit circular button
+    const arc = $('#recruit-arc');
+    if (arc) {
+      const interval = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
+      const circ = 2 * M.PI * 18;
+      const ready = B.autoRecruitCd <= 0;
+      const frac = ready ? 1 : M.max(0, 1 - B.autoRecruitCd / interval);
+      arc.style.strokeDashoffset = (circ * (1 - frac)).toFixed(2);
+      const btn = $('#btn-recruit');
+      if (btn) { btn.classList.toggle('ready', ready); btn.disabled = !!B.over; }
+      const cdEl = $('#recruit-cd');
+      if (cdEl) cdEl.textContent = ready ? '' : M.ceil(B.autoRecruitCd) + 's';
     }
     // Ability cooldown
     const ab = BF.ABILITIES[B.faction.id];
@@ -580,7 +597,8 @@
       for (const ev of B.events) {
         if (ev === 'leak') uiS.gateFlash = 0.5;
         if (ev === 'ability') { uiS.abilityFlash = 0.4; }
-        if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements!', t: 1.4 }; }
+        if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements Deployed!', t: 1.4 }; }
+        if (ev === 'recruitReady') { uiS.banner = { text: '⚔ Reinforce Ready!', t: 1.2 }; }
         Sound.play(ev);
       }
       B.events.length = 0;
