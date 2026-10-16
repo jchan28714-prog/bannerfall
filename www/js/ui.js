@@ -74,8 +74,9 @@
         case 'deny':    this.tone(120, 0.16, 'square', 0.03); break;
         case 'leak':    this.tone(110, 0.3, 'sawtooth', 0.06, -50); break;
         case 'ability': [440,554,659].forEach((f,i) => this.tone(f,0.2,'sine',0.05,60,i*0.07)); break;
-        case 'win':     [523,659,784,1047].forEach((f,i) => this.tone(f,0.28,'triangle',0.06,0,i*0.13)); break;
-        case 'lose':    [330,262,196,147].forEach((f,i) => this.tone(f,0.35,'sawtooth',0.05,0,i*0.18)); break;
+        case 'win':      [523,659,784,1047].forEach((f,i) => this.tone(f,0.28,'triangle',0.06,0,i*0.13)); break;
+        case 'lose':     [330,262,196,147].forEach((f,i) => this.tone(f,0.35,'sawtooth',0.05,0,i*0.18)); break;
+        case 'reinforce': [330,440,550].forEach((f,i) => this.tone(f,0.22,'triangle',0.05,40,i*0.08)); break;
         case 'ui':      this.tone(520, 0.06, 'sine', 0.04); break;
       }
     },
@@ -544,6 +545,14 @@
       cdEl.textContent = show ? 'Next wave in ' + Math.ceil(cd) + 's' : '';
     }
     syncActBtns();
+    // Auto-recruit progress bar
+    const rFill = $('#recruit-bar-fill');
+    if (rFill && BF.AUTO_RECRUIT) {
+      const frac = 1 - B.autoRecruitCd / BF.AUTO_RECRUIT.interval;
+      rFill.style.width = M.round(M.max(0, M.min(1, frac)) * 100) + '%';
+      const rCdEl = $('#recruit-cd');
+      if (rCdEl) rCdEl.textContent = B.autoRecruitCd > 0.5 ? M.ceil(B.autoRecruitCd) + 's' : '⚔';
+    }
     // Ability cooldown
     const ab = BF.ABILITIES[B.faction.id];
     if (ab) {
@@ -571,6 +580,7 @@
       for (const ev of B.events) {
         if (ev === 'leak') uiS.gateFlash = 0.5;
         if (ev === 'ability') { uiS.abilityFlash = 0.4; }
+        if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements!', t: 1.4 }; }
         Sound.play(ev);
       }
       B.events.length = 0;

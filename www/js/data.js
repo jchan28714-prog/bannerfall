@@ -47,7 +47,7 @@
   BF.upgradeCost = (level) => 15 * (level + 1);
 
   // ---- Price model ----
-  BF.COST_PER_POWER = 3.953;
+  BF.COST_PER_POWER = 2.5; // reduced from 3.953 — cheaper units for larger army deployments
   BF.powerOf = function (u, armor) {
     const dps = u.dmg * u.rate * (u.aoe ? 1.5 : 1);
     const ehp = u.hp / (1 - (armor || 0));
@@ -241,10 +241,10 @@
       return Object.assign({}, t, {
         owner,
         index: idx,
-        waves: t.final ? 9 : Math.max(4, 3 + d),
-        hpScale:    0.8 + 0.08 * idx,
-        dmgScale:   0.85 + 0.07 * idx,
-        countScale: 0.9 + 0.07 * idx,
+        waves: t.final ? 9 : Math.max(3, 2 + d),
+        hpScale:    0.65 + 0.09 * idx,
+        dmgScale:   0.70 + 0.09 * idx,
+        countScale: 0.75 + 0.09 * idx,
       });
     });
   };
@@ -268,6 +268,9 @@
     mercCost:   (w) => Math.round((120 + 35 * w) / 10) * 10,  // spawns free sword in least-covered lane
     wallCost:   (w) => Math.round((90 + 30 * w) / 10) * 10,   // +8 max gate HP for this battle
   };
+
+  // ---- Auto-recruit: free reinforcement spawned every N seconds in the most threatened lane ----
+  BF.AUTO_RECRUIT = { interval: 60 };
 
   // ---- Tier-1 unit touch abilities (tap a deployed unit to activate) ----
   BF.TOUCH_ABILITIES = {

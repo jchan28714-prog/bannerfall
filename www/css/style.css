@@ -208,6 +208,17 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   letter-spacing: .03em;
 }
 
+/* ---------- auto-recruit progress ---------- */
+.hud-recruit-row {
+  display: flex; align-items: center; gap: 5px; margin-top: 3px;
+}
+.recruit-lbl { font-size: 9px; color: var(--dim); white-space: nowrap; }
+.recruit-bar {
+  flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.1); overflow: hidden;
+}
+.recruit-bar i { display: block; height: 100%; background: var(--ok); transition: width .6s linear; }
+.recruit-cd { font-size: 9px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 24px; text-align: right; }
+
 /* ---------- action bar (Repair / Merc) ---------- */
 #act-bar {
   display: flex; flex-direction: column; gap: 4px; justify-content: center;

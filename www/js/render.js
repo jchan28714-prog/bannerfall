@@ -151,29 +151,48 @@
         break;
       }
       case 'archer': {
-        // Bow positioned at elbow
         const bowR = 13;
-        ctx.strokeStyle = '#7a5520'; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.arc(ex, ey, bowR, pi * 0.48, pi * 1.52); ctx.stroke();
-        // Draw string, pulled back based on ap
-        const pull = ap * 10;
+        // Impactful wind-up: eased pull feels heavier and snappier
+        const pull = M.pow(ap, 0.65) * 16;
+        // Bow bends under tension — arc flattens as string is drawn
+        const bowAngle = pi * (0.48 + ap * 0.08);
+        ctx.strokeStyle = '#7a5520'; ctx.lineWidth = 2.5 + ap * 0.8;
+        ctx.beginPath(); ctx.arc(ex, ey, bowR, bowAngle, pi * 2 - bowAngle); ctx.stroke();
+        // Bow wood highlight
+        ctx.strokeStyle = '#a07840'; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(ex, ey, bowR + 1.5, bowAngle + 0.15, pi - 0.15); ctx.stroke();
+        ctx.globalAlpha = 1;
+        // Draw string (pulled back)
         const strMidX = ex - bowR - pull;
-        const p1 = { x: ex + bowR * cos(pi * 0.48), y: ey + bowR * sin(pi * 0.48) };
-        const p2 = { x: ex + bowR * cos(pi * 1.52), y: ey + bowR * sin(pi * 1.52) };
+        const p1x = ex + bowR * cos(bowAngle), p1y = ey + bowR * sin(bowAngle);
+        const p2y = ey - bowR * sin(bowAngle); // p2x === p1x by symmetry
         ctx.strokeStyle = '#c8b880'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(strMidX, ey); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-        // Arrow (disappears at release)
+        ctx.beginPath(); ctx.moveTo(p1x, p1y); ctx.lineTo(strMidX, ey); ctx.lineTo(p1x, p2y); ctx.stroke();
+        // Arrow shaft + feather fletching
         if (ap < 0.82) {
           ctx.strokeStyle = '#7a4e18'; ctx.lineWidth = 1.8;
           ctx.beginPath(); ctx.moveTo(strMidX, ey); ctx.lineTo(ex + bowR + 4, ey); ctx.stroke();
-          ctx.fillStyle = '#a0b8c8';
+          // Arrowhead
+          ctx.fillStyle = '#b8ccd8';
           ctx.beginPath();
-          ctx.moveTo(ex + bowR + 12, ey);
-          ctx.lineTo(ex + bowR + 6, ey - 3);
-          ctx.lineTo(ex + bowR + 6, ey + 3);
+          ctx.moveTo(ex + bowR + 13, ey); ctx.lineTo(ex + bowR + 7, ey - 3.5); ctx.lineTo(ex + bowR + 7, ey + 3.5);
           ctx.closePath(); ctx.fill();
+          // Feather fletching at tail
+          ctx.strokeStyle = '#d8a050'; ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(strMidX + 3, ey); ctx.lineTo(strMidX + 9, ey - 4.5);
+          ctx.moveTo(strMidX + 3, ey); ctx.lineTo(strMidX + 9, ey + 4.5);
+          ctx.stroke();
+          // Glow at max draw tension
+          if (ap > 0.65) {
+            const gk = (ap - 0.65) / 0.17;
+            ctx.globalAlpha = gk * 0.55;
+            ctx.fillStyle = '#ffe080';
+            ctx.beginPath(); ctx.arc(strMidX, ey, 4.5, 0, TAU); ctx.fill();
+            ctx.globalAlpha = 1;
+          }
         }
-        // Draw-back arm (left hand)
+        // Draw-back arm
         ctx.lineWidth = 3; ctx.strokeStyle = accentColor;
         ctx.beginPath(); ctx.moveTo(-bw / 2 + 1, -bh / 2 + 3); ctx.lineTo(strMidX, ey); ctx.stroke();
         break;
@@ -353,7 +372,7 @@
   /* ==========================================================================
      CASTLE GATE – drawn over-top of units that enter it (siege visual)
   ========================================================================== */
-  function drawCastle(ctx, h, baseHp, baseMax, gateFlash, factionColor) {
+  function drawCastle(ctx, h, baseHp, baseMax, gateFlash, factionColor, time) {
     const f = baseHp / baseMax;
     const cw = BF.CASTLE_W;
     const pi = M.PI;
@@ -439,14 +458,22 @@
       mx += 7 + 5;
     }
 
-    // Faction banner (top-left of tower)
+    // Faction banner — waves in the breeze
     const flagX = 6, flagY = 15;
     ctx.fillStyle = factionColor;
     ctx.fillRect(flagX, flagY - 1, 2, 24);
+    const wave = time ? M.sin(time * 2.8) * 3 : 0;
     ctx.beginPath();
     ctx.moveTo(flagX + 2, flagY);
-    ctx.lineTo(flagX + 18, flagY + 7);
-    ctx.lineTo(flagX + 2, flagY + 14);
+    ctx.quadraticCurveTo(flagX + 10, flagY + 4 + wave, flagX + 18, flagY + 7);
+    ctx.quadraticCurveTo(flagX + 10, flagY + 11 - wave, flagX + 2, flagY + 14);
+    ctx.closePath(); ctx.fill();
+    // Flag sheen
+    ctx.fillStyle = 'rgba(255,255,255,.2)';
+    ctx.beginPath();
+    ctx.moveTo(flagX + 2, flagY);
+    ctx.quadraticCurveTo(flagX + 8, flagY + 3 + wave, flagX + 14, flagY + 5);
+    ctx.quadraticCurveTo(flagX + 8, flagY + 8 - wave * 0.5, flagX + 2, flagY + 7);
     ctx.closePath(); ctx.fill();
 
     // Right-edge cast shadow
@@ -476,6 +503,67 @@
     ctx.fillStyle = color; ctx.fillRect(x - w / 2, y, M.max(0, w * frac), 4);
   }
 
+  // ── Biome-based background system ─────────────────────────────────────────
+  const BIOMES = {
+    meadow:   { skyA:'#3e8cc4', skyB:'#a8d8f8', horA:'#6ab048', horB:'#3a6828', groundB:'#243e18', cloudFill:'rgba(255,255,255,.72)', particle:'#f8e060', mtnFill:'#3e6030' },
+    forest:   { skyA:'#c07028', skyB:'#e8a858', horA:'#7a5430', horB:'#4c3418', groundB:'#362412', cloudFill:'rgba(240,140,60,.5)',   particle:'#f86028', mtnFill:'#4a6838' },
+    scorched: { skyA:'#c03010', skyB:'#e87830', horA:'#8a3810', horB:'#501808', groundB:'#300e04', cloudFill:'rgba(200,80,40,.52)',    particle:'#f09040', mtnFill:'#481808' },
+    mountain: { skyA:'#1a4878', skyB:'#60a4d8', horA:'#889aa8', horB:'#505868', groundB:'#2e3248', cloudFill:'rgba(220,240,255,.68)', particle:'#c8e0f8', mtnFill:'#505a78' },
+    swamp:    { skyA:'#123820', skyB:'#3a8060', horA:'#284830', horB:'#142418', groundB:'#0c1c14', cloudFill:'rgba(40,160,90,.46)',    particle:'#30f090', mtnFill:'#1a4028' },
+    dark:     { skyA:'#0c0220', skyB:'#280848', horA:'#380c3c', horB:'#1e0820', groundB:'#0c0414', cloudFill:'rgba(140,40,200,.52)',   particle:'#c040f0', mtnFill:'#280840' },
+  };
+  const BIOME_BY_FACTION = { men:'meadow', elves:'forest', orcs:'scorched', dwarves:'mountain', goblins:'swamp' };
+
+  function drawBackground(ctx, terrId, foeId, T) {
+    const cw = G.cw, ch = G.ch, sin = M.sin;
+    const bm = terrId === 't_citadel' ? BIOMES.dark : (BIOMES[BIOME_BY_FACTION[foeId]] || BIOMES.meadow);
+    const skyH = ch * 0.48;
+
+    // Sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, skyH);
+    sky.addColorStop(0, bm.skyA); sky.addColorStop(1, bm.skyB);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, cw, skyH);
+
+    // Ground gradient
+    const gnd = ctx.createLinearGradient(0, skyH * 0.85, 0, ch);
+    gnd.addColorStop(0, bm.horA); gnd.addColorStop(0.4, bm.horB); gnd.addColorStop(1, bm.groundB);
+    ctx.fillStyle = gnd; ctx.fillRect(0, skyH * 0.85, cw, ch);
+
+    // Mountain/hill silhouette
+    ctx.fillStyle = bm.mtnFill; ctx.globalAlpha = 0.88;
+    ctx.beginPath(); ctx.moveTo(0, skyH);
+    for (let k = 0; k <= 12; k++) {
+      const h = 22 + 20 * sin(k * 1.8 + 0.6) + 10 * sin(k * 3.5 + 1.1);
+      ctx.lineTo(k * cw / 12, skyH - h);
+    }
+    ctx.lineTo(cw, skyH); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Drifting clouds (3 at different speeds)
+    const CLOUDS = [[cw * 0.2, skyH * 0.28, 28, 4.0], [cw * 0.6, skyH * 0.15, 20, 6.2], [cw * 0.85, skyH * 0.35, 24, 5.0]];
+    ctx.fillStyle = bm.cloudFill;
+    for (const [ox, cy, r, spd] of CLOUDS) {
+      const cx = ((ox + T * spd) % (cw + 120)) - 60;
+      ctx.globalAlpha = 0.65;
+      ctx.beginPath(); ctx.ellipse(cx - 20, cy + 2, r * 0.75, r * 0.50, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx,      cy - 4, r,        r * 0.60, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + 20, cy + 3, r * 0.65, r * 0.48, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // Ambient particles (pollen/embers/snowflakes/fireflies per biome)
+    ctx.fillStyle = bm.particle;
+    for (let i = 0; i < 10; i++) {
+      const px = (cw + 80 - ((T * (2 + i * 0.4) + i * 50) % (cw + 100)));
+      const py = skyH * 0.12 + sin(T * 0.8 + i * 1.5) * skyH * 0.32 + i * (ch / 12);
+      if (py > 0 && py < ch * 0.62) {
+        ctx.globalAlpha = 0.35 + 0.35 * sin(T * 1.5 + i);
+        ctx.beginPath(); ctx.arc(px, py, 1.5 + sin(i * 2.1) * 0.7, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   /* ==========================================================================
      RENDER BATTLE – full frame
   ========================================================================== */
@@ -485,17 +573,17 @@
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
 
-    // Background
-    const bg = ctx.createLinearGradient(0, 0, G.cw, 0);
-    bg.addColorStop(0, '#0e1118'); bg.addColorStop(1, '#161920');
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, G.cw, G.ch);
+    // Colorful biome background (sky + terrain + clouds + particles)
+    drawBackground(ctx, b.terr ? b.terr.id : null, b.owner ? b.owner.id : null, T);
+
+    // Semi-transparent battlefield overlay so units remain readable
+    ctx.fillStyle = 'rgba(6,8,16,.40)';
+    ctx.fillRect(0, 0, G.cw, G.h);
 
     // Alternating lane shading
     for (let r = 0; r < G.rows; r++) {
-      if (r % 2 === 0) {
-        ctx.fillStyle = 'rgba(255,255,255,.022)';
-        ctx.fillRect(0, r * G.cell, G.cw, G.cell);
-      }
+      ctx.fillStyle = r % 2 === 0 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
+      ctx.fillRect(0, r * G.cell, G.cw, G.cell);
     }
 
     // Defender-side spawn glow (castle exit)
@@ -614,13 +702,26 @@
     // ── PROJECTILES ────────────────────────────────────────────────────
     for (const s of b.shots) {
       const k = M.min(1, s.t / s.dur);
-      const x = s.x1 + (s.x2 - s.x1) * k, y = s.y1 + (s.y2 - s.y1) * k;
+      const arc = s.arc || 0;
+      const x = s.x1 + (s.x2 - s.x1) * k;
+      const y = s.y1 + (s.y2 - s.y1) * k - arc * M.sin(k * M.PI);
       ctx.fillStyle = s.color; ctx.strokeStyle = s.color;
       if (s.kind === 'orb') {
         ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill();
         ctx.globalAlpha = 1;    ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
       } else {
-        const a = M.atan2(s.y2 - s.y1, s.x2 - s.x1);
+        // Tangent direction follows the parabolic arc
+        const ddx = s.x2 - s.x1;
+        const ddy = (s.y2 - s.y1) - arc * M.PI * M.cos(k * M.PI);
+        const a = M.atan2(ddy, ddx);
+        // Impact flash for arced arrows near the target
+        if (arc > 0 && k > 0.78) {
+          const fk = (k - 0.78) / 0.22;
+          ctx.globalAlpha = (1 - fk) * 0.72;
+          ctx.fillStyle = '#fff8d0';
+          ctx.beginPath(); ctx.arc(x, y, 6 * (1 - fk * 0.5), 0, TAU); ctx.fill();
+          ctx.globalAlpha = 1; ctx.fillStyle = s.color; ctx.strokeStyle = s.color;
+        }
         ctx.lineWidth = 2; ctx.beginPath();
         ctx.moveTo(x - M.cos(a) * 9, y - M.sin(a) * 9); ctx.lineTo(x, y); ctx.stroke();
       }
@@ -635,7 +736,7 @@
     }
 
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
-    drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color);
+    drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T);
 
     // Bottom decorative strip
     ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.h, G.cw, G.ch - G.h);

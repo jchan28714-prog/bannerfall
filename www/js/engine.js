@@ -71,6 +71,7 @@
       this.events = [];
       this.abilityCd = 0;   // seconds until ability can be used again
       this.abilityBuff = 0; // seconds remaining for the active timed buff
+      this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 60;
     }
 
     // ---------- enemy wave plan ----------
@@ -234,7 +235,7 @@
           }
           if (!tgt) continue;
           for (let i = 0; i < 3; i++) {
-            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#c8e8a0', 0.08 + i * 0.06);
+            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#c8e8a0', 0.08 + i * 0.06, 20);
             if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.3);
           }
         }
@@ -267,7 +268,7 @@
 
     // ---------- combat helpers ----------
     _float(x, y, text, color) { if (this.fx) this.floats.push({ x, y, text, color, t: 0, dur: 1.1 }); }
-    _shot(x1, y1, x2, y2, kind, color, dur) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur }); }
+    _shot(x1, y1, x2, y2, kind, color, dur, arc) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur, arc: arc || 0 }); }
     _ring(x, y, r, color) { if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 }); }
 
     _killDef(d) { d.dead = true; }
@@ -298,7 +299,8 @@
     _defAttack(d, tgt) {
       d.atk = 0.18;
       if (d.ranged) {
-        this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16);
+        const arcH = !d.aoe ? 20 : 0;
+        this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16, arcH);
       }
       const mult = BF.dmgMult(d.type, BF.baseRole(tgt.role));
       // Archers at point-blank range are ineffective (panic penalty)
@@ -318,7 +320,8 @@
     _enemyAttack(e, tgt) {
       e.atk = 0.18;
       if (e.ranged) {
-        this._shot(e.x - 8, e.y, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16);
+        const arcH = !e.aoe ? 15 : 0;
+        this._shot(e.x - 8, e.y, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16, arcH);
       }
       const mult = BF.dmgMult(BF.baseRole(e.role), tgt.type);
       const dmg = e.dmg * mult;
@@ -344,6 +347,14 @@
         if (this.abilityBuff === 0) {
           for (const d of this.defenders) { d.frenzied = false; d.ironclad = false; }
         }
+      }
+
+      // Auto-recruit: free unit in the most-threatened lane every 60 seconds
+      this.autoRecruitCd -= dt;
+      if (this.autoRecruitCd <= 0) {
+        this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 60;
+        this._autoRecruit();
+        this.events.push('reinforce');
       }
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
@@ -448,6 +459,16 @@
       }
     }
 
+    // ---------- auto-recruit: spawn free unit in the most-threatened lane ----------
+    _autoRecruit() {
+      const rowScore = Array(G.rows).fill(0);
+      for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
+      for (const d of this.defenders) if (!d.dead) rowScore[d.row] -= d.hp * 0.5;
+      const row = rowScore.indexOf(Math.max(...rowScore));
+      const hasMage = this.enemies.some((e) => !e.dead && e.row === row && e.role === 'mage');
+      this._spawnFreeUnit(hasMage ? 'spear' : 'sword', row);
+    }
+
     // ---------- seconds until next enemy spawns (0 when all waves are done) ----------
     waveCountdown() {
       if (this.over || this.next >= this.schedule.length) return 0;
@@ -476,7 +497,7 @@
         }
         if (tgt) {
           for (let i = 0; i < 3; i++) {
-            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#e8dcc0', 0.06 + i * 0.04);
+            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#e8dcc0', 0.06 + i * 0.04, 20);
             if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.2);
           }
         }
