@@ -2,17 +2,24 @@
    BANNERFALL - battle engine
    Pure game logic: no drawing, no DOM.
 
-   Board: 5 columns x 6 rows. Enemies march from the RIGHT side of the board
-   and stop to fight the first defender blocking their lane. Anything that
-   reaches the left gate wall damages your gate.
-
-   Income comes ONLY from killing enemies (no passive drip). Starting gold
-   and kill bounties are the two sources of funds.
+   Board: 6 lanes. Enemies march from the RIGHT, defenders from the LEFT.
+   Player spawns defenders by clicking a lane; they march right until they
+   engage an enemy.  Kill-only income; no passive drip.
    ========================================================================== */
 (function () {
   'use strict';
   const BF = (globalThis.BF = globalThis.BF || {});
   const G = BF.GRID;
+
+  // ---------- Object pool – reuse enemy objects to avoid GC spikes on large waves ----------
+  BF.Pool = class Pool {
+    constructor(prealloc) {
+      this._free = [];
+      for (let i = 0; i < (prealloc || 24); i++) this._free.push({});
+    }
+    get()          { return this._free.length ? this._free.pop() : {}; }
+    release(obj)   { this._free.push(obj); }
+  };
 
   BF.rng = function (seed) {
     let a = seed >>> 0;
@@ -38,15 +45,15 @@
       this.fx = opts.fx !== false;
 
       const m = this.faction.mods;
-      // Starting gold includes tribute bonus for territories already held
       this.gold = BF.ECON.startGold + 40 * this.up.treasury
         + Math.round(BF.ECON.startGold * BF.ECON.tribute * (opts.tribute || 0));
       this.tribute = opts.tribute || 0;
-      // bountyMult incorporates faction mod + treasury upgrade
       this.bountyMult = m.bounty * (1 + 0.08 * this.up.treasury);
       this.baseMax = Math.round((BF.ECON.baseHp + 15 * this.up.walls) * m.baseHp);
       this.baseHp = this.baseMax;
       this.defMult = 1 + 0.06 * this.up.barracks;
+
+      this.enemyPool = new BF.Pool(32); // pre-warm enough for the largest waves
 
       this.time = 0;
       this.defenders = [];
@@ -54,7 +61,6 @@
       this.shots = [];
       this.floats = [];
       this.rings = [];
-      this.grid = Array.from({ length: G.cols }, () => Array(G.rows).fill(null));
       this.schedule = this._buildSchedule();
       this.next = 0;
       this.over = null;
@@ -63,11 +69,22 @@
       this.leaked = 0;
       this.nid = 1;
       this.events = [];
+      this.abilityCd = 0;   // seconds until ability can be used again
+      this.abilityBuff = 0; // seconds remaining for the active timed buff
     }
 
     // ---------- enemy wave plan ----------
     _pickRole(w) {
       const i = this.terr.index;
+      // Use curated wave-design mix for early-difficulty territories
+      if (i <= 1 && w < BF.WAVE_DESIGN.length) {
+        const mix = BF.WAVE_DESIGN[w].mix;
+        let total = 0;
+        for (const k in mix) total += mix[k];
+        let r = this.rand() * total;
+        for (const k in mix) { r -= mix[k]; if (r <= 0) return k; }
+        return 'spear';
+      }
       const wt = {
         spear: Math.max(0.35, 1 - 0.06 * w),
         sword: 0.45 + 0.12 * w + 0.04 * i,
@@ -84,9 +101,11 @@
       const T = this.terr, i = T.index, r = this.rand, out = [];
       let t = 5;
       for (let w = 0; w < T.waves; w++) {
-        const n = Math.round((2 + 1.3 * w) * T.countScale);
+        const wd = (i <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
+        const n = wd
+          ? Math.round(wd.count * T.countScale)
+          : Math.round((2 + 1.3 * w) * T.countScale);
         const gap = Math.max(0.8, 2.4 - 0.07 * w - 0.05 * i);
-        // Pick two focus ROWS (horizontal lanes) for this wave
         const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
         for (let k = 0; k < n; k++) {
           const row = r() < 0.6 ? focus[r() < 0.5 ? 0 : 1] : Math.floor(r() * G.rows);
@@ -119,13 +138,11 @@
       const norm = core(BF.factionById('men').units[roleKey]) / core(u);
       const menCost = BF.factionById('men').units[roleKey].cost;
 
-      // Enemies enter from the RIGHT, lane fixed by row
-      const e = {
-        id: this.nid++, side: 'enemy', role: s.role, row: s.row,
-        x: G.cw + 20,
-        y: s.row * G.cell + G.cell / 2,
-        cd: 0.5, hit: 0, atk: 0, dead: false, aoe: 0, size: 1,
-      };
+      const e = this.enemyPool.get();
+      e.id = this.nid++; e.side = 'enemy'; e.role = s.role; e.row = s.row;
+      e.x = G.cw + 20;
+      e.y = s.row * G.cell + G.cell / 2;
+      e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1;
       if (s.role === 'champion') {
         Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 46, speed: 15, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.35 });
       } else if (s.role === 'warlord') {
@@ -144,38 +161,108 @@
       this.enemies.push(e);
     }
 
-    // ---------- player actions ----------
-    canPlace(col, row) {
-      return col >= 0 && col < G.cols && row >= 0 && row < G.rows && !this.grid[col][row];
-    }
-
-    place(type, col, row) {
+    // ---------- player action: spawn a unit in a lane ----------
+    spawn(type, row) {
       const u = this.faction.units[type];
       if (!u) return { ok: false, reason: 'unknown' };
-      if (!this.canPlace(col, row)) return { ok: false, reason: 'blocked' };
+      if (row < 0 || row >= G.rows) return { ok: false, reason: 'invalid' };
       if (this.gold < u.cost) return { ok: false, reason: 'gold' };
       this.gold -= u.cost;
       const m = this.defMult;
+      // March speed: faster for lighter units, slower for heavy
+      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : 0);
       const d = {
-        id: this.nid++, side: 'def', type, col, row,
-        x: col * G.cell + G.cell / 2,
-        y: row * G.cell + G.cell / 2,
+        id: this.nid++, side: 'def', type, row,
+        x: BF.SPAWN_X, y: row * G.cell + G.cell / 2,
+        marchSpeed: spd,
         hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m, rate: u.rate, range: u.range,
-        aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.3, hit: 0, atk: 0, dead: false,
+        aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.35, hit: 0, atk: 0, dead: false,
+        touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
       };
-      this.grid[col][row] = d;
       this.defenders.push(d);
       this.events.push('place');
       return { ok: true, unit: d };
     }
 
-    sell(col, row) {
-      const d = this.grid[col] && this.grid[col][row];
-      if (!d) return false;
-      this.gold += Math.round(d.cost * BF.ECON.sellRefund);
-      this._killDef(d);
-      this.events.push('sell');
+    // ---------- sell a defender for 80% refund ----------
+    sellUnit(id) {
+      const idx = this.defenders.findIndex((d) => d.id === id && !d.dead);
+      if (idx < 0) return false;
+      const d = this.defenders[idx];
+      const refund = Math.round(d.cost * BF.ECON.sellRefund);
+      this.gold += refund;
+      this._float(d.x, d.y - 14, '+' + refund, '#e8c566');
+      this.defenders.splice(idx, 1);
       return true;
+    }
+
+    // ---------- faction ability (30-second cooldown) ----------
+    _spawnFreeUnit(type, row) {
+      const u = this.faction.units[type];
+      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : 0);
+      this.defenders.push({
+        id: this.nid++, side: 'def', type, row,
+        x: BF.SPAWN_X, y: row * G.cell + G.cell / 2,
+        marchSpeed: spd,
+        hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
+        dmg: u.dmg * this.defMult, rate: u.rate, range: u.range,
+        aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost,
+        cd: 0.35, hit: 0, atk: 0, dead: false,
+        touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
+      });
+    }
+
+    useAbility() {
+      if (this.abilityCd > 0 || this.over) return false;
+      const ab = BF.ABILITIES[this.faction.id];
+      if (!ab) return false;
+      this.abilityCd = ab.cooldown;
+      const fid = this.faction.id;
+
+      if (fid === 'men') {
+        const rows = new Set(this.defenders.filter((d) => !d.dead).map((d) => d.row));
+        if (rows.size === 0) { for (let r = 0; r < 3; r++) rows.add(r); }
+        for (const row of rows) this._spawnFreeUnit('sword', row);
+      } else if (fid === 'elves') {
+        for (const d of this.defenders) {
+          if (d.dead || d.type !== 'archer') continue;
+          let tgt = null, best = 1e9;
+          for (const e of this.enemies) {
+            if (e.dead || e.row !== d.row) continue;
+            const gap = e.x - d.x;
+            if (gap > -6 && gap <= d.range && gap < best) { best = gap; tgt = e; }
+          }
+          if (!tgt) continue;
+          for (let i = 0; i < 3; i++) {
+            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#c8e8a0', 0.08 + i * 0.06);
+            if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.3);
+          }
+        }
+      } else if (fid === 'orcs') {
+        this.abilityBuff = 8;
+        for (const d of this.defenders) { if (!d.dead) d.frenzied = true; }
+      } else if (fid === 'goblins') {
+        const rows = new Set(this.enemies.filter((e) => !e.dead).map((e) => e.row));
+        if (rows.size === 0) { for (let r = 0; r < 2; r++) rows.add(r); }
+        for (const row of rows) this._spawnFreeUnit('spear', row);
+      } else if (fid === 'dwarves') {
+        this.abilityBuff = 8;
+        for (const d of this.defenders) { if (!d.dead) d.ironclad = true; }
+      }
+
+      this.events.push('ability');
+      return true;
+    }
+
+    // Find the defender closest to a canvas point (for inspect)
+    unitNear(x, y) {
+      let best = null, bestDist = 32;
+      for (const d of this.defenders) {
+        if (d.dead) continue;
+        const dst = Math.hypot(x - d.x, y - d.y);
+        if (dst < bestDist) { bestDist = dst; best = d; }
+      }
+      return best;
     }
 
     // ---------- combat helpers ----------
@@ -183,10 +270,7 @@
     _shot(x1, y1, x2, y2, kind, color, dur) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur }); }
     _ring(x, y, r, color) { if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 }); }
 
-    _killDef(d) {
-      d.dead = true;
-      if (this.grid[d.col][d.row] === d) this.grid[d.col][d.row] = null;
-    }
+    _killDef(d) { d.dead = true; }
 
     _hurtEnemy(e, dmg) {
       if (e.dead) return;
@@ -204,7 +288,9 @@
 
     _hurtDef(d, dmg) {
       if (d.dead) return;
-      d.hp -= dmg * (1 - this.faction.mods.armor);
+      const ironReduce   = d.ironclad ? 0.4 : 1;  // Ironclad: 60% less damage
+      const shieldReduce = d.shielded ? 0.4 : 1;  // Shield Wall: 60% less damage
+      d.hp -= dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce;
       d.hit = 0.12;
       if (d.hp <= 0) this._killDef(d);
     }
@@ -212,34 +298,38 @@
     _defAttack(d, tgt) {
       d.atk = 0.18;
       if (d.ranged) {
-        // Shot originates to the RIGHT of the defender (firing toward incoming enemies)
         this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16);
       }
+      const mult = BF.dmgMult(d.type, BF.baseRole(tgt.role));
+      // Archers at point-blank range are ineffective (panic penalty)
+      const panicMult = (d.type === 'archer' && Math.abs(tgt.x - d.x) < 35) ? 0.5 : 1;
+      const dmg = d.dmg * mult * panicMult;
       if (d.aoe) {
         this._ring(tgt.x, tgt.y, d.aoe, '#c9a6ff');
         for (const e of this.enemies) {
           if (e.dead) continue;
-          if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? d.dmg : d.dmg * 0.6);
+          if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? dmg : d.dmg * 0.6);
         }
       } else {
-        this._hurtEnemy(tgt, d.dmg);
+        this._hurtEnemy(tgt, dmg);
       }
     }
 
     _enemyAttack(e, tgt) {
       e.atk = 0.18;
       if (e.ranged) {
-        // Shot originates to the LEFT of the enemy (attacking defenders to their left)
         this._shot(e.x - 8, e.y, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16);
       }
+      const mult = BF.dmgMult(BF.baseRole(e.role), tgt.type);
+      const dmg = e.dmg * mult;
       if (e.aoe) {
         this._ring(tgt.x, tgt.y, e.aoe, '#ff9a7a');
         for (const d of this.defenders) {
           if (d.dead) continue;
-          if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? e.dmg : e.dmg * 0.6);
+          if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? dmg : e.dmg * 0.6);
         }
       } else {
-        this._hurtDef(tgt, e.dmg);
+        this._hurtDef(tgt, dmg);
       }
     }
 
@@ -248,13 +338,19 @@
       if (this.over) return;
       const mods = this.faction.mods;
       this.time += dt;
-      // NO passive income – gold comes only from killing enemies
+      if (this.abilityCd > 0) this.abilityCd = Math.max(0, this.abilityCd - dt);
+      if (this.abilityBuff > 0) {
+        this.abilityBuff = Math.max(0, this.abilityBuff - dt);
+        if (this.abilityBuff === 0) {
+          for (const d of this.defenders) { d.frenzied = false; d.ironclad = false; }
+        }
+      }
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
       }
 
-      // Defenders: pick the nearest enemy in their LANE (same row) to the RIGHT
+      // Defenders: march right toward enemies; stop and fight when in range
       for (const d of this.defenders) {
         if (d.dead) continue;
         const regen = Math.max(1, mods.regen);
@@ -262,22 +358,40 @@
         d.cd -= dt;
         d.hit = Math.max(0, d.hit - dt);
         d.atk = Math.max(0, d.atk - dt);
-        if (d.cd > 0) continue;
+        if (d.touchCd > 0)  d.touchCd  = Math.max(0, d.touchCd  - dt);
+        if (d.shielded) { d.shieldDur -= dt; if (d.shieldDur <= 0) { d.shielded = false; d.shieldDur = 0; } }
+        if (d.rallied)  { d.rallyDur  -= dt; if (d.rallyDur  <= 0) { d.rallied  = false; d.rallyDur  = 0; } }
+
+        // Target: nearest enemy in same lane within range (to the right of defender)
         let tgt = null, best = 1e9;
         for (const e of this.enemies) {
           if (e.dead || e.row !== d.row) continue;
-          // gap = how far to the right the enemy is (positive = enemy ahead of defender)
-          const gap = e.x - d.x;
+          const gap = e.x - d.x; // positive = enemy is ahead (to the right)
           if (gap > -6 && gap <= d.range && e.x < best) { best = e.x; tgt = e; }
         }
+
         if (tgt) {
-          const wild = mods.berserk && !d.ranged && d.hp < d.maxHp * 0.5;
-          d.cd = 1 / (d.rate * (wild ? 1.25 : 1));
-          this._defAttack(d, tgt);
+          if (d.cd <= 0) {
+            const wild = (mods.berserk && !d.ranged && d.hp < d.maxHp * 0.5) || d.frenzied;
+            const speedMult = (wild ? 1.75 : 1) * (d.rallied ? 1.5 : 1);
+            d.cd = 1 / (d.rate * speedMult);
+            this._defAttack(d, tgt);
+          }
+        } else {
+          // Shielded spearmen hold ground; others march right
+          let blocked = d.shielded;
+          if (!blocked) {
+            for (const o of this.defenders) {
+              if (o === d || o.dead || o.row !== d.row) continue;
+              const ahead = o.x - d.x;
+              if (ahead > 0 && ahead < 30 + 6 * (o.size || 1)) { blocked = true; break; }
+            }
+          }
+          if (!blocked) d.x = Math.min(G.cw - 20, d.x + d.marchSpeed * dt);
         }
       }
 
-      // Enemies: march LEFT; fight first defender blocking their lane
+      // Enemies: march left; fight first defender blocking their lane
       for (const e of this.enemies) {
         if (e.dead) continue;
         e.cd -= dt;
@@ -286,41 +400,43 @@
         let tgt = null, best = 1e9;
         for (const d of this.defenders) {
           if (d.dead || d.row !== e.row) continue;
-          // gap = how far to the LEFT the defender is (positive = defender is ahead of enemy)
-          const gap = e.x - d.x;
+          const gap = e.x - d.x; // positive = defender is to the left (ahead of enemy)
           if (gap > -20 && gap < best) { best = gap; tgt = d; }
         }
         if (tgt && best <= e.range) {
           if (e.cd <= 0) { e.cd = 1 / e.rate; this._enemyAttack(e, tgt); }
         } else {
-          // Queue single-file: enemies can't walk through the one ahead (to their left)
+          // Queue single-file
           let blocked = false;
           for (const o of this.enemies) {
             if (o === e || o.dead || o.row !== e.row) continue;
-            const g = e.x - o.x; // positive = o is to the left (ahead)
+            const g = e.x - o.x;
             if ((g > 0 || (g === 0 && o.id < e.id)) && g < 26 + 8 * Math.max(e.size, o.size)) {
               blocked = true; break;
             }
           }
-          if (!blocked) e.x -= e.speed * dt; // march LEFT
-          if (e.x <= -6) {
+          if (!blocked) e.x -= e.speed * dt;
+          if (e.x <= 10) {  // enemy has entered the castle gate
             e.dead = true;
             this.leaked++;
             this.baseHp -= e.leak;
-            this._float(14, e.y, '-' + e.leak, '#ff6b5e');
+            this._float(BF.CASTLE_W - 6, e.y, '-' + e.leak, '#ff6b5e');
             this.events.push('leak');
           }
         }
       }
 
-      this.enemies = this.enemies.filter((e) => !e.dead);
+      // Return dead enemies to the pool instead of allocating a new filtered array
+      for (let i = this.enemies.length - 1; i >= 0; i--) {
+        if (this.enemies[i].dead) { this.enemyPool.release(this.enemies[i]); this.enemies.splice(i, 1); }
+      }
       this.defenders = this.defenders.filter((d) => !d.dead);
 
       if (this.fx) {
         for (const list of [this.shots, this.floats, this.rings]) for (const o of list) o.t += dt;
-        this.shots = this.shots.filter((o) => o.t < o.dur);
+        this.shots  = this.shots.filter((o) => o.t < o.dur);
         this.floats = this.floats.filter((o) => o.t < o.dur);
-        this.rings = this.rings.filter((o) => o.t < o.dur);
+        this.rings  = this.rings.filter((o) => o.t < o.dur);
       }
 
       if (this.baseHp <= 0) {
@@ -330,6 +446,75 @@
         this.stars = f >= 0.8 ? 3 : f >= 0.4 ? 2 : 1;
         this.over = 'win'; this.events.push('win');
       }
+    }
+
+    // ---------- seconds until next enemy spawns (0 when all waves are done) ----------
+    waveCountdown() {
+      if (this.over || this.next >= this.schedule.length) return 0;
+      return Math.max(0, this.schedule[this.next].t - this.time);
+    }
+
+    // ---------- touch ability: tap a deployed unit to trigger its special ----------
+    useTouchAbility(id) {
+      const d = this.defenders.find((d) => d.id === id && !d.dead);
+      if (!d || d.touchCd > 0 || this.over) return false;
+      const ab = BF.TOUCH_ABILITIES[d.type];
+      if (!ab) return false;
+      d.touchCd = ab.cooldown;
+      if (d.type === 'spear') {
+        d.shielded = true; d.shieldDur = ab.dur;
+      } else if (d.type === 'sword') {
+        for (const o of this.defenders) {
+          if (!o.dead && o.row === d.row) { o.rallied = true; o.rallyDur = ab.dur; }
+        }
+      } else if (d.type === 'archer') {
+        let tgt = null, best = 1e9;
+        for (const e of this.enemies) {
+          if (e.dead || e.row !== d.row) continue;
+          const gap = e.x - d.x;
+          if (gap > -6 && gap < best) { best = gap; tgt = e; }
+        }
+        if (tgt) {
+          for (let i = 0; i < 3; i++) {
+            this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#e8dcc0', 0.06 + i * 0.04);
+            if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.2);
+          }
+        }
+      } else if (d.type === 'mage') {
+        for (const e of this.enemies) {
+          if (!e.dead && e.row === d.row) this._hurtEnemy(e, d.dmg * 2);
+        }
+        this._ring(d.x + d.range / 2, d.y, d.range / 2, '#c9a6ff');
+      }
+      this.events.push('ability');
+      return true;
+    }
+
+    // ---------- repair the gate (restores 25% max HP; cost scales with wave) ----------
+    repairGate() {
+      const w = this.waveNow();
+      const cost = BF.WAVE_ECON.repairCost(w);
+      if (this.gold < cost || this.over) return { ok: false, reason: this.gold < cost ? 'gold' : 'over' };
+      this.gold -= cost;
+      const heal = Math.round(this.baseMax * 0.25);
+      this.baseHp = Math.min(this.baseMax, this.baseHp + heal);
+      this._float(BF.CASTLE_W - 6, Math.round(G.ch * 0.5), '+' + heal, '#7fcf86');
+      this.events.push('coin');
+      return { ok: true };
+    }
+
+    // ---------- hire emergency mercenary into least-defended lane ----------
+    hireMerc() {
+      const w = this.waveNow();
+      const cost = BF.WAVE_ECON.mercCost(w);
+      if (this.gold < cost || this.over) return { ok: false, reason: this.gold < cost ? 'gold' : 'over' };
+      this.gold -= cost;
+      const rowCount = Array(G.rows).fill(0);
+      for (const d of this.defenders) if (!d.dead) rowCount[d.row]++;
+      const row = rowCount.indexOf(Math.min(...rowCount));
+      this._spawnFreeUnit('sword', row);
+      this.events.push('place');
+      return { ok: true };
     }
   };
 

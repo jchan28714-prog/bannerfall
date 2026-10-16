@@ -35,6 +35,21 @@
   const conqueredCount = (c) => Object.keys(c.conquered).length;
   const totalTerritories = BF.TERRITORIES.length - 1; // excludes home
 
+  /* ---------------- ripple effect on all buttons ---------------- */
+  function addRipple(btn) {
+    btn.addEventListener('pointerdown', (e) => {
+      const r = btn.getBoundingClientRect();
+      const size = M.max(r.width, r.height);
+      const el = document.createElement('span');
+      el.className = 'ripple';
+      el.style.cssText = 'width:' + size + 'px;height:' + size + 'px;left:' + (e.clientX - r.left - size/2) + 'px;top:' + (e.clientY - r.top - size/2) + 'px';
+      btn.appendChild(el);
+      el.addEventListener('animationend', () => el.remove());
+    });
+  }
+  const M = Math;
+  document.querySelectorAll('.btn, .icon-btn').forEach(addRipple);
+
   /* ---------------- sound ---------------- */
   const Sound = {
     ctx: null,
@@ -53,14 +68,15 @@
     },
     play(n) {
       switch (n) {
-        case 'place': this.tone(240, 0.12, 'triangle', 0.07, 90); break;
-        case 'sell':  this.tone(300, 0.14, 'triangle', 0.05, -120); break;
-        case 'coin':  this.tone(880, 0.07, 'sine', 0.025, 220); break;
-        case 'deny':  this.tone(120, 0.16, 'square', 0.03); break;
-        case 'leak':  this.tone(110, 0.3, 'sawtooth', 0.06, -50); break;
-        case 'win':   [523,659,784,1047].forEach((f,i) => this.tone(f,0.28,'triangle',0.06,0,i*0.13)); break;
-        case 'lose':  [330,262,196,147].forEach((f,i) => this.tone(f,0.35,'sawtooth',0.05,0,i*0.18)); break;
-        case 'ui':    this.tone(520, 0.06, 'sine', 0.04); break;
+        case 'place':   this.tone(240, 0.12, 'triangle', 0.07, 90); break;
+        case 'sell':    this.tone(300, 0.14, 'triangle', 0.05, -120); break;
+        case 'coin':    this.tone(880, 0.07, 'sine', 0.025, 220); break;
+        case 'deny':    this.tone(120, 0.16, 'square', 0.03); break;
+        case 'leak':    this.tone(110, 0.3, 'sawtooth', 0.06, -50); break;
+        case 'ability': [440,554,659].forEach((f,i) => this.tone(f,0.2,'sine',0.05,60,i*0.07)); break;
+        case 'win':     [523,659,784,1047].forEach((f,i) => this.tone(f,0.28,'triangle',0.06,0,i*0.13)); break;
+        case 'lose':    [330,262,196,147].forEach((f,i) => this.tone(f,0.35,'sawtooth',0.05,0,i*0.18)); break;
+        case 'ui':      this.tone(520, 0.06, 'sine', 0.04); break;
       }
     },
   };
@@ -103,11 +119,11 @@
         return (
           '<button class="legion' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
           '<img class="legion-icon" src="img/icon-' + f.id + '.svg" alt="" aria-hidden="true">' +
-          (done ? '<span class="progress">' + done + ' / ' + totalTerritories + ' conquered</span>' : '') +
-          '<h3>' + f.name + '</h3><div class="tag">' + f.tagline + '</div>' +
-          '<ul>' + f.perks.map((p) => '<li>' + p + '</li>').join('') + '</ul>' +
+          '<h3>' + f.name + '</h3>' +
+          '<div class="tag">' + f.tagline + '</div>' +
+          (done ? '<span class="progress">' + done + '/' + totalTerritories + ' conquered</span>' : '') +
           '<div class="roster">' +
-          BF.ROLES.map((r) => '<div>' + f.units[r].name + '<b>' + f.units[r].cost + '</b></div>').join('') +
+          BF.ROLES.map((r) => '<div><span>' + f.units[r].name + '</span><b>' + f.units[r].cost + '</b></div>').join('') +
           '</div></button>'
         );
       }).join('') +
@@ -115,13 +131,15 @@
 
     const label = () => { $('#go-map').textContent = 'Lead the ' + BF.factionById(pick).short; };
     label();
-    root.querySelectorAll('.legion').forEach((b) =>
+    root.querySelectorAll('.legion').forEach((b) => {
+      addRipple(b);
       b.addEventListener('click', () => {
         pick = b.dataset.id;
         root.querySelectorAll('.legion').forEach((x) => x.classList.toggle('sel', x === b));
         label(); Sound.play('ui');
-      })
-    );
+      });
+    });
+    addRipple($('#go-map'));
     $('#go-map').addEventListener('click', () => { save.last = pick; persist(); Sound.play('ui'); renderMap(); show('map'); });
   }
 
@@ -244,22 +262,19 @@
       // Tap area
       svgEl('circle', { cx: t.x, cy: t.y, r: r + 10, fill: 'transparent' }, g);
 
-      // Territory circle
-      let fillColor, strokeColor;
+      // Territory circle — filled with faction color, opacity based on ownership
+      let fillColor, strokeColor, fillOp;
       if (won) {
-        fillColor = f.color; strokeColor = f.accent;
+        fillColor = f.color; strokeColor = f.accent; fillOp = 1;
       } else if (open) {
-        fillColor = '#1a2030'; strokeColor = owner.color;
+        fillColor = owner.color; strokeColor = owner.color; fillOp = 0.35;
       } else {
-        fillColor = '#0f1218'; strokeColor = '#2b3140';
+        fillColor = owner.color; strokeColor = owner.color; fillOp = 0.12;
       }
-      svgEl('circle', { cx: t.x, cy: t.y, r, fill: fillColor, stroke: strokeColor, 'stroke-width': isFinal ? 4 : 2.5 }, g);
-
-      // Faction mini-icon inside unconquered node
-      if (!won && open && !isFinal) {
-        // Small colored dot indicating the defender faction
-        svgEl('circle', { cx: t.x, cy: t.y - (r * 0.25), r: 4, fill: owner.color, opacity: 0.9 }, g);
-      }
+      // Draw fill as a separate element so we can control opacity independently
+      svgEl('circle', { cx: t.x, cy: t.y, r, fill: fillColor, opacity: fillOp }, g);
+      svgEl('circle', { cx: t.x, cy: t.y, r, fill: 'none', stroke: strokeColor, 'stroke-width': isFinal ? 4 : 2.5,
+        opacity: won ? 1 : open ? 0.9 : 0.4 }, g);
 
       // Citadel crown symbol
       if (isFinal) {
@@ -386,10 +401,14 @@
   }
   window.addEventListener('resize', () => { if ($('#screen-battle').classList.contains('active')) fit(); });
 
+  function flashGold() {
+    const g = $('.hud-gold'); g.classList.remove('deny'); void g.offsetWidth; g.classList.add('deny');
+  }
+
   function buildTray() {
     const f = B.faction;
     const tray = $('#tray');
-    tray.innerHTML = '<button class="sellbtn" id="sell"><span>✕</span>Dismiss</button>';
+    tray.innerHTML = '';
     BF.ROLES.forEach((r) => {
       const u = f.units[r];
       const b = document.createElement('button');
@@ -399,29 +418,73 @@
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
       b.addEventListener('click', () => {
-        uiS.sell = false;
         uiS.selected = uiS.selected === r ? null : r;
         Sound.play('ui'); syncTray();
       });
       tray.appendChild(b);
     });
-    $('#sell').addEventListener('click', () => { uiS.sell = !uiS.sell; if (uiS.sell) uiS.selected = null; Sound.play('ui'); syncTray(); });
+
+    // Repair Gate / Hire Merc action buttons
+    const actBar = document.createElement('div');
+    actBar.id = 'act-bar';
+    const rCost = BF.WAVE_ECON.repairCost(0);
+    const mCost = BF.WAVE_ECON.mercCost(0);
+    actBar.innerHTML =
+      '<button class="act-btn" id="btn-repair">' + coin + rCost + ' Repair</button>' +
+      '<button class="act-btn" id="btn-merc">'   + coin + mCost + ' Merc</button>';
+    tray.appendChild(actBar);
+
+    $('#btn-repair', tray).addEventListener('click', () => {
+      const res = B.repairGate();
+      if (res.ok) Sound.play('coin'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
+      syncTray();
+    });
+    $('#btn-merc', tray).addEventListener('click', () => {
+      const res = B.hireMerc();
+      if (res.ok) Sound.play('place'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
+      syncTray();
+    });
   }
+  function syncActBtns() {
+    if (!B) return;
+    const w = B.waveNow();
+    const repairBtn = $('#btn-repair');
+    const mercBtn   = $('#btn-merc');
+    if (repairBtn) {
+      const c = BF.WAVE_ECON.repairCost(w);
+      repairBtn.innerHTML = coin + c + ' Repair';
+      repairBtn.disabled  = B.gold < c || !!B.over;
+      repairBtn.classList.toggle('poor', B.gold < c);
+    }
+    if (mercBtn) {
+      const c = BF.WAVE_ECON.mercCost(w);
+      mercBtn.innerHTML = coin + c + ' Merc';
+      mercBtn.disabled  = B.gold < c || !!B.over;
+      mercBtn.classList.toggle('poor', B.gold < c);
+    }
+  }
+
   function syncTray() {
-    $('#sell').classList.toggle('on', uiS.sell);
     document.querySelectorAll('.ucard').forEach((c) => {
       c.classList.toggle('sel', uiS.selected === c.dataset.role);
       c.classList.toggle('poor', B.gold < B.faction.units[c.dataset.role].cost);
     });
+    syncActBtns();
   }
 
   function startBattle(t) {
     const f = BF.factionById(save.last), c = camp(f.id);
     terr = t;
     B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c) });
-    uiS = { selected: null, sell: false, inspect: null, inspectUntil: 0, banner: { text: 'Defend the gate', t: 2.2 }, gateFlash: 0 };
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Defend the gate', t: 2.2 }, gateFlash: 0, abilityFlash: 0 };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     $('#btn-speed').textContent = '1×';
+    $('#btn-sell').classList.remove('on');
+    // Wire ability button
+    const ab = BF.ABILITIES[f.id];
+    $('#ability-name').textContent = ab ? ab.key : '—';
+    $('#btn-ability').title = ab ? ab.name + ': ' + ab.desc : '';
+    $('#btn-ability').style.setProperty('--c', f.color);
     buildTray();
     show('battle');
     fit();
@@ -432,33 +495,39 @@
     raf = requestAnimationFrame(frame);
   }
 
-  function cellAt(e) {
-    const r = cv.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width) * G.cw;
-    const y = ((e.clientY - r.top) / r.height) * G.ch;
-    const col = Math.floor(x / G.cell), row = Math.floor(y / G.cell);
-    if (col < 0 || col >= G.cols || row < 0 || row >= G.rows) return null;
-    return { col, row };
-  }
   cv.addEventListener('pointerdown', (e) => {
     if (!B || B.over || paused) return;
     e.preventDefault();
-    const cell = cellAt(e);
-    if (!cell) return;
-    const there = B.grid[cell.col][cell.row];
-    if (uiS.sell) {
-      if (there && B.sell(cell.col, cell.row)) {}
-    } else if (uiS.selected) {
-      if (there) { uiS.inspect = there; uiS.inspectUntil = B.time + 3; return; }
-      const res = B.place(uiS.selected, cell.col, cell.row);
+    const r = cv.getBoundingClientRect();
+    const cx = ((e.clientX - r.left) / r.width) * G.cw;
+    const cy = ((e.clientY - r.top) / r.height) * G.ch;
+    const row = Math.floor(cy / G.cell);
+    if (row < 0 || row >= G.rows) return;
+
+    if (uiS.sellMode) {
+      const near = B.unitNear(cx, cy);
+      if (near) { B.sellUnit(near.id); Sound.play('sell'); syncTray(); }
+      return;
+    }
+    if (uiS.selected) {
+      const res = B.spawn(uiS.selected, row);
       if (res.ok) {
         if (!save.hintSeen) { save.hintSeen = true; persist(); $('#hint').classList.add('hidden'); }
+        Sound.play('place');
       } else if (res.reason === 'gold') {
-        Sound.play('deny');
-        const g = $('.hud-gold'); g.classList.remove('deny'); void g.offsetWidth; g.classList.add('deny');
+        Sound.play('deny'); flashGold();
       }
-    } else if (there) {
-      uiS.inspect = there; uiS.inspectUntil = B.time + 3;
+    } else {
+      const near = B.unitNear(cx, cy);
+      if (near) {
+        // Try touch ability first; fall back to unit inspection
+        if (B.useTouchAbility(near.id)) {
+          Sound.play('ability');
+          syncTray();
+        } else {
+          uiS.inspect = near; uiS.inspectUntil = B.time + 3;
+        }
+      }
     }
   });
 
@@ -467,6 +536,25 @@
     const w = Math.max(1, B.waveNow());
     $('#hud-wave-text').textContent = (terr.final ? 'The Citadel · ' : '') + 'Wave ' + w + ' / ' + terr.waves;
     $('#hud-wave-fill').style.width = Math.round((B.next / B.schedule.length) * 100) + '%';
+    // Wave countdown between waves
+    const cdEl = $('#hud-countdown');
+    if (cdEl) {
+      const cd = B.waveCountdown();
+      const show = cd > 0.8 && B.enemies.length === 0 && !B.over;
+      cdEl.textContent = show ? 'Next wave in ' + Math.ceil(cd) + 's' : '';
+    }
+    syncActBtns();
+    // Ability cooldown
+    const ab = BF.ABILITIES[B.faction.id];
+    if (ab) {
+      const cd = B.abilityCd;
+      const ready = cd <= 0;
+      const abilBtn = $('#btn-ability');
+      abilBtn.classList.toggle('ready', ready);
+      abilBtn.disabled = !ready || !!B.over;
+      $('#ability-cd').textContent = ready ? 'READY' : M.ceil(cd) + 's';
+      $('#ability-bar-fill').style.width = (ready ? 100 : M.round((1 - cd / ab.cooldown) * 100)) + '%';
+    }
     syncTray();
   }
 
@@ -480,12 +568,17 @@
         const n = Math.max(1, Math.ceil(total / 0.0334));
         for (let i = 0; i < n; i++) B.step(total / n);
       }
-      for (const ev of B.events) { if (ev === 'leak') uiS.gateFlash = 0.5; Sound.play(ev); }
+      for (const ev of B.events) {
+        if (ev === 'leak') uiS.gateFlash = 0.5;
+        if (ev === 'ability') { uiS.abilityFlash = 0.4; }
+        Sound.play(ev);
+      }
       B.events.length = 0;
       const w = B.waveNow();
       if (w !== lastWave && w > 0) { lastWave = w; uiS.banner = { text: w === terr.waves ? 'Final wave' : 'Wave ' + w, t: 1.8 }; }
       if (uiS.banner.t > 0) uiS.banner.t -= dt;
       if (uiS.gateFlash > 0) uiS.gateFlash -= dt;
+      if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
     }
     BF.renderBattle(ctx, B, uiS, drawScale);
@@ -493,6 +586,16 @@
     if (B.over && !resultShown) { resultShown = true; setTimeout(showResult, 700); }
   }
 
+  $('#btn-sell').addEventListener('click', (e) => {
+    uiS.sellMode = !uiS.sellMode;
+    e.currentTarget.classList.toggle('on', uiS.sellMode);
+    if (uiS.sellMode) { uiS.selected = null; syncTray(); }
+    Sound.play('ui');
+  });
+  $('#btn-ability').addEventListener('click', () => {
+    if (!B || B.over) return;
+    if (B.useAbility()) { Sound.play('place'); }
+  });
   $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
   $('#btn-pause').addEventListener('click', openPause);
   document.addEventListener('visibilitychange', () => { if (document.hidden && B && !B.over && !paused && $('#screen-battle').classList.contains('active')) openPause(); });

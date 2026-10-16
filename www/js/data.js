@@ -12,17 +12,30 @@
   const BF = (globalThis.BF = globalThis.BF || {});
 
   // ---- Board geometry (logical units; the canvas scales this to any screen) ----
-  BF.GRID = { cols: 5, rows: 6, cell: 72, w: 360, h: 432, cw: 360, ch: 452 };
+  // Landscape-first: wider than tall (aspect ≈ 1.5)
+  BF.GRID = { rows: 6, cell: 56, w: 504, h: 336, cw: 504, ch: 356 };
+  BF.CASTLE_W  = 54;   // pixel width of the castle gate drawing
+  BF.SPAWN_X   = 66;   // x where new defenders appear (emerge from the castle)
+  BF.MARCH_SPD = 17;   // px/s base march speed for defenders
   BF.ROLES = ['spear', 'sword', 'archer', 'mage'];
 
   // ---- Economy ----
   BF.ECON = {
     startGold: 500,     // gold at the start of each battle
     baseIncome: 24,     // kept for War Council display, but passive income is disabled
-    sellRefund: 0.6,    // share of cost returned when you dismiss a unit
+    sellRefund: 0.8,    // share of cost returned when you dismiss a unit
     bountyRate: 0.5,    // gold per kill = unit cost x this (raised: kills are the only income)
     baseHp: 60,         // gate health before upgrades
     tribute: 0.08,      // extra starting gold per territory already conquered
+  };
+
+  // ---- Faction special abilities (30-second cooldown) ----
+  BF.ABILITIES = {
+    men:     { name: 'Iron Wall',    key: 'IW', desc: 'Free swordsman in each occupied lane',      cooldown: 30 },
+    elves:   { name: 'Arrow Volley', key: 'AV', desc: 'Each archer fires 3 rapid shots instantly', cooldown: 30 },
+    orcs:    { name: 'Blood Frenzy', key: 'BF', desc: 'All defenders attack 75% faster for 8s',   cooldown: 30 },
+    goblins: { name: 'Scurry Rush',  key: 'SR', desc: 'Free stabber in every lane with enemies',  cooldown: 30 },
+    dwarves: { name: 'Ironclad',     key: 'IC', desc: 'All defenders take 60% less damage for 8s', cooldown: 30 },
   };
 
   // ---- Permanent upgrades bought with Glory (earned by conquering) ----
@@ -132,6 +145,19 @@
   }
   BF.factionById = (id) => BF.FACTIONS.find((f) => f.id === id);
 
+  // Normalise champion/warlord role names to their base role for weakness lookup
+  BF.baseRole = (role) => (role === 'champion' || role === 'warlord') ? 'sword' : role;
+
+  // Rock-paper-scissors damage multipliers
+  // archers shred swords; mages shred defensive melee; melee beats ranged in close
+  BF.dmgMult = function (atkRole, defRole) {
+    if (atkRole === 'archer' && defRole === 'sword')  return 1.75;
+    if (atkRole === 'archer' && defRole === 'spear')  return 1.3;
+    if (atkRole === 'mage'   && (defRole === 'spear' || defRole === 'sword')) return 1.6;
+    if ((atkRole === 'spear' || atkRole === 'sword') && (defRole === 'archer' || defRole === 'mage')) return 1.3;
+    return 1.0;
+  };
+
   /* --------------------------------------------------------------------------
      WORLD MAP  –  Risk-style territory system
      15 territories to conquer + 1 Obsidian Citadel (final boss).
@@ -222,6 +248,60 @@
       });
     });
   };
+
+  // ---- Mid-battle spend actions  (cost scales with wave index w = 0-based) ----
+  // Target balance: each wave yields ≈ wave_number × 40 g from kills at good play.
+  //
+  // w   enemies  avg_bounty  wave_yield  repairCost  mercCost
+  // 0       3        30          90          60         120
+  // 1       5        33         165          80         155
+  // 2       6        37         222         100         190
+  // 3       7        41         287         120         225
+  // 4       9        45         405         140         260
+  // 5      10        50         500         160         295
+  // 6      11        55         605         180         330
+  // 7      12        60         720         200         365
+  // 8      13        65         845         220         400
+  // 9      15        70        1050         240         435
+  BF.WAVE_ECON = {
+    repairCost: (w) => Math.round((60 + 20 * w) / 10) * 10,   // restores 25% of max gate HP
+    mercCost:   (w) => Math.round((120 + 35 * w) / 10) * 10,  // spawns free sword in least-covered lane
+    wallCost:   (w) => Math.round((90 + 30 * w) / 10) * 10,   // +8 max gate HP for this battle
+  };
+
+  // ---- Tier-1 unit touch abilities (tap a deployed unit to activate) ----
+  BF.TOUCH_ABILITIES = {
+    spear:  { name: 'Shield Wall',  desc: 'Takes 60% less damage, holds ground 4s',  cooldown: 18, dur: 4 },
+    sword:  { name: 'Rally Cry',    desc: '+50% attack speed for lane allies 5s',     cooldown: 20, dur: 5 },
+    archer: { name: 'Rapid Volley', desc: 'Fires 3 instant shots at closest enemy',   cooldown: 12, dur: 0 },
+    mage:   { name: 'Chain Blast',  desc: '2× AoE damage pulse hits every enemy in lane', cooldown: 16, dur: 0 },
+  };
+
+  // ---- Tier-1 strength / weakness matrix ----
+  // strong → deals extra damage to those roles (see dmgMult)
+  // weak   → takes extra damage from those roles
+  BF.TIER1_MATRIX = {
+    spear:  { strong: ['archer', 'mage'],  weak: ['sword'],          flavor: 'Cheap vanguard; bristling line punishes ranged rushers.' },
+    sword:  { strong: ['spear', 'mage'],   weak: ['archer'],         flavor: 'Armoured brawler; shrugs off polearms, suffers under arrows.' },
+    archer: { strong: ['sword', 'spear'],  weak: ['spear at melee'], flavor: 'Shreds heavy infantry; panics when closed on.' },
+    mage:   { strong: ['spear', 'sword'],  weak: ['archer', 'spear'],flavor: 'Melts melee blobs; glass-cannon when focused.' },
+  };
+
+  // ---- First-10-wave enemy siege design ----
+  // mix   : probability weights for _pickRole (champion excluded here; added by schedule)
+  // count : base enemy count before countScale
+  BF.WAVE_DESIGN = [
+    { n:1,  name:'Skirmish Line',      mix:{ spear:1.0 },                           count:3,  challenge:'Single type; teaches lane placement.' },
+    { n:2,  name:'Massed Levies',      mix:{ spear:0.7, sword:0.3 },                count:5,  challenge:'First heavies – prioritise swords.' },
+    { n:3,  name:'Armoured Footmen',   mix:{ spear:0.35, sword:0.65 },              count:6,  challenge:'Sword-heavy; archers now earn cost.' },
+    { n:4,  name:'Crossbow Snipers',   mix:{ spear:0.4, sword:0.3, archer:0.3 },   count:7,  challenge:'First ranged; players need counter-archers.' },
+    { n:5,  name:'Raid Party',         mix:{ sword:0.4, archer:0.4, spear:0.2 },   count:9,  challenge:'Balanced push; economy stress-test.' },
+    { n:6,  name:'Siege Division',     mix:{ sword:0.4, archer:0.3, mage:0.3 },    count:10, challenge:'Mages debut; AoE punishes tight clusters.' },
+    { n:7,  name:'Battering Vanguard', mix:{ spear:0.2, sword:0.5, mage:0.3 },     count:11, challenge:'Heavy melee + mage combo; gate HP at risk.' },
+    { n:8,  name:'Arrow Storm',        mix:{ archer:0.55, mage:0.45 },              count:12, challenge:'Ranged-dominant; spear Shield Wall shines.' },
+    { n:9,  name:'Elite Guard',        mix:{ sword:0.35, archer:0.3, mage:0.35 },  count:13, challenge:'Stats near champion tier; merc/repair advised.' },
+    { n:10, name:'Final Assault',      mix:{ sword:0.35, archer:0.3, mage:0.35 },  count:15, challenge:'Champion spawns at wave end; all resources on deck.' },
+  ];
 
   if (typeof module !== 'undefined') module.exports = BF;
 })();

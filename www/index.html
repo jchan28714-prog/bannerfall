@@ -22,16 +22,23 @@
     <section id="screen-battle" class="screen">
       <header id="hud">
         <div class="hud-gold"><span class="coin"></span><b id="hud-gold">0</b></div>
+        <button id="btn-ability" class="ability-btn" aria-label="Use faction ability">
+          <span id="ability-name">—</span>
+          <span id="ability-cd" class="ability-cd-text">READY</span>
+          <span class="ability-bar"><i id="ability-bar-fill"></i></span>
+        </button>
         <div class="hud-wave">
           <div id="hud-wave-text">Wave 1</div>
           <div class="hud-wave-bar"><i id="hud-wave-fill"></i></div>
+          <span id="hud-countdown" class="hud-countdown"></span>
         </div>
         <div class="hud-btns">
+          <button id="btn-sell" class="icon-btn" aria-label="Sell mode" title="Sell unit">$</button>
           <button id="btn-speed" class="icon-btn" aria-label="Game speed">1×</button>
           <button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>
         </div>
       </header>
-      <div id="field"><canvas id="cv"></canvas><div id="hint" class="hint hidden">Pick a unit below, then tap a tile to deploy it.</div></div>
+      <div id="field"><canvas id="cv"></canvas><div id="hint" class="hint hidden">Pick a unit below, then tap a lane to send them into battle.</div></div>
       <footer id="tray"></footer>
     </section>
 

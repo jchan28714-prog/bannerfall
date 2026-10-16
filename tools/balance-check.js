@@ -25,8 +25,8 @@ for (const f of BF.FACTIONS) {
 }
 
 // ---------- 2. bot ----------
-// The bot plays for Men faction against increasing difficulty territories.
-// Enemies now march horizontally (right→left), using `e.row` for lane.
+// The bot plays for Men faction. Units auto-spawn and march from the left.
+// No grid placement – just B.spawn(type, row).
 const MEN_TERRS = BF.buildCampaign('men').filter(t => t.id !== BF.FACTION_HOME['men']);
 
 function runBot(terrObj, upg, seed) {
@@ -38,50 +38,36 @@ function runBot(terrObj, upg, seed) {
     acc += 1 / 30;
     if (acc < 0.4) continue;
     acc = 0;
-    buyHorizontal(b, f);
+    buyUnits(b, f);
   }
   return { win: b.over === 'win', hp: b.baseHp / b.baseMax, stars: b.stars };
 }
 
-// Bot for horizontal waves: place swords as front line (col 3-4, high rows),
-// archers behind them (col 1-2), covering active lanes (rows with enemies).
-function buyHorizontal(b, f) {
+// Bot spawns swords into the hottest lanes, archers into quieter lanes.
+function buyUnits(b, f) {
   const U = f.units;
-  // Track which rows have enemy activity
   const rowThreat = Array(G.rows).fill(0);
-  for (const e of b.enemies) rowThreat[e.row] = (rowThreat[e.row] || 0) + 1 + (1 - e.x / G.cw) * 2;
+  for (const e of b.enemies) rowThreat[e.row] += 1 + (1 - e.x / G.cw) * 2;
 
   const hotRows = [...Array(G.rows).keys()].sort((a, c) => rowThreat[c] - rowThreat[a]);
-
   for (const row of hotRows) {
-    if (rowThreat[row] <= 0) continue;
-    const mine = b.defenders.filter((d) => d.row === row);
-    const hasSword = mine.some((d) => d.type === 'sword');
-    const hasArcher = mine.some((d) => d.type === 'archer');
-
-    // Place sword at col 3 or 4 (far right = meets enemies early)
+    const mine = b.defenders.filter(d => d.row === row);
+    const hasSword  = mine.some(d => d.type === 'sword');
+    const hasArcher = mine.some(d => d.type === 'archer');
     if (!hasSword && U.sword.cost <= b.gold) {
-      for (const col of [3, 4, 2]) {
-        if (b.place('sword', col, row).ok) return;
-      }
+      if (b.spawn('sword', row).ok) return;
     }
-    // Place archer at col 0 or 1 (near gate = long firing lane)
     if (hasSword && !hasArcher && U.archer.cost <= b.gold) {
-      for (const col of [0, 1]) {
-        if (b.place('archer', col, row).ok) return;
-      }
+      if (b.spawn('archer', row).ok) return;
     }
-    // Extra spears to reinforce
-    if (hasSword && U.spear.cost <= b.gold) {
-      for (const col of [2, 3]) {
-        if (b.place('spear', col, row).ok) return;
-      }
+    if (U.spear.cost <= b.gold) {
+      if (b.spawn('spear', row).ok) return;
     }
   }
 }
 
 const SEEDS = parseInt(process.argv[2] || '6', 10);
-const SAMPLE = MEN_TERRS.slice(0, 8); // first 8 territories for Men
+const SAMPLE = MEN_TERRS.slice(0, 8);
 
 console.log('\nBOT BATTLES – Men vs first ' + SAMPLE.length + ' territories (' + SEEDS + ' seeds)\n');
 console.log('territory'.padEnd(26) + 'win%  hp%');
