@@ -254,9 +254,10 @@
         ogRow = rowScore.indexOf(Math.max(...rowScore));
       }
 
+      this._spawnFreeUnit('og', ogRow);
+
       if (fid === 'men') {
-        // Summon Paladin + holy bolt strikes front enemy in every lane
-        this._spawnFreeUnit('og', ogRow);
+        // Holy Smite: targeted damage — bolt strikes front enemy in every lane
         for (let r = 0; r < G.rows; r++) {
           let front = null, minX = 1e9;
           for (const e of this.enemies) { if (!e.dead && e.row === r && e.x < minX) { minX = e.x; front = e; } }
@@ -267,34 +268,24 @@
           }
         }
       } else if (fid === 'elves') {
-        // Summon Spirit Warden + hurricane blasts all enemies back
-        this._spawnFreeUnit('og', ogRow);
+        // Hurricane: stun — all enemies slowed 4s
         for (const e of this.enemies) {
           if (!e.dead) {
-            e.x = Math.min(G.cw - 10, e.x + 88);
-            this._shot(e.x - 88, e.y, e.x, e.y, 'arrow', '#90e070', 0.14);
+            e.slowDur = 4;
             this._ring(e.x, e.y, 30, '#60c040');
           }
         }
         this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.42, '#60c040');
       } else if (fid === 'orcs') {
-        // Summon Demonic Giant + volcanic burst scorches all enemies
-        this._spawnFreeUnit('og', ogRow);
-        this.abilityBuff = 8;
-        for (const d of this.defenders) { if (!d.dead) d.frenzied = true; }
+        // Eruption: targeted damage — scorches all enemies
         for (const e of this.enemies) {
           if (!e.dead) {
             this._hurtEnemy(e, 28 + this.waveNow() * 2.5);
             this._ring(e.x, e.y, 40, '#e05020');
-            this._ring(e.x, e.y, 22, '#f09040');
           }
         }
       } else if (fid === 'goblins') {
-        // Summon Scrap Mech + acid rain + bonus stabbers in enemy lanes
-        this._spawnFreeUnit('og', ogRow);
-        const rows = new Set(this.enemies.filter((e) => !e.dead).map((e) => e.row));
-        if (rows.size === 0) { for (let r = 0; r < 3; r++) rows.add(r); }
-        for (const row of rows) this._spawnFreeUnit('spear', row);
+        // Acid Rain: targeted damage — melts all enemies
         for (const e of this.enemies) {
           if (!e.dead) {
             this._hurtEnemy(e, 22 + this.waveNow() * 2);
@@ -302,32 +293,23 @@
           }
         }
       } else if (fid === 'dwarves') {
-        // Summon Runesmith Golem + earthquake slows all enemies 4s
-        this._spawnFreeUnit('og', ogRow);
-        this.abilityBuff = 8;
-        for (const d of this.defenders) { if (!d.dead) d.ironclad = true; }
+        // Earthquake: stun — all enemies slowed 4s
         for (const e of this.enemies) {
           if (!e.dead) {
             e.slowDur = 4;
             this._ring(e.x, e.y, 36, '#c89020');
           }
         }
-        for (let r = 0; r < G.rows; r++) {
-          this._ring(G.cw * 0.45, G.sky + r * G.cell + G.cell / 2, G.cw * 0.38, '#d0a030');
-        }
+        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.38, '#d0a030');
       } else if (fid === 'citadel') {
-        // Summon Archon + purging light damages and slows all enemies
-        this._spawnFreeUnit('og', ogRow);
-        this.abilityBuff = 6;
+        // Divine Judgment: targeted damage — purging light on all enemies
         for (const e of this.enemies) {
           if (!e.dead) {
             this._hurtEnemy(e, 25 + this.waveNow() * 2.5);
-            e.slowDur = 3;
             this._ring(e.x, e.y, 34, '#c8b0f0');
             this._shot(e.x, e.y - 80, e.x, e.y, 'bolt', '#c8b0f0', 0.25);
           }
         }
-        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.4, '#8a6ad0');
       }
 
       this.events.push('ability');
@@ -533,16 +515,17 @@
         this.rings  = this.rings.filter((o) => o.t < o.dur);
       }
 
-      // AI reinforcements at health thresholds
+      // AI reinforcements at health thresholds — spawn elite units
       const eRatio = this.enemyBaseHp / this.enemyBaseMax;
       for (let ti = 0; ti < this._aiThresholds.length; ti++) {
         if (!this._aiFired[ti] && eRatio <= this._aiThresholds[ti]) {
           this._aiFired[ti] = true;
           const wave = Math.max(0, this.waveNow() - 1);
           const count = 2 + ti;
+          const eliteRoles = ['sword', 'champion', 'warlord'];
           for (let k = 0; k < count; k++) {
             const row = Math.floor(this.rand() * G.rows);
-            const role = this._pickRole(wave);
+            const role = eliteRoles[Math.min(ti, eliteRoles.length - 1)];
             this.schedule.push({ t: this.time + 0.3 + k * 0.6, row, role, wave });
           }
           this.schedule.sort((a, b) => a.t - b.t);

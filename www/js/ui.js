@@ -91,40 +91,6 @@
         case 'ui':      this.tone(520, 0.06, 'sine', 0.04); break;
       }
     },
-    // Battle music — faction-specific procedural loops
-    _musicTimer: 0,
-    _musicIntensity: 0, // 0=calm, 1=tense(<50%), 2=critical(<20%)
-    _musicThemes: {
-      men:     { scale: [262,294,330,392,440,523], wave: 'triangle', bass: 131 },
-      elves:   { scale: [330,370,440,494,554,659], wave: 'sine',     bass: 165 },
-      orcs:    { scale: [196,220,247,262,330,392], wave: 'sawtooth', bass: 98 },
-      goblins: { scale: [294,330,370,392,440,494], wave: 'square',   bass: 147 },
-      dwarves: { scale: [220,262,294,330,392,440], wave: 'triangle', bass: 110 },
-      citadel: { scale: [330,392,440,494,554,659], wave: 'sine',     bass: 165 },
-    },
-    musicTick(factionId, hpRatio, dt) {
-      if (!save.sound || !this.ctx) return;
-      var intensity = hpRatio > 0.5 ? 0 : hpRatio > 0.2 ? 1 : 2;
-      this._musicIntensity = intensity;
-      var interval = intensity === 2 ? 0.45 : intensity === 1 ? 0.7 : 1.1;
-      this._musicTimer -= dt;
-      if (this._musicTimer > 0) return;
-      this._musicTimer = interval;
-      var theme = this._musicThemes[factionId] || this._musicThemes.men;
-      var s = theme.scale;
-      var vol = intensity === 2 ? 0.035 : intensity === 1 ? 0.025 : 0.015;
-      var note = s[Math.floor(Math.random() * s.length)];
-      this.tone(note, 0.3, theme.wave, vol);
-      if (intensity >= 1) {
-        this.tone(theme.bass, 0.5, 'triangle', vol * 0.6, 0, 0.15);
-      }
-      if (intensity >= 2) {
-        var note2 = s[Math.floor(Math.random() * s.length)];
-        this.tone(note2, 0.2, theme.wave, vol * 0.7, 0, 0.25);
-        this.tone(theme.bass * 2, 0.15, 'square', vol * 0.3, 0, 0.35);
-      }
-    },
-    musicStop() { this._musicTimer = 0; this._musicIntensity = 0; },
   };
   document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });
 
@@ -1063,11 +1029,10 @@
       if (uiS.siegeFlash > 0) uiS.siegeFlash -= dt;
       if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
-      Sound.musicTick(B.faction.id, B.baseHp / B.baseMax, dt * speed);
     }
     BF.renderBattle(ctx, B, uiS, drawScale);
     updateHud();
-    if (B.over && !resultShown) { resultShown = true; Sound.musicStop(); setTimeout(showResult, 700); }
+    if (B.over && !resultShown) { resultShown = true; setTimeout(showResult, 700); }
   }
 
   $('#btn-sell').addEventListener('click', (e) => {
