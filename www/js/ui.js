@@ -524,12 +524,13 @@
       wrap.addEventListener('pointerdown', (e) => {
         pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
         const pts = Object.values(pointers);
-        if (pts.length === 1) { dragging = true; lastMid = { x: e.clientX, y: e.clientY }; }
+        if (pts.length === 1) { dragging = false; lastMid = { x: e.clientX, y: e.clientY }; }
         if (pts.length === 2) {
+          dragging = true;
           lastDist = M.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
           lastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+          wrap.setPointerCapture(e.pointerId);
         }
-        wrap.setPointerCapture(e.pointerId);
       }, { passive: true });
 
       wrap.addEventListener('pointermove', (e) => {
@@ -549,7 +550,6 @@
             vb.y += focusBefore.y - focusAfter.y;
             clampVB(); applyVB();
           }
-          // Pan with two fingers
           if (lastMid) {
             const dx = (mid.x - lastMid.x) / svg.getBoundingClientRect().width * vb.w;
             const dy = (mid.y - lastMid.y) / svg.getBoundingClientRect().height * vb.h;
@@ -557,12 +557,19 @@
             clampVB(); applyVB();
           }
           lastDist = dist; lastMid = mid;
-        } else if (pts.length === 1 && dragging && zoom > 1) {
-          const dx = (e.clientX - lastMid.x) / svg.getBoundingClientRect().width * vb.w;
-          const dy = (e.clientY - lastMid.y) / svg.getBoundingClientRect().height * vb.h;
-          vb.x -= dx; vb.y -= dy;
-          clampVB(); applyVB();
-          lastMid = { x: e.clientX, y: e.clientY };
+        } else if (pts.length === 1 && zoom > 1) {
+          const dx = e.clientX - lastMid.x, dy = e.clientY - lastMid.y;
+          if (!dragging && M.hypot(dx, dy) > 5) {
+            dragging = true;
+            try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          if (dragging) {
+            const svgDx = dx / svg.getBoundingClientRect().width * vb.w;
+            const svgDy = dy / svg.getBoundingClientRect().height * vb.h;
+            vb.x -= svgDx; vb.y -= svgDy;
+            clampVB(); applyVB();
+            lastMid = { x: e.clientX, y: e.clientY };
+          }
         }
       });
 
