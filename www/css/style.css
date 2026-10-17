@@ -71,74 +71,69 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .home-ver { position: absolute; bottom: 10px; font-size: 9px; color: rgba(255,255,255,.18); }
 
 /* ---------- legion select ---------- */
-.title { text-align: center; padding: clamp(8px, 2vw, 14px) 20px 4px; position: relative; }
-.title h1 { font-size: clamp(18px, 5vw, 30px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
-.title p { margin: 2px 0 0; color: var(--dim); font-size: var(--t-xs); }
+.leg-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: clamp(6px, 1.5vw, 12px) clamp(10px, 2.5vw, 16px);
+  text-align: center; flex: none;
+}
+.leg-header h1 { font-size: clamp(16px, 4.5vw, 28px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
+.leg-header p { margin: 1px 0 0; color: var(--dim); font-size: var(--t-xs); }
 
-/* Split-screen body: carousel + detail stacked on mobile, side-by-side on wide */
-.legion-body { display: flex; flex-direction: column; flex: 1; min-height: 0; align-items: center; }
-
-/* Horizontal cover-flow carousel */
-.carousel-wrap { flex: none; padding: 10px 0; width: 100%; }
-.carousel {
-  display: flex; gap: 8px; padding: 6px 12px;
-  overflow-x: auto; scroll-snap-type: x mandatory;
+/* Horizontal snap-scroll of full-height cards */
+.leg-scroll {
+  flex: 1; min-height: 0; display: flex; gap: 16px;
+  padding: 0 calc(50% - 160px) 12px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.carousel::-webkit-scrollbar { display: none; }
-.ccard {
-  flex: none; width: 90px; height: 120px;
-  padding: 8px 6px 6px; border-radius: 12px;
-  background: var(--panel); border: 1.5px solid var(--line);
-  overflow: hidden; display: flex; flex-direction: column; align-items: center;
-  text-align: center; gap: 2px; scroll-snap-align: center;
-  transition: border-color .2s, box-shadow .2s, transform .25s, filter .25s, opacity .25s;
-  position: relative;
-}
-.ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 11px 11px 0 0; }
-.ccard:not(.sel) { filter: blur(0.5px) saturate(0.6); opacity: 0.5; transform: scale(0.92); }
-.ccard.sel { border-color: var(--c); background: var(--panel2); box-shadow: 0 0 0 1px var(--c), 0 0 12px color-mix(in srgb, var(--c) 40%, transparent); transform: scale(1.08); z-index: 2; }
-.ccard-icon {
-  width: 32px; height: 32px;
-  border-radius: 50%; opacity: 0.85; pointer-events: none;
-  transition: opacity .25s;
-}
-.ccard.sel .ccard-icon { opacity: 1; }
-.ccard h3 { font-size: 10px; color: var(--text); line-height: 1.15; margin-top: 1px; }
-.ccard .tag { color: var(--dim); font-size: 7px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.progress { font-size: 7px; color: var(--dim); margin-top: 1px; }
+.leg-scroll::-webkit-scrollbar { display: none; }
 
-/* Faction detail / telemetry panel */
-.legion-detail {
-  flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 8px;
-  -webkit-overflow-scrolling: touch; width: 100%; max-width: 540px;
+.lcard {
+  flex: none; width: 320px; max-width: 85vw;
+  border-radius: 16px; background: var(--panel); border: 2px solid var(--line);
+  overflow-y: auto; overflow-x: hidden;
+  scroll-snap-align: center; position: relative;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 14px 16px;
+  transition: border-color .25s, box-shadow .25s, transform .25s, opacity .25s;
 }
-.ld-lore { font-size: var(--t-xs); color: var(--text); margin: 0 0 4px; line-height: 1.4; font-style: italic; }
-.ld-crisis { font-size: var(--t-xs); color: var(--danger); margin: 0 0 8px; line-height: 1.4; opacity: 0.85; }
-.ld-crisis::before { content: "\26A0  "; }
-.ld-perks { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
-.ld-perk { font-size: var(--t-xs); color: var(--dim); padding: 4px 8px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
-.ld-perk::before { content: "✦ "; color: var(--gold); }
-.ld-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.ld-unit { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.ld-unit canvas { width: clamp(28px, 7vw, 38px); height: clamp(28px, 7vw, 38px); }
-.ld-name { font-size: var(--t-xs); color: var(--text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.ld-role { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
-.ld-strong { font-size: 7px; color: var(--ok); text-transform: capitalize; }
-.ld-weak { font-size: 7px; color: var(--danger); text-transform: capitalize; }
+.lcard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); border-radius: 14px 14px 0 0; }
+.lcard:not(.sel) { opacity: .45; transform: scale(.93); filter: saturate(.5); }
+.lcard.sel { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 4px 24px rgba(0,0,0,.5); transform: scale(1); }
 
-.foot { padding: 6px 12px 12px; }
-.foot .btn { width: 100%; max-width: 400px; margin: 0 auto; display: flex; }
+/* Card header: icon + name + tagline */
+.lcard-head { display: flex; align-items: center; gap: 10px; }
+.lcard-icon { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+.lcard-title { flex: 1; min-width: 0; }
+.lcard-title h3 { font-size: var(--t-lg); color: var(--text); line-height: 1.2; }
+.lcard-tag { font-size: var(--t-xs); color: var(--dim); line-height: 1.3; }
+.lcard-prog { font-size: var(--t-xs); color: var(--gold); font-weight: 700; flex: none; padding: 3px 8px; border-radius: 8px; background: rgba(232,197,102,.12); }
 
-/* Wide viewport: side-by-side carousel on top, detail below — all centred */
-@media (min-width: 768px) {
-  .legion-body { flex-direction: column; align-items: center; }
-  .carousel-wrap { flex: none; width: 100%; max-width: 640px; padding: 4px 0; }
-  .carousel { justify-content: center; flex-wrap: wrap; overflow-x: visible; scroll-snap-type: none; padding: 8px 16px; gap: 10px; }
-  .carousel .ccard { width: 100px; height: 125px; }
-  .legion-detail { flex: 1; padding: 8px 24px; max-width: 540px; }
-  .ld-roster { grid-template-columns: repeat(4, 1fr); gap: 10px; }
-}
+/* Perks */
+.lcard-perks { display: flex; flex-wrap: wrap; gap: 4px; }
+.lcard-perk { font-size: var(--t-xs); color: var(--dim); padding: 4px 8px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
+.lcard-perk::before { content: "✦ "; color: var(--gold); }
+
+/* Unit roster — horizontal row */
+.lcard-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lcard-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.lcard-unit canvas { width: clamp(28px, 7vw, 36px); height: clamp(28px, 7vw, 36px); }
+.lcard-unit-info { text-align: center; }
+.lcard-unit-info b { font-size: var(--t-xs); color: var(--text); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 72px; }
+.lcard-role { font-size: 7px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); display: block; }
+.lcard-matchup { font-size: 7px; display: block; line-height: 1.3; }
+.lcard-matchup .ok { color: var(--ok); text-transform: capitalize; }
+.lcard-matchup .bad { color: var(--danger); text-transform: capitalize; }
+
+/* Deep-dive lore (visible on vertical scroll within card) */
+.lcard-deep { padding-top: 4px; border-top: 1px solid var(--line); }
+.lcard-lore { font-size: var(--t-xs); color: var(--text); margin: 0 0 4px; line-height: 1.4; font-style: italic; }
+.lcard-crisis { font-size: var(--t-xs); color: var(--danger); margin: 0; line-height: 1.4; opacity: 0.85; }
+.lcard-crisis::before { content: "\26A0  "; }
+
+/* CTA button inside each card */
+.lcard-go { width: 100%; margin-top: auto; flex: none; }
 
 /* ---------- map ---------- */
 .topbar { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(8px, 2vw, 12px) clamp(10px, 3vw, 14px); }
@@ -201,7 +196,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
 
 /* ---------- battle ---------- */
-#screen-battle { position: relative; }
+#screen-battle { /* position: absolute inherited from .screen — creates containing block for child absolutes */ }
 #hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) clamp(8px, 2vw, 13px); position: absolute; top: 0; left: 0; right: 0; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .hud-gold { display: flex; align-items: center; gap: clamp(3px, 1vw, 6px); min-width: clamp(60px, 14vw, 90px); font-size: clamp(14px, 3.5vw, 20px); font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
 .hud-gold.deny { animation: shake .3s; color: var(--danger); }
@@ -323,38 +318,30 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- compact portrait (very small screens) ---------- */
 @media (max-height: 600px) and (orientation: portrait) {
-  .title { padding-top: 6px; padding-bottom: 2px; }
-  .carousel { padding: 4px 10px; }
-  .ccard { width: 75px; height: 105px; padding: 5px 3px 4px; }
-  .ccard-icon { width: 26px; height: 26px; }
-  .ccard h3 { font-size: 9px; }
-  .ccard .tag { font-size: 7px; }
+  .lcard { width: 280px; padding: 10px 10px 12px; gap: 6px; }
+  .lcard-icon { width: 36px; height: 36px; }
+  .lcard-title h3 { font-size: 13px; }
+  .lcard-unit canvas { width: 24px; height: 24px; }
 }
 
 /* ---------- legion select in landscape ---------- */
 @media (max-height: 440px) and (orientation: landscape) {
-  .title { padding: 4px 16px 2px; }
-  .title h1 { font-size: 16px; letter-spacing: .2em; }
-  .title p { font-size: 9px; margin: 1px 0 0; }
-  .carousel-wrap { padding: 4px 0; }
-  .carousel { gap: 6px; padding: 4px 10px; }
-  .ccard { width: 68px; height: 88px; padding: 4px 3px 3px; border-radius: 10px; gap: 1px; }
-  .ccard-icon { width: 24px; height: 24px; }
-  .ccard h3 { font-size: 8px; }
-  .ccard .tag { font-size: 6px; }
-  .progress { font-size: 6px; }
-  .legion-detail { padding: 4px 12px 6px; }
-  .ld-lore { font-size: 9px; margin-bottom: 3px; }
-  .ld-crisis { font-size: 9px; margin-bottom: 4px; }
-  .ld-perks { gap: 2px; margin-bottom: 4px; }
-  .ld-perk { font-size: 9px; padding: 3px 6px; }
-  .ld-roster { gap: 4px; }
-  .ld-unit canvas { width: 24px; height: 24px; }
-  .ld-name { font-size: 8px; }
-  .ld-role { font-size: 7px; }
-  .ld-strong, .ld-weak { font-size: 6px; }
-  .foot { padding: 3px 10px 6px; }
-  .foot .btn { padding: 8px 16px; font-size: 12px; }
+  .leg-header { padding: 3px 10px; }
+  .leg-header h1 { font-size: 15px; letter-spacing: .2em; }
+  .leg-header p { font-size: 8px; }
+  .leg-scroll { gap: 10px; padding-bottom: 6px; }
+  .lcard { width: 260px; padding: 8px 10px 10px; gap: 6px; border-radius: 12px; }
+  .lcard-icon { width: 30px; height: 30px; }
+  .lcard-title h3 { font-size: 12px; }
+  .lcard-tag { font-size: 8px; }
+  .lcard-perk { font-size: 8px; padding: 2px 6px; }
+  .lcard-unit canvas { width: 22px; height: 22px; }
+  .lcard-unit-info b { font-size: 8px; }
+  .lcard-role { font-size: 6px; }
+  .lcard-matchup { font-size: 6px; }
+  .lcard-lore { font-size: 8px; }
+  .lcard-crisis { font-size: 8px; }
+  .lcard-go { padding: 6px 12px; font-size: 11px; }
   /* Map in landscape */
   .topbar { padding: 4px 10px; }
   .topbar h2 { font-size: 14px; }
@@ -389,7 +376,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .recruit-circ #recruit-icon { font-size: clamp(8px, 2vh, 10px); }
   .recruit-label { font-size: 5px; }
   .recruit-cd2 { font-size: 6px; }
-  .title h1 { font-size: clamp(18px, 4.5vh, 28px); }
+  .leg-header h1 { font-size: clamp(14px, 3.5vh, 22px); }
   /* Modals in landscape */
   .card { padding: clamp(10px, 2.5vh, 18px) clamp(10px, 2.5vw, 16px); max-height: 90%; }
   .card h2 { font-size: clamp(14px, 3.5vh, 20px); }

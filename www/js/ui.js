@@ -189,79 +189,84 @@
 
   function renderLegions() {
     const root = $('#screen-legion');
+    const mx = BF.TIER1_MATRIX;
     root.innerHTML =
-      '<div class="title"><button class="icon-btn" id="leg-back" style="position:absolute;left:12px;top:12px">←</button><h1>BANNERFALL</h1><p>Choose your legion</p></div>' +
-      '<div class="legion-body">' +
-      '<div class="carousel-wrap"><div class="carousel" id="carousel">' +
+      '<div class="leg-header"><button class="icon-btn" id="leg-back">←</button><div><h1>BANNERFALL</h1><p>Choose your legion</p></div><div style="min-width:36px"></div></div>' +
+      '<div class="leg-scroll" id="leg-scroll">' +
       BF.FACTIONS.map((f) => {
         const c = save.camps[f.id];
         const done = c ? conqueredCount(c) : 0;
         return (
-          '<div class="ccard' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
-          '<img class="ccard-icon" src="img/icon-' + f.id + '.svg" alt="" aria-hidden="true">' +
-          '<h3>' + f.name + '</h3>' +
-          '<div class="tag">' + f.tagline + '</div>' +
-          (done ? '<span class="progress">' + done + '/' + totalTerritories + '</span>' : '') +
+          '<div class="lcard' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
+          '<div class="lcard-head">' +
+            '<img class="lcard-icon" src="img/icon-' + f.id + '.svg" alt="">' +
+            '<div class="lcard-title">' +
+              '<h3>' + f.name + '</h3>' +
+              '<span class="lcard-tag">' + f.tagline + '</span>' +
+            '</div>' +
+            (done ? '<span class="lcard-prog">' + done + '/' + totalTerritories + '</span>' : '') +
+          '</div>' +
+          '<div class="lcard-perks">' +
+            f.perks.map((p) => '<span class="lcard-perk">' + p + '</span>').join('') +
+          '</div>' +
+          '<div class="lcard-roster">' +
+            BF.ROLES.map((r) => {
+              var u = f.units[r], m = mx[r];
+              return '<div class="lcard-unit">' +
+                '<canvas width="76" height="76"></canvas>' +
+                '<div class="lcard-unit-info">' +
+                  '<b>' + u.name + '</b>' +
+                  '<span class="lcard-role">' + r + '</span>' +
+                  '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span> <span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="lcard-deep">' +
+            (f.lore ? '<p class="lcard-lore">' + f.lore.goal + '</p><p class="lcard-crisis">' + f.lore.crisis + '</p>' : '') +
+          '</div>' +
+          '<button class="btn lcard-go" data-id="' + f.id + '">Lead the ' + f.short + '</button>' +
           '</div>'
         );
       }).join('') +
-      '</div></div>' +
-      '<div class="legion-detail" id="legion-detail"></div>' +
-      '</div>' +
-      '<div class="foot"><button class="btn" id="go-map"></button></div>';
+      '</div>';
 
-    function updateDetail() {
-      const f = BF.factionById(pick);
-      const mx = BF.TIER1_MATRIX;
-      $('#legion-detail').innerHTML =
-        (f.lore ? '<p class="ld-lore">' + f.lore.goal + '</p><p class="ld-crisis">' + f.lore.crisis + '</p>' : '') +
-        '<div class="ld-perks">' +
-        f.perks.map((p) => '<div class="ld-perk">' + p + '</div>').join('') +
-        '</div>' +
-        '<div class="ld-roster">' +
-        BF.ROLES.map((r) => {
-          const u = f.units[r];
-          const m = mx[r];
-          return '<div class="ld-unit"><canvas width="76" height="76"></canvas>' +
-            '<span class="ld-name">' + u.name + '</span>' +
-            '<span class="ld-role dim">' + r + '</span>' +
-            '<span class="ld-strong">Strong: ' + m.strong.join(', ') + '</span>' +
-            '<span class="ld-weak">Weak: ' + m.weak.join(', ') + '</span>' +
-            '</div>';
-        }).join('') +
-        '</div>';
-      $('#legion-detail').querySelectorAll('.ld-unit canvas').forEach((cv, i) => {
+    // Draw unit tokens
+    root.querySelectorAll('.lcard').forEach((card) => {
+      const fid = card.dataset.id;
+      const f = BF.factionById(fid);
+      card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
         const c2 = cv.getContext('2d');
         c2.scale(2, 2);
         BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
       });
-    }
+    });
 
-    const label = () => { $('#go-map').textContent = 'Lead the ' + BF.factionById(pick).short; };
-    label(); updateDetail();
-
-    const carousel = $('#carousel');
+    // Scroll snap picks the selected card
+    const scroll = $('#leg-scroll');
     const selIdx = BF.FACTIONS.findIndex((f) => f.id === pick);
     requestAnimationFrame(() => {
-      const cards = carousel.querySelectorAll('.ccard');
+      const cards = scroll.querySelectorAll('.lcard');
       if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
     });
 
-    carousel.querySelectorAll('.ccard').forEach((b) => {
-      addRipple(b);
-      b.addEventListener('click', () => {
+    // Tap card to select
+    scroll.querySelectorAll('.lcard').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        if (e.target.closest('.lcard-go')) return;
         pick = b.dataset.id;
-        carousel.querySelectorAll('.ccard').forEach((x) => x.classList.toggle('sel', x === b));
-        label(); updateDetail(); Sound.play('ui');
+        scroll.querySelectorAll('.lcard').forEach((x) => x.classList.toggle('sel', x.dataset.id === pick));
+        Sound.play('ui');
       });
     });
 
+    // Scroll-snap auto-select
     let scrollTimer;
-    carousel.addEventListener('scroll', () => {
+    scroll.addEventListener('scroll', () => {
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
-        const cards = carousel.querySelectorAll('.ccard');
-        const cx = carousel.scrollLeft + carousel.clientWidth / 2;
+        const cards = scroll.querySelectorAll('.lcard');
+        const cx = scroll.scrollLeft + scroll.clientWidth / 2;
         let closest = null, bestD = 1e9;
         cards.forEach((c) => {
           const mid = c.offsetLeft + c.offsetWidth / 2;
@@ -270,14 +275,21 @@
         });
         if (closest && closest.dataset.id !== pick) {
           pick = closest.dataset.id;
-          cards.forEach((x) => x.classList.toggle('sel', x === closest));
-          label(); updateDetail(); Sound.play('ui');
+          cards.forEach((x) => x.classList.toggle('sel', x.dataset.id === pick));
+          Sound.play('ui');
         }
       }, 80);
     }, { passive: true });
 
-    addRipple($('#go-map'));
-    $('#go-map').addEventListener('click', () => { save.last = pick; persist(); Sound.play('ui'); renderMap(); show('map'); });
+    // "Lead the X" buttons
+    scroll.querySelectorAll('.lcard-go').forEach((btn) => {
+      addRipple(btn);
+      btn.addEventListener('click', () => {
+        pick = btn.dataset.id; save.last = pick; persist();
+        Sound.play('ui'); renderMap(); show('map');
+      });
+    });
+
     addRipple($('#leg-back'));
     $('#leg-back').addEventListener('click', () => { Sound.play('ui'); show('home'); });
   }
