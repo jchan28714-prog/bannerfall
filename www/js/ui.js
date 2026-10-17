@@ -821,45 +821,8 @@
     const tray = $('#tray');
     tray.innerHTML = '';
 
-    // Top row: unit selection cards
-    const unitsDiv = document.createElement('div');
-    unitsDiv.className = 'tray-units';
-    BF.ROLES.forEach((r) => {
-      const u = f.units[r];
-      const cost = B.unitCost(r);
-      const b = document.createElement('button');
-      b.className = 'ucard'; b.dataset.role = r;
-      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + u.name + '</div><div class="cs">' + coin + cost + '</div>';
-      const c2 = $('canvas', b).getContext('2d');
-      c2.scale(2, 2);
-      BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
-      b.addEventListener('click', () => {
-        uiS.selected = uiS.selected === r ? null : r;
-        Sound.play('ui'); syncTray();
-      });
-      unitsDiv.appendChild(b);
-    });
-
-    const og = f.units.og;
-    if (og) {
-      const b = document.createElement('button');
-      b.className = 'ucard og-card'; b.dataset.role = 'og';
-      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + og.name + '</div><div class="cs">' + coin + og.cost + '</div>';
-      const c2 = $('canvas', b).getContext('2d');
-      c2.scale(2, 2);
-      BF.drawToken(c2, 19, 19, 16, f, 'og', false, 0);
-      b.addEventListener('click', () => {
-        uiS.selected = uiS.selected === 'og' ? null : 'og';
-        Sound.play('ui'); syncTray();
-      });
-      unitsDiv.appendChild(b);
-    }
-    tray.appendChild(unitsDiv);
-
-    // Bottom row: 4 evenly spaced action buttons
-    const footerDiv = document.createElement('div');
-    footerDiv.className = 'tray-footer';
-    var circR = 18, circC = 113.1;
+    // Single row: unit cards + action circle buttons
+    var circR = 18;
     function circBtn(id, label, iconSvg, barId, extra) {
       return '<button id="' + id + '" class="footer-btn" ' + (extra || '') + ' aria-label="' + label + '">' +
         '<svg class="footer-ring" viewBox="0 0 40 40">' +
@@ -874,12 +837,52 @@
     var daggerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L15 9l-3 3-3-3z"/><path d="M12 14v8"/><path d="M9 18h6"/></svg>';
     var hammerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l4-4"/><path d="M15 5l-3 3 4 4 3-3z"/><path d="M2 22l5-5"/></svg>';
     var boltIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>';
-    footerDiv.innerHTML =
+
+    BF.ROLES.forEach((r) => {
+      const u = f.units[r];
+      const cost = B.unitCost(r);
+      const b = document.createElement('button');
+      b.className = 'ucard'; b.dataset.role = r;
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + u.name + '</div><div class="cs">' + coin + cost + '</div>';
+      const c2 = $('canvas', b).getContext('2d');
+      c2.scale(2, 2);
+      BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
+      b.addEventListener('click', () => {
+        uiS.selected = uiS.selected === r ? null : r;
+        Sound.play('ui'); syncTray();
+      });
+      tray.appendChild(b);
+    });
+
+    const og = f.units.og;
+    if (og) {
+      const b = document.createElement('button');
+      b.className = 'ucard og-card'; b.dataset.role = 'og';
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + og.name + '</div><div class="cs">' + coin + og.cost + '</div>';
+      const c2 = $('canvas', b).getContext('2d');
+      c2.scale(2, 2);
+      BF.drawToken(c2, 19, 19, 16, f, 'og', false, 0);
+      b.addEventListener('click', () => {
+        uiS.selected = uiS.selected === 'og' ? null : 'og';
+        Sound.play('ui'); syncTray();
+      });
+      tray.appendChild(b);
+    }
+
+    // Separator
+    const sep = document.createElement('div');
+    sep.className = 'tray-sep';
+    tray.appendChild(sep);
+
+    // Action circle buttons inline
+    const actHtml =
       circBtn('btn-recruit', 'Reinforce', swordIcon, 'recruit-bar', '') +
       circBtn('btn-merc', 'Merc', daggerIcon, 'merc-bar', '') +
       circBtn('btn-repair', 'Repair', hammerIcon, 'repair-bar', '') +
       circBtn('btn-ability', (ab ? ab.key : 'EQ'), boltIcon, 'ability-bar-fill', 'style="--c:' + f.color + '"');
-    tray.appendChild(footerDiv);
+    const actFrag = document.createElement('div');
+    actFrag.innerHTML = actHtml;
+    while (actFrag.firstChild) tray.appendChild(actFrag.firstChild);
 
     $('#btn-recruit').addEventListener('click', () => {
       if (!B || B.over) return;
