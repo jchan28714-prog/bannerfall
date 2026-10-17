@@ -92,11 +92,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   background: var(--panel); border: 1.5px solid var(--line);
   overflow: hidden; display: flex; flex-direction: column; align-items: center;
   text-align: center; gap: 2px; scroll-snap-align: center;
-  transition: border-color .2s, transform .15s, opacity .15s;
+  transition: border-color .2s, box-shadow .2s;
   position: relative;
 }
 .ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 9px 9px 0 0; }
-.ccard.sel { border-color: var(--c); background: var(--panel2); transform: scale(1.06); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); }
+.ccard.sel { border-color: var(--c); background: var(--panel2); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); }
 .ccard-icon {
   width: 32px; height: 32px;
   border-radius: 50%; opacity: 0.85; pointer-events: none;
@@ -132,7 +132,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .carousel-wrap { flex: none; width: 100%; max-width: 640px; padding: 4px 0; }
   .carousel { justify-content: center; flex-wrap: wrap; overflow-x: visible; scroll-snap-type: none; padding: 8px 16px; gap: 10px; }
   .carousel .ccard { width: 90px; height: 115px; }
-  .carousel .ccard:not(.sel) { transform: none !important; opacity: 1 !important; }
   .legion-detail { flex: 1; padding: 8px 24px; max-width: 540px; }
   .ld-roster { grid-template-columns: repeat(4, 1fr); gap: 10px; }
 }

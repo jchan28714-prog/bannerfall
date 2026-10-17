@@ -186,19 +186,6 @@
   /* ======================= 1. LEGION SELECT ======================= */
   let pick = save.last || 'men';
 
-  function updateCoverFlow(carousel) {
-    if (window.innerWidth >= 768) return;
-    const cards = carousel.querySelectorAll('.ccard');
-    const cx = carousel.scrollLeft + carousel.clientWidth / 2;
-    cards.forEach((card) => {
-      const mid = card.offsetLeft + card.offsetWidth / 2;
-      const ad = M.abs((mid - cx) / (card.offsetWidth || 1));
-      const sc = M.max(0.88, 1.06 - 0.12 * ad);
-      const op = M.max(0.5, 1 - 0.28 * ad);
-      card.style.transform = 'scale(' + sc.toFixed(3) + ')';
-      card.style.opacity = op.toFixed(2);
-    });
-  }
 
   function renderLegions() {
     const root = $('#screen-legion');
@@ -257,7 +244,6 @@
     requestAnimationFrame(() => {
       const cards = carousel.querySelectorAll('.ccard');
       if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
-      updateCoverFlow(carousel);
     });
 
     carousel.querySelectorAll('.ccard').forEach((b) => {
@@ -266,13 +252,11 @@
         pick = b.dataset.id;
         carousel.querySelectorAll('.ccard').forEach((x) => x.classList.toggle('sel', x === b));
         label(); updateDetail(); Sound.play('ui');
-        updateCoverFlow(carousel);
       });
     });
 
     let scrollTimer;
     carousel.addEventListener('scroll', () => {
-      updateCoverFlow(carousel);
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
         const cards = carousel.querySelectorAll('.ccard');
