@@ -229,18 +229,21 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 /* ---------- ability button ---------- */
 .ability-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 4px clamp(8px, 2.5vw, 14px); border-radius: 12px; gap: 1px;
-  background: linear-gradient(160deg, #1d243a, #141820); border: 1px solid var(--line);
-  min-width: clamp(64px, 16vw, 96px); transition: border-color .2s, box-shadow .2s;
+  padding: 5px clamp(10px, 3vw, 16px); border-radius: 12px; gap: 2px;
+  background: linear-gradient(160deg, #1d243a, #141820); border: 1.5px solid var(--line);
+  min-width: clamp(80px, 22vw, 120px); transition: border-color .2s, box-shadow .2s;
 }
 .ability-btn:not([disabled]):hover, .ability-btn:not([disabled]):focus { border-color: var(--c, var(--gold)); box-shadow: 0 0 12px color-mix(in srgb, var(--c, var(--gold)) 40%, transparent); }
-.ability-btn #ability-name { font-size: var(--t-xs); font-weight: 700; color: var(--text); white-space: nowrap; }
-.ability-cd-text { font-size: 9px; color: var(--dim); letter-spacing: .04em; }
-.ability-btn.ready { border-color: var(--c, var(--gold)); }
+.ability-btn #ability-name { font-size: var(--t-sm); font-weight: 700; color: var(--text); white-space: nowrap; }
+.ability-desc-text { font-size: 7px; color: var(--dim); line-height: 1.2; text-align: center; max-width: 100px; }
+.ability-cd-text { font-size: 9px; color: var(--dim); letter-spacing: .04em; font-weight: 600; }
+.ability-btn.ready { border-color: var(--c, var(--gold)); box-shadow: 0 0 8px color-mix(in srgb, var(--c, var(--gold)) 30%, transparent); }
 .ability-btn.ready .ability-cd-text { color: var(--gold); }
+.ability-btn.ready #ability-name { color: var(--gold); }
 .ability-bar { display: block; width: 100%; height: 3px; border-radius: 3px; background: rgba(255,255,255,.1); margin-top: 2px; overflow: hidden; }
 .ability-bar i { display: block; height: 100%; background: var(--c, var(--gold)); width: 0%; transition: width .4s; }
 .ability-btn[disabled] { opacity: .5; pointer-events: none; }
+.ability-btn.sel { border-color: var(--gold); box-shadow: 0 0 14px color-mix(in srgb, var(--c, var(--gold)) 55%, transparent); background: linear-gradient(160deg, #2a3050, #1a2030); }
 #btn-sell.on { border-color: #e0605a; color: #e0605a; box-shadow: 0 0 10px rgba(224,96,90,.35); }
 
 /* ---------- wave countdown ---------- */
@@ -249,17 +252,21 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   text-align: center; min-height: 14px; font-variant-numeric: tabular-nums;
   letter-spacing: .03em;
 }
+/* ---------- wave forecast ---------- */
+.wave-forecast { display: flex; justify-content: center; gap: 4px; min-height: 16px; margin-top: 2px; }
+.fc-pip { font-size: 11px; opacity: .7; line-height: 1; }
 
-/* ---------- manual recruit circular button ---------- */
+/* ---------- manual recruit button ---------- */
 .recruit-circ {
   position: relative; flex: none;
-  width: clamp(52px, 13vw, 64px); height: clamp(52px, 13vw, 64px);
+  width: clamp(60px, 15vw, 76px); height: clamp(60px, 15vw, 76px);
   border-radius: 50%;
   background: linear-gradient(160deg, #1d243a, #141820);
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   transition: border-color .2s, box-shadow .2s;
 }
+.recruit-label { font-size: 7px; color: var(--dim); letter-spacing: .03em; line-height: 1; }
 .recruit-svg {
   position: absolute; inset: -1px;
   width: calc(100% + 2px); height: calc(100% + 2px);

@@ -79,6 +79,8 @@
       const tidx = this.terr.index || 0;
       this.enemyBaseMax = Math.round(600 + 200 * tidx);
       this.enemyBaseHp = this.enemyBaseMax;
+      this._aiThresholds = [0.75, 0.50, 0.25];
+      this._aiFired = [false, false, false];
     }
 
     // ---------- enemy wave plan ----------
@@ -237,17 +239,20 @@
       });
     }
 
-    useAbility() {
+    useAbility(targetRow) {
       if (this.abilityCd > 0 || this.over) return false;
       const ab = BF.ABILITIES[this.faction.id];
       if (!ab) return false;
       this.abilityCd = ab.cooldown;
       const fid = this.faction.id;
 
-      // Find most-threatened lane for OG Force deployment
-      const rowScore = Array(G.rows).fill(0);
-      for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
-      const ogRow = rowScore.indexOf(Math.max(...rowScore));
+      // Use player-chosen lane or fall back to most-threatened
+      let ogRow = targetRow;
+      if (ogRow == null || ogRow < 0 || ogRow >= G.rows) {
+        const rowScore = Array(G.rows).fill(0);
+        for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
+        ogRow = rowScore.indexOf(Math.max(...rowScore));
+      }
 
       if (fid === 'men') {
         // Summon Paladin + holy bolt strikes front enemy in every lane
@@ -310,6 +315,19 @@
         for (let r = 0; r < G.rows; r++) {
           this._ring(G.cw * 0.45, G.sky + r * G.cell + G.cell / 2, G.cw * 0.38, '#d0a030');
         }
+      } else if (fid === 'citadel') {
+        // Summon Archon + purging light damages and slows all enemies
+        this._spawnFreeUnit('og', ogRow);
+        this.abilityBuff = 6;
+        for (const e of this.enemies) {
+          if (!e.dead) {
+            this._hurtEnemy(e, 25 + this.waveNow() * 2.5);
+            e.slowDur = 3;
+            this._ring(e.x, e.y, 34, '#c8b0f0');
+            this._shot(e.x, e.y - 80, e.x, e.y, 'bolt', '#c8b0f0', 0.25);
+          }
+        }
+        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.4, '#8a6ad0');
       }
 
       this.events.push('ability');
@@ -478,13 +496,17 @@
         if (tgt && best <= e.range) {
           if (e.cd <= 0) { e.cd = 1 / e.rate; this._enemyAttack(e, tgt); }
         } else {
-          // Queue single-file
+          // Bunching: units overlap when near fortress or boss, faster units pass slower
           let blocked = false;
-          for (const o of this.enemies) {
-            if (o === e || o.dead || o.row !== e.row) continue;
-            const g = e.x - o.x;
-            if ((g > 0 || (g === 0 && o.id < e.id)) && g < 26 + 8 * Math.max(e.size, o.size)) {
-              blocked = true; break;
+          const nearFortress = e.x <= 80;
+          if (!nearFortress) {
+            for (const o of this.enemies) {
+              if (o === e || o.dead || o.row !== e.row) continue;
+              const g = e.x - o.x;
+              const minGap = 12 + 4 * Math.max(e.size, o.size);
+              if (g > 0 && g < minGap && e.speed <= o.speed) {
+                blocked = true; break;
+              }
             }
           }
           if (!blocked) e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
@@ -509,6 +531,23 @@
         this.shots  = this.shots.filter((o) => o.t < o.dur);
         this.floats = this.floats.filter((o) => o.t < o.dur);
         this.rings  = this.rings.filter((o) => o.t < o.dur);
+      }
+
+      // AI reinforcements at health thresholds
+      const eRatio = this.enemyBaseHp / this.enemyBaseMax;
+      for (let ti = 0; ti < this._aiThresholds.length; ti++) {
+        if (!this._aiFired[ti] && eRatio <= this._aiThresholds[ti]) {
+          this._aiFired[ti] = true;
+          const wave = Math.max(0, this.waveNow() - 1);
+          const count = 2 + ti;
+          for (let k = 0; k < count; k++) {
+            const row = Math.floor(this.rand() * G.rows);
+            const role = this._pickRole(wave);
+            this.schedule.push({ t: this.time + 0.3 + k * 0.6, row, role, wave });
+          }
+          this.schedule.sort((a, b) => a.t - b.t);
+          this.events.push('aiReinforce');
+        }
       }
 
       if (this.enemyBaseHp <= 0 && !this.over) {

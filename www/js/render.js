@@ -18,6 +18,7 @@
     orcs:    '#587838',
     goblins: '#8a9828',
     dwarves: '#c07848',
+    citadel: '#c0b0e0',
   };
 
   /* ==========================================================================
@@ -93,6 +94,21 @@
         ctx.moveTo(i * 2.5, hY + hR * 0.9);
         ctx.lineTo(i * 2.0, hY + hR * 2.1); ctx.stroke();
       }
+    } else if (fid === 'citadel') {
+      // Angelic halo
+      ctx.strokeStyle = '#e8d080'; ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.75;
+      ctx.beginPath(); ctx.ellipse(0, hY - hR * 1.2, hR * 1.1, hR * 0.3, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+      // Glowing eyes
+      ctx.fillStyle = '#e0d0ff';
+      for (const s of [-1, 1]) {
+        ctx.beginPath(); ctx.arc(s * 2, hY - 0.5, 1.8, 0, TAU); ctx.fill();
+      }
+      // Ethereal hood
+      ctx.fillStyle = '#6a50a8'; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.ellipse(0, hY - hR * 0.3, hR * 1.0, hR * 0.7, 0, pi, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -366,7 +382,7 @@
     ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 0.7, r * 0.2, 0, 0, TAU); ctx.fill();
     // Figure (no badge circle — drawn directly)
     ctx.scale(r / 20, r / 20);
-    const OG_GLYPH = { men:'sword', elves:'archer', orcs:'sword', goblins:'mage', dwarves:'sword' };
+    const OG_GLYPH = { men:'sword', elves:'archer', orcs:'sword', goblins:'mage', dwarves:'sword', citadel:'mage' };
     const base = role === 'og' ? (OG_GLYPH[f.id] || 'sword') : (role === 'champion' || role === 'warlord') ? 'sword' : role;
     glyph(ctx, base, enemy ? f.color : f.accent, enemy, f.id, atkPhase || 0, walkPhase || 0);
     // OG Force elite crown
@@ -407,17 +423,125 @@
   /* ==========================================================================
      CASTLE GATE – drawn over-top of units that enter it (siege visual)
   ========================================================================== */
-  function drawCastle(ctx, h, baseHp, baseMax, gateFlash, factionColor, time) {
+  const CASTLE_STYLES = {
+    men: {
+      stoneA: '#1d2336', stoneB: '#111624', stoneLite: '#242d44',
+      archTrim: '#242d44', barColor: '#3a4858',
+      detail(ctx, cw, h, time) {
+        ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.5 - 6, h * 0.45); ctx.lineTo(cw * 0.5, h * 0.38); ctx.lineTo(cw * 0.5 + 6, h * 0.45);
+        ctx.moveTo(cw * 0.5, h * 0.38); ctx.lineTo(cw * 0.5, h * 0.52);
+        ctx.stroke();
+      },
+    },
+    elves: {
+      stoneA: '#1a2818', stoneB: '#0e1c0c', stoneLite: '#2a3c22',
+      archTrim: '#60a048', barColor: '#3a5838',
+      detail(ctx, cw, h, time) {
+        ctx.strokeStyle = '#60a048'; ctx.lineWidth = 1.2;
+        for (let i = 0; i < 3; i++) {
+          const vy = h * 0.3 + i * 18;
+          const sway = M.sin((time || 0) * 1.4 + i) * 4;
+          ctx.beginPath();
+          ctx.moveTo(cw * 0.15, vy + 12);
+          ctx.quadraticCurveTo(cw * 0.25 + sway, vy, cw * 0.4, vy + 6);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#90c060'; ctx.globalAlpha = 0.3;
+        ctx.beginPath(); ctx.arc(cw * 0.3, h * 0.18, 8, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      },
+    },
+    orcs: {
+      stoneA: '#2a1810', stoneB: '#1a0c08', stoneLite: '#3c2418',
+      archTrim: '#5a2810', barColor: '#4a2818',
+      detail(ctx, cw, h, time) {
+        ctx.fillStyle = '#8a3010';
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.2, h * 0.35); ctx.lineTo(cw * 0.25, h * 0.28); ctx.lineTo(cw * 0.3, h * 0.35);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#e05020'; ctx.lineWidth = 2;
+        const flicker = M.sin((time || 0) * 6) * 2;
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.25, h * 0.5 + flicker);
+        ctx.lineTo(cw * 0.22, h * 0.42); ctx.lineTo(cw * 0.28, h * 0.42);
+        ctx.closePath(); ctx.stroke();
+      },
+    },
+    goblins: {
+      stoneA: '#1c2010', stoneB: '#101808', stoneLite: '#2c3418',
+      archTrim: '#506020', barColor: '#384818',
+      detail(ctx, cw, h, time) {
+        ctx.strokeStyle = '#8a9828'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 4; i++) {
+          const gx = 4 + i * 10, gy = h * 0.3 + (i % 2) * 14;
+          ctx.beginPath();
+          ctx.moveTo(gx, gy); ctx.lineTo(gx + 5, gy - 4); ctx.lineTo(gx + 8, gy + 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#80c828'; ctx.globalAlpha = 0.25 + 0.15 * M.sin((time || 0) * 3);
+        ctx.beginPath(); ctx.arc(cw * 0.35, h * 0.55, 5, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      },
+    },
+    dwarves: {
+      stoneA: '#2a2428', stoneB: '#181418', stoneLite: '#3c3440',
+      archTrim: '#d0a030', barColor: '#5a4828',
+      detail(ctx, cw, h, time) {
+        ctx.fillStyle = '#d0a030'; ctx.globalAlpha = 0.6;
+        for (let i = 0; i < 3; i++) {
+          const rx = cw * 0.15 + i * 12, ry = h * 0.35 + (i % 2) * 10;
+          ctx.fillRect(rx, ry, 6, 6);
+          ctx.strokeStyle = '#e8c060'; ctx.lineWidth = 0.8;
+          ctx.strokeRect(rx, ry, 6, 6);
+        }
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#c89020'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.2, h * 0.58); ctx.lineTo(cw * 0.2, h * 0.65);
+        ctx.moveTo(cw * 0.17, h * 0.60); ctx.lineTo(cw * 0.23, h * 0.60);
+        ctx.stroke();
+      },
+    },
+    citadel: {
+      stoneA: '#1a1430', stoneB: '#0e0a20', stoneLite: '#2a2048',
+      archTrim: '#8a6ad0', barColor: '#4a3870',
+      detail(ctx, cw, h, time) {
+        // Floating crystal
+        const bob = M.sin((time || 0) * 2) * 3;
+        ctx.fillStyle = '#c8b0f0'; ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.3, h * 0.38 + bob);
+        ctx.lineTo(cw * 0.3 - 5, h * 0.45 + bob);
+        ctx.lineTo(cw * 0.3, h * 0.52 + bob);
+        ctx.lineTo(cw * 0.3 + 5, h * 0.45 + bob);
+        ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath(); ctx.arc(cw * 0.3, h * 0.45 + bob, 10, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Rune lines
+        ctx.strokeStyle = '#8a6ad0'; ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.4 + 0.2 * M.sin((time || 0) * 1.5);
+        ctx.beginPath();
+        ctx.moveTo(cw * 0.1, h * 0.3); ctx.lineTo(cw * 0.4, h * 0.3);
+        ctx.moveTo(cw * 0.1, h * 0.6); ctx.lineTo(cw * 0.4, h * 0.6);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      },
+    },
+  };
+
+  function drawCastle(ctx, h, baseHp, baseMax, gateFlash, factionColor, time, factionId) {
     const f = baseHp / baseMax;
     const cw = BF.CASTLE_W;
     const pi = M.PI;
+    const style = CASTLE_STYLES[factionId] || CASTLE_STYLES.men;
+    const STONE_A = style.stoneA, STONE_B = style.stoneB, STONE_LITE = style.stoneLite;
 
-    // Stone fill
-    const STONE_A = '#1d2336', STONE_B = '#111624', STONE_LITE = '#242d44';
     ctx.fillStyle = STONE_A;
     ctx.fillRect(0, 0, cw, h);
 
-    // Brick pattern
     const BW = 20, BH = 11;
     ctx.lineWidth = 0.5;
     for (let row = 0; row * BH < h; row++) {
@@ -432,7 +556,7 @@
       }
     }
 
-    // Gate arch opening
+    // Gate arch
     const archCX = 27;
     const archR   = 20;
     const archTop = M.round(h * 0.22);
@@ -445,35 +569,31 @@
     ctx.lineTo(archCX + archR, archBot);
     ctx.closePath(); ctx.fill();
 
-    // Arch voussoirs (stone wedges framing the arch)
-    ctx.strokeStyle = STONE_LITE; ctx.lineWidth = 2;
+    ctx.strokeStyle = style.archTrim; ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(archCX, archTop + archR, archR + 3, pi, 0);
     ctx.stroke();
-    // Keystone
     ctx.fillStyle = STONE_LITE;
     ctx.beginPath();
     ctx.moveTo(archCX - 5, archTop); ctx.lineTo(archCX + 5, archTop);
     ctx.lineTo(archCX + 3.5, archTop + 9); ctx.lineTo(archCX - 3.5, archTop + 9);
     ctx.closePath(); ctx.fill();
 
-    // Portcullis bars – fill from top, height scales with HP
+    // Portcullis
     const archOpenTop = archTop + archR;
     const portMax = archBot - archOpenTop;
     const portH = M.round(f * portMax);
-    const barColor = '#3a4858';
     for (let i = 0; i < 5; i++) {
       const bx = archCX - archR + 3 + i * 7.5;
-      ctx.fillStyle = barColor;
+      ctx.fillStyle = style.barColor;
       ctx.fillRect(bx, archOpenTop, 3, portH);
     }
-    // Portcullis crossbar
     if (portH > 6) {
-      ctx.fillStyle = '#2a3545';
+      ctx.fillStyle = STONE_B;
       ctx.fillRect(archCX - archR + 3, archOpenTop + portH - 5, archR * 2 - 6, 5);
     }
 
-    // ── Battlements top ──────────────────────────────────────────────
+    // Battlements top
     ctx.fillStyle = STONE_LITE;
     ctx.fillRect(0, 0, cw, 28);
     let mx = 0;
@@ -483,7 +603,7 @@
       mx += 7 + 5;
     }
 
-    // ── Battlements bottom ────────────────────────────────────────────
+    // Battlements bottom
     ctx.fillStyle = STONE_LITE;
     ctx.fillRect(0, h - 28, cw, 28);
     mx = 0;
@@ -493,7 +613,10 @@
       mx += 7 + 5;
     }
 
-    // Faction banner — waves in the breeze
+    // Faction-specific details
+    if (style.detail) style.detail(ctx, cw, h, time);
+
+    // Faction banner
     const flagX = 6, flagY = 15;
     ctx.fillStyle = factionColor;
     ctx.fillRect(flagX, flagY - 1, 2, 24);
@@ -503,7 +626,6 @@
     ctx.quadraticCurveTo(flagX + 10, flagY + 4 + wave, flagX + 18, flagY + 7);
     ctx.quadraticCurveTo(flagX + 10, flagY + 11 - wave, flagX + 2, flagY + 14);
     ctx.closePath(); ctx.fill();
-    // Flag sheen
     ctx.fillStyle = 'rgba(255,255,255,.2)';
     ctx.beginPath();
     ctx.moveTo(flagX + 2, flagY);
@@ -511,19 +633,18 @@
     ctx.quadraticCurveTo(flagX + 8, flagY + 8 - wave * 0.5, flagX + 2, flagY + 7);
     ctx.closePath(); ctx.fill();
 
-    // Right-edge cast shadow
+    // Right-edge shadow
     const rg = ctx.createLinearGradient(cw, 0, cw + 14, 0);
     rg.addColorStop(0, 'rgba(0,0,0,.55)');
     rg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = rg; ctx.fillRect(cw, 0, 14, h);
 
-    // HP bar (thin vertical strip on the right wall)
+    // HP bar
     const barH = h - 20;
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(cw - 7, 10, 4, barH);
     const barC = f > 0.5 ? '#7fcf86' : f > 0.25 ? '#e8c566' : '#e0605a';
     ctx.fillStyle = barC; ctx.fillRect(cw - 7, 10 + barH * (1 - f), 4, barH * f);
 
-    // Gate flash
     if (gateFlash > 0) {
       ctx.fillStyle = 'rgba(224,96,90,' + M.min(0.48, gateFlash) + ')';
       ctx.fillRect(0, 0, cw + 22, h);
@@ -547,7 +668,7 @@
     swamp:    { skyA:'#123820', skyB:'#3a8060', horA:'#284830', horB:'#142418', groundB:'#0c1c14', cloudFill:'rgba(40,160,90,.46)',    particle:'#30f090', mtnFill:'#1a4028' },
     dark:     { skyA:'#0c0220', skyB:'#280848', horA:'#380c3c', horB:'#1e0820', groundB:'#0c0414', cloudFill:'rgba(140,40,200,.52)',   particle:'#c040f0', mtnFill:'#280840' },
   };
-  const BIOME_BY_FACTION = { men:'meadow', elves:'forest', orcs:'scorched', dwarves:'mountain', goblins:'swamp' };
+  const BIOME_BY_FACTION = { men:'meadow', elves:'forest', orcs:'scorched', dwarves:'mountain', goblins:'swamp', citadel:'dark' };
 
   function drawBackground(ctx, terrId, foeId, T) {
     const cw = G.cw, ch = G.ch, sin = M.sin;
@@ -749,14 +870,14 @@
 
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
     ctx.save(); ctx.translate(0, G.sky);
-    drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T);
+    drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T, me.id);
     ctx.restore();
 
     // ── ENEMY FORTRESS (right side, mirrored castle) ─────────────────
     ctx.save();
     ctx.translate(G.cw, G.sky);
     ctx.scale(-1, 1);
-    drawCastle(ctx, G.h, b.enemyBaseHp, b.enemyBaseMax, ui.siegeFlash || 0, foe.color, T);
+    drawCastle(ctx, G.h, b.enemyBaseHp, b.enemyBaseMax, ui.siegeFlash || 0, foe.color, T, foe.id);
     ctx.restore();
 
     // Bottom decorative strip

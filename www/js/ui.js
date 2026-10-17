@@ -91,6 +91,40 @@
         case 'ui':      this.tone(520, 0.06, 'sine', 0.04); break;
       }
     },
+    // Battle music — faction-specific procedural loops
+    _musicTimer: 0,
+    _musicIntensity: 0, // 0=calm, 1=tense(<50%), 2=critical(<20%)
+    _musicThemes: {
+      men:     { scale: [262,294,330,392,440,523], wave: 'triangle', bass: 131 },
+      elves:   { scale: [330,370,440,494,554,659], wave: 'sine',     bass: 165 },
+      orcs:    { scale: [196,220,247,262,330,392], wave: 'sawtooth', bass: 98 },
+      goblins: { scale: [294,330,370,392,440,494], wave: 'square',   bass: 147 },
+      dwarves: { scale: [220,262,294,330,392,440], wave: 'triangle', bass: 110 },
+      citadel: { scale: [330,392,440,494,554,659], wave: 'sine',     bass: 165 },
+    },
+    musicTick(factionId, hpRatio, dt) {
+      if (!save.sound || !this.ctx) return;
+      var intensity = hpRatio > 0.5 ? 0 : hpRatio > 0.2 ? 1 : 2;
+      this._musicIntensity = intensity;
+      var interval = intensity === 2 ? 0.45 : intensity === 1 ? 0.7 : 1.1;
+      this._musicTimer -= dt;
+      if (this._musicTimer > 0) return;
+      this._musicTimer = interval;
+      var theme = this._musicThemes[factionId] || this._musicThemes.men;
+      var s = theme.scale;
+      var vol = intensity === 2 ? 0.035 : intensity === 1 ? 0.025 : 0.015;
+      var note = s[Math.floor(Math.random() * s.length)];
+      this.tone(note, 0.3, theme.wave, vol);
+      if (intensity >= 1) {
+        this.tone(theme.bass, 0.5, 'triangle', vol * 0.6, 0, 0.15);
+      }
+      if (intensity >= 2) {
+        var note2 = s[Math.floor(Math.random() * s.length)];
+        this.tone(note2, 0.2, theme.wave, vol * 0.7, 0, 0.25);
+        this.tone(theme.bass * 2, 0.15, 'square', vol * 0.3, 0, 0.35);
+      }
+    },
+    musicStop() { this._musicTimer = 0; this._musicIntensity = 0; },
   };
   document.addEventListener('pointerdown', () => Sound.unlock(), { passive: true });
 
@@ -788,10 +822,11 @@
     actBar.innerHTML =
       '<button id="btn-recruit" class="recruit-circ ready" aria-label="Reinforce all lanes">' +
         '<svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>' +
-        '<span id="recruit-icon">⚔</span><span id="recruit-cd" class="recruit-cd2"></span>' +
+        '<span id="recruit-icon">⚔</span><span class="recruit-label">Reinforce</span><span id="recruit-cd" class="recruit-cd2"></span>' +
       '</button>' +
-      '<button id="btn-ability" class="ability-btn" style="--c:' + f.color + '" aria-label="' + (ab ? ab.name : 'Ability') + '" title="' + (ab ? ab.name + ': ' + ab.desc : '') + '">' +
-        '<span id="ability-name">' + (ab ? ab.key : '—') + '</span>' +
+      '<button id="btn-ability" class="ability-btn" style="--c:' + f.color + '" aria-label="' + (ab ? ab.name : 'Ability') + '">' +
+        '<span id="ability-name">' + (ab ? ab.name : '—') + '</span>' +
+        '<span id="ability-desc" class="ability-desc-text">' + (ab ? ab.desc : '') + '</span>' +
         '<span id="ability-cd" class="ability-cd-text">READY</span>' +
         '<span class="ability-bar"><i id="ability-bar-fill"></i></span>' +
       '</button>' +
@@ -804,8 +839,10 @@
       if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
     });
     $('#btn-ability', actBar).addEventListener('click', () => {
-      if (!B || B.over) return;
-      if (B.useAbility()) { Sound.play('place'); }
+      if (!B || B.over || B.abilityCd > 0) return;
+      uiS.selected = uiS.selected === 'ability' ? null : 'ability';
+      uiS.sellMode = false; $('#btn-sell').classList.remove('on');
+      Sound.play('ui'); syncTray();
     });
     $('#btn-repair', actBar).addEventListener('click', () => {
       if (!B || B.over) return;
@@ -848,6 +885,8 @@
       c.classList.toggle('sel', uiS.selected === c.dataset.role);
       c.classList.toggle('poor', B.gold < B.faction.units[c.dataset.role].cost);
     });
+    const abilBtn = $('#btn-ability');
+    if (abilBtn) abilBtn.classList.toggle('sel', uiS.selected === 'ability');
     syncActBtns();
   }
 
@@ -901,6 +940,10 @@
       if (res.ok) { Sound.play('place'); uiS.selected = null; syncTray(); }
       return;
     }
+    if (uiS.selected === 'ability') {
+      if (B.useAbility(row)) { Sound.play('place'); uiS.selected = null; syncTray(); }
+      return;
+    }
     if (uiS.selected) {
       const res = B.spawn(uiS.selected, row);
       if (res.ok) {
@@ -934,6 +977,20 @@
       const cd = B.waveCountdown();
       const show = cd > 0.8 && B.enemies.length === 0 && !B.over;
       cdEl.textContent = show ? 'Next wave in ' + Math.ceil(cd) + 's' : '';
+    }
+    // Wave forecast — show upcoming enemy types
+    const fcEl = $('#wave-forecast');
+    if (fcEl) {
+      const upcoming = [];
+      const seen = {};
+      for (let i = B.next; i < B.schedule.length && upcoming.length < 6; i++) {
+        const role = B.schedule[i].role;
+        if (!seen[role]) { seen[role] = true; upcoming.push(role); }
+      }
+      const ROLE_ICON = { spear: '🗡', sword: '⚔', archer: '🏹', mage: '✨', champion: '👑', warlord: '💀' };
+      fcEl.innerHTML = upcoming.length ? upcoming.map(function(r) {
+        return '<span class="fc-pip" title="' + r + '">' + (ROLE_ICON[r] || '⚔') + '</span>';
+      }).join('') : '';
     }
     syncActBtns();
     // Manual recruit circular button (now in tray)
@@ -993,6 +1050,7 @@
         if (ev === 'siegeHit') uiS.siegeFlash = 0.3;
         if (ev === 'ability') { uiS.abilityFlash = 0.4; }
         if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements Deployed!', t: 1.4 }; }
+        if (ev === 'aiReinforce') { uiS.banner = { text: '⚠ Enemy Reinforcements Incoming!', t: 1.6 }; Sound.play('leak'); }
         if (ev === 'recruitReady') { uiS.banner = { text: '⚔ Reinforce Ready!', t: 1.2 }; }
         if (ev === 'skip') { uiS.banner = { text: '⏭ Wave Skipped!', t: 1.0 }; }
         Sound.play(ev);
@@ -1005,10 +1063,11 @@
       if (uiS.siegeFlash > 0) uiS.siegeFlash -= dt;
       if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
+      Sound.musicTick(B.faction.id, B.baseHp / B.baseMax, dt * speed);
     }
     BF.renderBattle(ctx, B, uiS, drawScale);
     updateHud();
-    if (B.over && !resultShown) { resultShown = true; setTimeout(showResult, 700); }
+    if (B.over && !resultShown) { resultShown = true; Sound.musicStop(); setTimeout(showResult, 700); }
   }
 
   $('#btn-sell').addEventListener('click', (e) => {

@@ -55,6 +55,7 @@
     orcs:    { name: 'Eruption',    key: 'ER', desc: 'Summons Demonic Giant; volcanic burst scorches all foes',cooldown: 40 },
     goblins: { name: 'Acid Rain',   key: 'AR', desc: 'Summons Scrap Mech; acid shower melts all enemies',     cooldown: 40 },
     dwarves: { name: 'Earthquake',  key: 'EQ', desc: 'Summons Runesmith Golem; tremor slows all enemies 4s',  cooldown: 45 },
+    citadel: { name: 'Divine Judgment', key: 'DJ', desc: 'Summons Archon; purging light damages and slows all foes', cooldown: 42 },
   };
 
   // ---- Permanent upgrades bought with Glory (earned by conquering) ----
@@ -158,6 +159,20 @@
         mage: { name: 'Runesmith', hp: 85, dmg: 33, rate: 0.6, range: 210, aoe: 75 },
       },
     },
+    {
+      id: 'citadel', name: 'The Celestial Citadel', short: 'Citadel',
+      color: '#8a6ad0', accent: '#c8b0f0',
+      tagline: 'Divine enforcers. Balanced power from the heavens above.',
+      lore: { goal: 'Enforce strict divine balance and judgment across all mortal realms from the floating continent.', crisis: 'The core energy crystal keeping the Citadel airborne is draining. If the war below continues, the continent crashes.' },
+      perks: ['Balanced stats across all unit types', 'All units regenerate 1 HP/s; +10% all damage'],
+      mods: { income: 1.1, bounty: 1.1, baseHp: 1.1, armor: 0.05, regen: 1, berserk: false },
+      units: {
+        spear: { name: 'Sentinel', hp: 95, dmg: 9, rate: 1.0, range: 38 },
+        sword: { name: 'Seraph Knight', hp: 210, dmg: 22, rate: 1.05, range: 30 },
+        archer: { name: 'Starbow', hp: 75, dmg: 18, rate: 0.75, range: 270 },
+        mage: { name: 'Oracle', hp: 80, dmg: 32, rate: 0.65, range: 230, aoe: 80 },
+      },
+    },
   ];
 
   for (const f of BF.FACTIONS) {
@@ -175,6 +190,7 @@
     orcs:    { name: 'Demonic Giant',   hp: 580, dmg: 50, rate: 0.80, range: 56,  aoe: 60 },
     goblins: { name: 'Scrap Mech',      hp: 260, dmg: 20, rate: 2.20, range: 180, aoe: 80 },
     dwarves: { name: 'Runesmith Golem', hp: 750, dmg: 32, rate: 0.65, range: 58,  aoe: 55 },
+    citadel: { name: 'Archon',          hp: 500, dmg: 36, rate: 0.75, range: 200, aoe: 70 },
   };
   for (const f of BF.FACTIONS) {
     const og = OG_DEFS[f.id];
@@ -211,6 +227,7 @@
     orcs:    't_ashfield',
     dwarves: 't_karakdun',
     goblins: 't_gloomhollow',
+    citadel: 't_citadel',
   };
 
   // All territories (x,y in the 900×520 landscape map SVG viewBox)
