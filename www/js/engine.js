@@ -99,19 +99,18 @@
     }
 
     _buildSchedule() {
-      // 3-minute match design: waves spread across WINDOW seconds so the last
-      // enemies spawn ~t=140 and combat wraps around t=165-180.
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const WINDOW = 140;
+      const waveGap = W <= 1 ? 0 : Math.min(25, 175 / (W - 1));
+      const hasBoss = idx >= 2;
 
       for (let w = 0; w < W; w++) {
-        const waveT = 5 + (W > 1 ? w * (WINDOW / (W - 1)) : 0);
+        const waveT = 5 + w * waveGap;
         const wd = (idx <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
-        const n = Math.max(3, wd
+        const n = Math.max(4, wd
           ? Math.round(wd.count * T.countScale * 1.4)
-          : Math.round((3 + 1.6 * w) * T.countScale));
-        const gap = Math.max(0.5, 1.7 - 0.04 * w - 0.03 * idx);
+          : Math.round((4 + 2.2 * w) * T.countScale));
+        const gap = Math.max(0.5, 1.6 - 0.04 * w - 0.03 * idx);
         const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
         let t = waveT;
         for (let k = 0; k < n; k++) {
@@ -119,13 +118,21 @@
           out.push({ t, row, role: this._pickRole(w), wave: w });
           t += gap * (0.7 + 0.6 * r());
         }
-        if (w === W - 1) {
+        if (w === W - 1 && !hasBoss) {
           const champs = T.final ? 2 : idx >= 1 ? 1 + Math.floor(idx / 3) : 0;
           for (let c = 0; c < champs; c++) {
             out.push({ t: t + 1 + c * 2.5, row: Math.floor(r() * G.rows), role: 'champion', wave: w });
           }
           if (T.final) out.push({ t: t + 4, row: Math.floor(G.rows / 2), role: 'warlord', wave: w });
         }
+      }
+      if (hasBoss) {
+        const br = Math.floor(r() * G.rows);
+        const n = 1 + Math.floor(idx / 3);
+        for (let c = 0; c < n; c++) {
+          out.push({ t: 120 + c * 1.5, row: (br + c * 2) % G.rows, role: 'champion', wave: W - 1 });
+        }
+        if (T.final) out.push({ t: 121.5, row: Math.floor(G.rows / 2), role: 'warlord', wave: W - 1 });
       }
       return out.sort((a, b) => a.t - b.t);
     }
@@ -147,7 +154,7 @@
       const e = this.enemyPool.get();
       e.id = this.nid++; e.side = 'enemy'; e.role = s.role; e.row = s.row;
       e.x = G.cw + 20;
-      e.y = s.row * G.cell + G.cell / 2;
+      e.y = G.sky + s.row * G.cell + G.cell / 2;
       e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
       if (s.role === 'champion') {
         Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 46, speed: 15, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.35 });
@@ -176,10 +183,10 @@
       this.gold -= u.cost;
       const m = this.defMult;
       // March speed: faster for lighter units, slower for heavy
-      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : 0);
+      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : 0);
       const d = {
         id: this.nid++, side: 'def', type, row,
-        x: BF.SPAWN_X, y: row * G.cell + G.cell / 2,
+        x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
         marchSpeed: spd,
         hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m, rate: u.rate, range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.35, hit: 0, atk: 0, dead: false,
@@ -206,10 +213,10 @@
     _spawnFreeUnit(type, row) {
       const u = this.faction.units[type];
       if (!u) return;
-      const spd = BF.MARCH_SPD + (type === 'archer' ? 2 : type === 'mage' ? -3 : type === 'sword' ? -1 : type === 'og' ? -3 : 0);
+      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
       this.defenders.push({
         id: this.nid++, side: 'def', type, row,
-        x: BF.SPAWN_X, y: row * G.cell + G.cell / 2,
+        x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
         marchSpeed: spd,
         hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
         dmg: u.dmg * this.defMult, rate: u.rate, range: u.range,
@@ -253,7 +260,7 @@
             this._ring(e.x, e.y, 30, '#60c040');
           }
         }
-        this._ring(G.cw * 0.5, G.h * 0.5, G.cw * 0.42, '#60c040');
+        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.42, '#60c040');
       } else if (fid === 'orcs') {
         // Summon Demonic Giant + volcanic burst scorches all enemies
         this._spawnFreeUnit('og', ogRow);
@@ -290,7 +297,7 @@
           }
         }
         for (let r = 0; r < G.rows; r++) {
-          this._ring(G.cw * 0.45, r * G.cell + G.cell / 2, G.cw * 0.38, '#d0a030');
+          this._ring(G.cw * 0.45, G.sky + r * G.cell + G.cell / 2, G.cw * 0.38, '#d0a030');
         }
       }
 
@@ -430,16 +437,7 @@
             this._defAttack(d, tgt);
           }
         } else {
-          // Shielded spearmen hold ground; others march right
-          let blocked = d.shielded;
-          if (!blocked) {
-            for (const o of this.defenders) {
-              if (o === d || o.dead || o.row !== d.row) continue;
-              const ahead = o.x - d.x;
-              if (ahead > 0 && ahead < 30 + 6 * (o.size || 1)) { blocked = true; break; }
-            }
-          }
-          if (!blocked) d.x = Math.min(G.cw - 20, d.x + d.marchSpeed * dt);
+          if (!d.shielded) d.x = Math.min(G.cw - 20, d.x + d.marchSpeed * dt);
         }
       }
 
@@ -510,6 +508,20 @@
       return true;
     }
 
+    // ---------- skip to next wave early: risk vs. reward gold bonus ----------
+    skipWave() {
+      if (this.over || this.enemies.length > 0 || this.next >= this.schedule.length) return null;
+      const nextT = this.schedule[this.next].t;
+      const skipped = nextT - this.time;
+      if (skipped <= 1) return null;
+      const reward = Math.max(10, Math.round(12 * skipped * (1 + 0.08 * (this.terr.index || 0))));
+      this.gold += reward;
+      this.time = nextT - 0.05;
+      this._float(G.cw * 0.5, G.sky + G.h * 0.4, '+' + reward, '#e8c566');
+      this.events.push('skip');
+      return reward;
+    }
+
     _autoRecruit() {
       for (let row = 0; row < G.rows; row++) {
         this._spawnFreeUnit('spear', row);
@@ -566,7 +578,7 @@
       this.gold -= cost;
       const heal = Math.round(this.baseMax * 0.25);
       this.baseHp = Math.min(this.baseMax, this.baseHp + heal);
-      this._float(BF.CASTLE_W - 6, Math.round(G.ch * 0.5), '+' + heal, '#7fcf86');
+      this._float(BF.CASTLE_W - 6, Math.round(G.sky + G.h * 0.5), '+' + heal, '#7fcf86');
       this.events.push('coin');
       return { ok: true };
     }

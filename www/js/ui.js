@@ -408,6 +408,7 @@
 
   function buildTray() {
     const f = B.faction;
+    const ab = BF.ABILITIES[f.id];
     const tray = $('#tray');
     tray.innerHTML = '';
     BF.ROLES.forEach((r) => {
@@ -425,22 +426,55 @@
       tray.appendChild(b);
     });
 
-    // Repair Gate / Hire Merc action buttons
+    // OG Force card (elite purchasable unit)
+    const og = f.units.og;
+    if (og) {
+      const b = document.createElement('button');
+      b.className = 'ucard og-card'; b.dataset.role = 'og';
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + og.name + '</div><div class="cs">' + coin + og.cost + '</div>';
+      const c2 = $('canvas', b).getContext('2d');
+      c2.scale(2, 2);
+      BF.drawToken(c2, 19, 19, 16, f, 'og', false, 0);
+      b.addEventListener('click', () => {
+        uiS.selected = uiS.selected === 'og' ? null : 'og';
+        Sound.play('ui'); syncTray();
+      });
+      tray.appendChild(b);
+    }
+
+    // Action bar: recruit + ability + repair + merc
     const actBar = document.createElement('div');
     actBar.id = 'act-bar';
     const rCost = BF.WAVE_ECON.repairCost(0);
     const mCost = BF.WAVE_ECON.mercCost(0);
     actBar.innerHTML =
+      '<button id="btn-recruit" class="recruit-circ ready" aria-label="Reinforce all lanes">' +
+        '<svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>' +
+        '<span id="recruit-icon">⚔</span><span id="recruit-cd" class="recruit-cd2"></span>' +
+      '</button>' +
+      '<button id="btn-ability" class="ability-btn" style="--c:' + f.color + '" aria-label="' + (ab ? ab.name : 'Ability') + '" title="' + (ab ? ab.name + ': ' + ab.desc : '') + '">' +
+        '<span id="ability-name">' + (ab ? ab.key : '—') + '</span>' +
+        '<span id="ability-cd" class="ability-cd-text">READY</span>' +
+        '<span class="ability-bar"><i id="ability-bar-fill"></i></span>' +
+      '</button>' +
       '<button class="act-btn" id="btn-repair">' + coin + rCost + ' Repair</button>' +
       '<button class="act-btn" id="btn-merc">'   + coin + mCost + ' Merc</button>';
     tray.appendChild(actBar);
 
-    $('#btn-repair', tray).addEventListener('click', () => {
+    $('#btn-recruit', actBar).addEventListener('click', () => {
+      if (!B || B.over) return;
+      if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
+    });
+    $('#btn-ability', actBar).addEventListener('click', () => {
+      if (!B || B.over) return;
+      if (B.useAbility()) { Sound.play('place'); }
+    });
+    $('#btn-repair', actBar).addEventListener('click', () => {
       const res = B.repairGate();
       if (res.ok) Sound.play('coin'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
       syncTray();
     });
-    $('#btn-merc', tray).addEventListener('click', () => {
+    $('#btn-merc', actBar).addEventListener('click', () => {
       const res = B.hireMerc();
       if (res.ok) Sound.play('place'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
       syncTray();
@@ -481,20 +515,7 @@
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     $('#btn-speed').textContent = '1×';
     $('#btn-sell').classList.remove('on');
-    // Wire ability button
-    const ab = BF.ABILITIES[f.id];
-    $('#ability-name').textContent = ab ? ab.key : '—';
-    $('#btn-ability').title = ab ? ab.name + ': ' + ab.desc : '';
-    $('#btn-ability').style.setProperty('--c', f.color);
     buildTray();
-    // Wire recruit button
-    const recBtn = $('#btn-recruit');
-    if (recBtn) {
-      recBtn.onclick = () => {
-        if (!B || B.over) return;
-        if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
-      };
-    }
     show('battle');
     fit();
     const hint = $('#hint');
@@ -510,7 +531,7 @@
     const r = cv.getBoundingClientRect();
     const cx = ((e.clientX - r.left) / r.width) * G.cw;
     const cy = ((e.clientY - r.top) / r.height) * G.ch;
-    const row = Math.floor(cy / G.cell);
+    const row = Math.floor((cy - G.sky) / G.cell);
     if (row < 0 || row >= G.rows) return;
 
     if (uiS.sellMode) {
@@ -557,29 +578,44 @@
       cdEl.textContent = show ? 'Next wave in ' + Math.ceil(cd) + 's' : '';
     }
     syncActBtns();
-    // Manual recruit circular button
+    // Manual recruit circular button (now in tray)
     const arc = $('#recruit-arc');
     if (arc) {
       const interval = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
       const circ = 2 * M.PI * 18;
-      const ready = B.autoRecruitCd <= 0;
-      const frac = ready ? 1 : M.max(0, 1 - B.autoRecruitCd / interval);
+      const rReady = B.autoRecruitCd <= 0;
+      const frac = rReady ? 1 : M.max(0, 1 - B.autoRecruitCd / interval);
       arc.style.strokeDashoffset = (circ * (1 - frac)).toFixed(2);
       const btn = $('#btn-recruit');
-      if (btn) { btn.classList.toggle('ready', ready); btn.disabled = !!B.over; }
-      const cdEl = $('#recruit-cd');
-      if (cdEl) cdEl.textContent = ready ? '' : M.ceil(B.autoRecruitCd) + 's';
+      if (btn) { btn.classList.toggle('ready', rReady); btn.disabled = !!B.over; }
+      const cdR = $('#recruit-cd');
+      if (cdR) cdR.textContent = rReady ? '' : M.ceil(B.autoRecruitCd) + 's';
     }
-    // Ability cooldown
+    // Ability cooldown (now in tray)
     const ab = BF.ABILITIES[B.faction.id];
-    if (ab) {
+    const abilBtn = $('#btn-ability');
+    if (ab && abilBtn) {
       const cd = B.abilityCd;
-      const ready = cd <= 0;
-      const abilBtn = $('#btn-ability');
-      abilBtn.classList.toggle('ready', ready);
-      abilBtn.disabled = !ready || !!B.over;
-      $('#ability-cd').textContent = ready ? 'READY' : M.ceil(cd) + 's';
-      $('#ability-bar-fill').style.width = (ready ? 100 : M.round((1 - cd / ab.cooldown) * 100)) + '%';
+      const aReady = cd <= 0;
+      abilBtn.classList.toggle('ready', aReady);
+      abilBtn.disabled = !aReady || !!B.over;
+      const cdA = $('#ability-cd');
+      if (cdA) cdA.textContent = aReady ? 'READY' : M.ceil(cd) + 's';
+      const fill = $('#ability-bar-fill');
+      if (fill) fill.style.width = (aReady ? 100 : M.round((1 - cd / ab.cooldown) * 100)) + '%';
+    }
+    // Wave skip button
+    const skipBtn = $('#btn-skip');
+    if (skipBtn) {
+      const canSkip = !B.over && B.enemies.length === 0 && B.next < B.schedule.length;
+      const skipped = canSkip ? B.schedule[B.next].t - B.time : 0;
+      const showSkip = canSkip && skipped > 1;
+      skipBtn.classList.toggle('hidden', !showSkip);
+      if (showSkip) {
+        const reward = M.max(10, M.round(12 * skipped * (1 + 0.08 * (terr.index || 0))));
+        const sr = $('#skip-reward');
+        if (sr) sr.textContent = '+' + reward + 'g';
+      }
     }
     syncTray();
   }
@@ -599,6 +635,7 @@
         if (ev === 'ability') { uiS.abilityFlash = 0.4; }
         if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements Deployed!', t: 1.4 }; }
         if (ev === 'recruitReady') { uiS.banner = { text: '⚔ Reinforce Ready!', t: 1.2 }; }
+        if (ev === 'skip') { uiS.banner = { text: '⏭ Wave Skipped!', t: 1.0 }; }
         Sound.play(ev);
       }
       B.events.length = 0;
@@ -620,9 +657,10 @@
     if (uiS.sellMode) { uiS.selected = null; syncTray(); }
     Sound.play('ui');
   });
-  $('#btn-ability').addEventListener('click', () => {
+  $('#btn-skip').addEventListener('click', () => {
     if (!B || B.over) return;
-    if (B.useAbility()) { Sound.play('place'); }
+    const reward = B.skipWave();
+    if (reward) { Sound.play('coin'); syncTray(); }
   });
   $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
   $('#btn-pause').addEventListener('click', openPause);

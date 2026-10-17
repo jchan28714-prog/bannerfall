@@ -239,8 +239,19 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- action bar (Repair / Merc) ---------- */
 #act-bar {
-  display: flex; flex-direction: column; gap: 4px; justify-content: center;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; align-items: center;
 }
+.og-card { border-color: var(--gold) !important; }
+.og-card .nm { color: var(--gold); }
+.wave-skip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 8px; border: 1px solid var(--gold);
+  background: rgba(232,197,102,.12); color: var(--gold);
+  font-size: var(--t-xs); font-weight: 600; cursor: pointer;
+  margin-top: 2px; transition: background .15s;
+}
+.wave-skip:active { background: rgba(232,197,102,.28); }
+.wave-skip.hidden { display: none; }
 .act-btn {
   display: flex; align-items: center; gap: 4px;
   padding: clamp(4px, 1.2vw, 7px) clamp(6px, 1.8vw, 10px);
@@ -253,7 +264,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .act-btn.poor { opacity: .4; }
 .act-btn[disabled] { opacity: .35; pointer-events: none; }
 @media (orientation: landscape) {
-  #act-bar { gap: 3px; }
+  #act-bar { gap: 3px; grid-template-columns: 1fr 1fr; }
   .act-btn { padding: 3px 7px; font-size: clamp(9px, 2.2vh, 11px); }
 }
 

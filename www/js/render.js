@@ -552,7 +552,7 @@
   function drawBackground(ctx, terrId, foeId, T) {
     const cw = G.cw, ch = G.ch, sin = M.sin;
     const bm = terrId === 't_citadel' ? BIOMES.dark : (BIOMES[BIOME_BY_FACTION[foeId]] || BIOMES.meadow);
-    const skyH = ch * 0.48;
+    const skyH = G.sky || ch * 0.20;
 
     // Sky gradient
     const sky = ctx.createLinearGradient(0, 0, 0, skyH);
@@ -619,33 +619,32 @@
 
     // Semi-transparent battlefield overlay so units remain readable
     ctx.fillStyle = 'rgba(6,8,16,.40)';
-    ctx.fillRect(0, 0, G.cw, G.h);
+    ctx.fillRect(0, G.sky, G.cw, G.h);
 
     // Alternating lane shading
     for (let r = 0; r < G.rows; r++) {
       ctx.fillStyle = r % 2 === 0 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
-      ctx.fillRect(0, r * G.cell, G.cw, G.cell);
+      ctx.fillRect(0, G.sky + r * G.cell, G.cw, G.cell);
     }
 
     // Defender-side spawn glow (castle exit)
     const dg = ctx.createLinearGradient(BF.SPAWN_X + 20, 0, BF.SPAWN_X + 70, 0);
     dg.addColorStop(0, hexA(me.color, 0.18)); dg.addColorStop(1, hexA(me.color, 0));
-    ctx.fillStyle = dg; ctx.fillRect(BF.SPAWN_X + 20, 0, 50, G.h);
+    ctx.fillStyle = dg; ctx.fillRect(BF.SPAWN_X + 20, G.sky, 50, G.h);
 
     // Enemy-spawn glow (right edge)
     const eg = ctx.createLinearGradient(G.cw, 0, G.cw - 90, 0);
     eg.addColorStop(0, hexA(foe.color, 0.28)); eg.addColorStop(1, hexA(foe.color, 0));
-    ctx.fillStyle = eg; ctx.fillRect(G.cw - 90, 0, 90, G.h);
+    ctx.fillStyle = eg; ctx.fillRect(G.cw - 90, G.sky, 90, G.h);
 
     // Lane tap targets — full-row highlight + border so players know they can tap anywhere
     if (ui.selected) {
       for (let r = 0; r < G.rows; r++) {
-        const ry = r * G.cell;
+        const ry = G.sky + r * G.cell;
         ctx.fillStyle = 'rgba(232,197,102,.07)';
         ctx.fillRect(2, ry + 2, G.cw - 4, G.cell - 4);
         ctx.strokeStyle = 'rgba(232,197,102,.38)'; ctx.lineWidth = 1.5;
         ctx.strokeRect(2, ry + 2, G.cw - 4, G.cell - 4);
-        // Arrow pointing into lane from the left edge
         const cy = ry + G.cell / 2;
         ctx.fillStyle = 'rgba(232,197,102,.65)';
         ctx.beginPath(); ctx.moveTo(8, cy - 6); ctx.lineTo(22, cy); ctx.lineTo(8, cy + 6); ctx.closePath(); ctx.fill();
@@ -654,94 +653,31 @@
     // Visible lane separator lines (always shown)
     ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1;
     for (let r = 1; r < G.rows; r++) {
-      ctx.beginPath(); ctx.moveTo(BF.CASTLE_W + 2, r * G.cell); ctx.lineTo(G.cw, r * G.cell); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(BF.CASTLE_W + 2, G.sky + r * G.cell); ctx.lineTo(G.cw, G.sky + r * G.cell); ctx.stroke();
     }
 
     // Range band for inspected unit
     if (ui.inspect && !ui.inspect.dead) {
       const d = ui.inspect;
       ctx.fillStyle = 'rgba(232,197,102,.08)';
-      ctx.fillRect(d.x + 3, d.row * G.cell + 3, d.range, G.cell - 6);
+      ctx.fillRect(d.x + 3, G.sky + d.row * G.cell + 3, d.range, G.cell - 6);
       ctx.strokeStyle = 'rgba(232,197,102,.4)'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(d.x + 3, d.row * G.cell + 3, d.range, G.cell - 6);
+      ctx.strokeRect(d.x + 3, G.sky + d.row * G.cell + 3, d.range, G.cell - 6);
     }
 
     // ── DEFENDERS ──────────────────────────────────────────────────────
     for (const d of b.defenders) {
       const ap = d.atk / 0.18;
-      const wp = T * 4; // walk phase
+      const wp = T * 4;
       const lunge = d.atk > 0 && !d.ranged ? 5 * (d.atk / 0.18) : 0;
       const dx = d.x + lunge, dy = d.y;
 
-      // Frenzy aura (orcs Blood Frenzy)
-      if (d.frenzied) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 10);
-        ctx.globalAlpha = 0.22 + pulse * 0.18;
-        ctx.fillStyle = '#e04040';
-        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // Shield aura (dwarves Ironclad)
-      if (d.ironclad) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 6);
-        ctx.globalAlpha = 0.18 + pulse * 0.14;
-        ctx.fillStyle = '#60a0e8';
-        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // Shield Wall aura (spear touch ability)
-      if (d.shielded) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 6);
-        ctx.globalAlpha = 0.2 + pulse * 0.15;
-        ctx.fillStyle = '#60c8e8';
-        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // Rally aura (sword touch ability)
-      if (d.rallied) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 8 + d.id);
-        ctx.globalAlpha = 0.18 + pulse * 0.14;
-        ctx.fillStyle = '#e8c566';
-        ctx.beginPath(); ctx.ellipse(dx, dy, AUR, M.round(AUR * 0.70), 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // Sell mode overlay
+      // Sell mode overlay (kept for UX)
       if (ui.sellMode) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 5 + d.id);
-        ctx.globalAlpha = 0.28 + pulse * 0.18;
-        ctx.fillStyle = '#e0605a';
-        ctx.beginPath(); ctx.ellipse(dx, dy, AUR - 2, M.round((AUR - 2) * 0.68), 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
         const refund = M.round(d.cost * BF.ECON.sellRefund);
         ctx.fillStyle = '#ff9a8a'; ctx.textAlign = 'center';
         ctx.font = '700 10px "Avenir Next",system-ui,sans-serif';
         ctx.fillText('+' + refund, dx, dy - (DR + 12));
-      }
-
-      // Touch-ability ready: golden pulse ring; shrinking arc when on cooldown
-      if (BF.TOUCH_ABILITIES[d.type]) {
-        if (d.touchCd === 0) {
-          const pulse = 0.5 + 0.5 * M.sin(T * 4 + d.id * 0.8);
-          ctx.globalAlpha = 0.28 + pulse * 0.22;
-          ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(dx, dy, AUR + pulse * 2, 0, TAU); ctx.stroke();
-          ctx.globalAlpha = 1;
-        } else {
-          const ab = BF.TOUCH_ABILITIES[d.type];
-          const frac = 1 - d.touchCd / ab.cooldown;
-          ctx.globalAlpha = 0.45;
-          ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 2.5;
-          ctx.beginPath(); ctx.arc(dx, dy, AUR, -M.PI / 2, -M.PI / 2 + TAU * frac); ctx.stroke();
-          ctx.globalAlpha = 1;
-        }
-      }
-      // OG Force: radiant golden aura before token
-      if (d.isOg) {
-        const pulse = 0.5 + 0.5 * M.sin(T * 3 + d.id * 0.7);
-        ctx.globalAlpha = 0.22 + pulse * 0.18;
-        ctx.fillStyle = '#e8c566';
-        ctx.beginPath(); ctx.ellipse(dx, dy, OGR + 14, OGR + 5, 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
       }
       token(ctx, dx, dy, d.isOg ? OGR : DR, me, d.type, false, d.hit, ap, wp);
       if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? OGR + 14 : DR + 11), 34, d.hp / d.maxHp, '#7fcf86');
@@ -754,13 +690,6 @@
       const ap = e.atk / 0.18;
       const wp = T * 4.2;
       const lunge = e.atk > 0 && !e.ranged ? -5 * (e.atk / 0.18) : 0;
-      // Earthquake slow VFX: icy-blue aura
-      if (e.slowDur > 0) {
-        ctx.globalAlpha = 0.35 * (e.slowDur / 4);
-        ctx.fillStyle = '#80a8e0';
-        ctx.beginPath(); ctx.ellipse(e.x + lunge, e.y, r + 8, r * 0.65, 0, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
       token(ctx, e.x + lunge, e.y, r, foe, e.role, true, e.hit, ap, wp);
       if (e.hp < e.maxHp - 0.5) bar(ctx, e.x, e.y - r - 9, 32 * M.min(1.4, e.size), e.hp / e.maxHp, '#e0605a');
     }
@@ -819,12 +748,14 @@
     }
 
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
+    ctx.save(); ctx.translate(0, G.sky);
     drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T);
+    ctx.restore();
 
     // Bottom decorative strip
-    ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.h, G.cw, G.ch - G.h);
+    ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
     ctx.fillStyle = '#1a1e2c';
-    for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.h, 14, 6);
+    for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.sky + G.h, 14, 6);
 
     // ── FLOATING DAMAGE / GOLD NUMBERS ────────────────────────────────
     ctx.textAlign = 'center';
@@ -840,10 +771,10 @@
     // ── WAVE BANNER ────────────────────────────────────────────────────
     if (ui.banner && ui.banner.t > 0) {
       ctx.globalAlpha = M.max(0, M.min(1, ui.banner.t / 0.6));
-      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.h / 2 - 28, G.cw, 56);
+      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
       ctx.fillStyle = '#e8c566';
       ctx.font = '600 24px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
-      ctx.fillText(ui.banner.text, G.cw / 2, G.h / 2 + 8);
+      ctx.fillText(ui.banner.text, G.cw / 2, G.sky + G.h / 2 + 8);
       ctx.globalAlpha = 1;
     }
   };

@@ -22,21 +22,12 @@
     <section id="screen-battle" class="screen">
       <header id="hud">
         <div class="hud-gold"><span class="coin"></span><b id="hud-gold">0</b></div>
-        <button id="btn-ability" class="ability-btn" aria-label="Use faction ability">
-          <span id="ability-name">—</span>
-          <span id="ability-cd" class="ability-cd-text">READY</span>
-          <span class="ability-bar"><i id="ability-bar-fill"></i></span>
-        </button>
         <div class="hud-wave">
           <div id="hud-wave-text">Wave 1</div>
           <div class="hud-wave-bar"><i id="hud-wave-fill"></i></div>
           <span id="hud-countdown" class="hud-countdown"></span>
+          <button id="btn-skip" class="wave-skip hidden" aria-label="Skip to next wave">⏭ <span id="skip-reward"></span></button>
         </div>
-        <button id="btn-recruit" class="recruit-circ ready" aria-label="Deploy reinforcements across all lanes">
-          <svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>
-          <span id="recruit-icon">⚔</span>
-          <span id="recruit-cd" class="recruit-cd2">—</span>
-        </button>
         <div class="hud-btns">
           <button id="btn-sell" class="icon-btn" aria-label="Sell mode" title="Sell unit">$</button>
           <button id="btn-speed" class="icon-btn" aria-label="Game speed">1×</button>
