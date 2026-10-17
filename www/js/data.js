@@ -12,11 +12,30 @@
   const BF = (globalThis.BF = globalThis.BF || {});
 
   // ---- Board geometry (logical units; the canvas scales this to any screen) ----
-  // Landscape-first: wider than tall (aspect ≈ 1.5)
-  BF.GRID = { rows: 8, cell: 38, sky: 52, w: 504, h: 304, cw: 504, ch: 376 };
+  // 20/80 Horizon Rule: sky=20% of canvas height, battlefield=80%
+  BF.GRID = { rows: 8, cell: 36, sky: 80, w: 504, h: 288, cw: 504, ch: 376 };
   BF.CASTLE_W  = 54;   // pixel width of the castle gate drawing
   BF.SPAWN_X   = 66;   // x where new defenders appear (emerge from the castle)
-  BF.MARCH_SPD = 17;   // px/s base march speed for defenders
+  BF.MARCH_SPD = 13;   // px/s base march speed for defenders (slower for epic scale)
+
+  // Dynamic resolution: recompute GRID to match the container's aspect ratio
+  BF.reflow = function (containerW, containerH) {
+    if (containerW <= 0 || containerH <= 0) return;
+    var G = BF.GRID;
+    var aspect = Math.max(1.0, Math.min(2.5, containerW / containerH));
+    var ch = 376;
+    var sky = Math.round(ch * 0.2);
+    var btm = 8;
+    var avail = ch - sky - btm;
+    var cell = Math.floor(avail / G.rows);
+    var h = cell * G.rows;
+    G.ch = ch;
+    G.sky = ch - h - btm;
+    G.h = h;
+    G.cell = cell;
+    G.cw = Math.round(ch * aspect);
+    G.w = G.cw;
+  };
   BF.ROLES = ['spear', 'sword', 'archer', 'mage'];
 
   // ---- Economy ----
@@ -59,10 +78,10 @@
   };
 
   BF.ROLE = {
-    spear: { speed: 24, leak: 4 },
-    sword: { speed: 20, leak: 6 },
-    archer: { speed: 20, leak: 5 },
-    mage: { speed: 17, leak: 6 },
+    spear: { speed: 18, leak: 4 },
+    sword: { speed: 15, leak: 6 },
+    archer: { speed: 15, leak: 5 },
+    mage: { speed: 13, leak: 6 },
   };
 
   /* --------------------------------------------------------------------------
@@ -76,8 +95,8 @@
       perks: ['Elite swordsmen: heavy, hard-hitting blades', '+20% gold income'],
       mods: { income: 1.2, bounty: 1, baseHp: 1, armor: 0, regen: 0, berserk: false },
       units: {
-        spear: { name: 'Spearman', hp: 80, dmg: 8, rate: 1.0, range: 115 },
-        sword: { name: 'Swordsman', hp: 190, dmg: 19, rate: 1.1, range: 44 },
+        spear: { name: 'Spearman', hp: 80, dmg: 8, rate: 1.0, range: 38 },
+        sword: { name: 'Swordsman', hp: 190, dmg: 19, rate: 1.1, range: 30 },
         archer: { name: 'Archer', hp: 70, dmg: 15, rate: 0.85, range: 250 },
         mage: { name: 'Battle Mage', hp: 75, dmg: 30, rate: 0.7, range: 230, aoe: 80 },
       },
@@ -89,8 +108,8 @@
       perks: ['Longest-ranged archers in the game', 'Defenders regenerate 3 HP/s'],
       mods: { income: 1, bounty: 1, baseHp: 1, armor: 0, regen: 3, berserk: false },
       units: {
-        spear: { name: 'Glade Spear', hp: 70, dmg: 7, rate: 1.0, range: 115 },
-        sword: { name: 'Bladedancer', hp: 150, dmg: 17, rate: 1.2, range: 44 },
+        spear: { name: 'Glade Spear', hp: 70, dmg: 7, rate: 1.0, range: 38 },
+        sword: { name: 'Bladedancer', hp: 150, dmg: 17, rate: 1.2, range: 30 },
         archer: { name: 'Longbow Ranger', hp: 65, dmg: 22, rate: 0.55, range: 330 },
         mage: { name: 'Moon Mage', hp: 65, dmg: 28, rate: 0.65, range: 240, aoe: 80 },
       },
@@ -102,8 +121,8 @@
       perks: ['Massive health and damage in melee', 'Berserk: attacks 25% faster below half health'],
       mods: { income: 1.1, bounty: 1, baseHp: 1, armor: 0, regen: 0, berserk: true },
       units: {
-        spear: { name: 'Raider', hp: 100, dmg: 9, rate: 0.9, range: 115 },
-        sword: { name: 'Warbrute', hp: 260, dmg: 26, rate: 1.0, range: 44 },
+        spear: { name: 'Raider', hp: 100, dmg: 9, rate: 0.9, range: 38 },
+        sword: { name: 'Warbrute', hp: 260, dmg: 26, rate: 1.0, range: 30 },
         archer: { name: 'Skirmisher', hp: 55, dmg: 11, rate: 0.8, range: 210 },
         mage: { name: 'Shaman', hp: 65, dmg: 28, rate: 0.6, range: 210, aoe: 80 },
       },
@@ -115,8 +134,8 @@
       perks: ['Cheapest units in the game', '+35% gold from kills, +25% starting gold'],
       mods: { income: 1.25, bounty: 1.35, baseHp: 1, armor: 0, regen: 0, berserk: false },
       units: {
-        spear: { name: 'Stabber', hp: 55, dmg: 6, rate: 1.2, range: 115 },
-        sword: { name: 'Cutthroat', hp: 110, dmg: 12, rate: 1.3, range: 44 },
+        spear: { name: 'Stabber', hp: 55, dmg: 6, rate: 1.2, range: 38 },
+        sword: { name: 'Cutthroat', hp: 110, dmg: 12, rate: 1.3, range: 30 },
         archer: { name: 'Slinger', hp: 45, dmg: 8.5, rate: 1.1, range: 240 },
         mage: { name: 'Hexer', hp: 50, dmg: 26, rate: 0.7, range: 220, aoe: 85 },
       },
@@ -128,8 +147,8 @@
       perks: ['Armour: all damage cut by 15%', 'Gate has 25% more health'],
       mods: { income: 1, bounty: 1, baseHp: 1.25, armor: 0.15, regen: 0, berserk: false },
       units: {
-        spear: { name: 'Pikeman', hp: 110, dmg: 8, rate: 0.9, range: 115 },
-        sword: { name: 'Axeguard', hp: 240, dmg: 21, rate: 0.9, range: 44 },
+        spear: { name: 'Pikeman', hp: 110, dmg: 8, rate: 0.9, range: 38 },
+        sword: { name: 'Axeguard', hp: 240, dmg: 21, rate: 0.9, range: 30 },
         archer: { name: 'Crossbowman', hp: 80, dmg: 17, rate: 0.7, range: 210 },
         mage: { name: 'Runesmith', hp: 85, dmg: 33, rate: 0.6, range: 210, aoe: 75 },
       },
@@ -189,35 +208,51 @@
     goblins: 't_gloomhollow',
   };
 
-  // All territories (x,y in the 360×500 map SVG viewBox)
+  // All territories (x,y in the 900×520 landscape map SVG viewBox)
   BF.TERRITORIES = [
-    // ── Men of Aldermere (East) ──────────────────────────────────────────────
-    { id: 't_keep',     name: 'Aldermere Keep',     owner: 'men',     x: 305, y: 282, adj: ['t_ironwall', 't_stoneforge', 't_karakdun', 't_marches'] },
-    { id: 't_ironwall', name: 'Ironwall Cliffs',    owner: 'men',     x: 318, y: 188, adj: ['t_thornwood', 't_scorched', 't_keep'] },
-    { id: 't_marches',  name: 'Greywatch Marches',  owner: 'men',     x: 295, y: 374, adj: ['t_keep', 't_skullpeak', 't_gloomhollow'] },
+    // ── Elves of Sylvanmere (North — mystical forests) ────────────────────
+    { id: 't_starfall',    name: 'Starfall Pools',     owner: 'elves',   x: 315, y: 29,  adj: ['t_sylvan', 't_moonveil', 't_ancient'] },
+    { id: 't_ancient',     name: 'Ancient Canopy',     owner: 'elves',   x: 612, y: 36,  adj: ['t_starfall', 't_sylvan', 't_thornwood'] },
+    { id: 't_moonveil',    name: 'Moonveil Glade',     owner: 'elves',   x: 144, y: 69,  adj: ['t_starfall', 't_sylvan', 't_whisperwood', 't_raiders'] },
+    { id: 't_sylvan',      name: 'Sylvanmere Grove',   owner: 'elves',   x: 405, y: 65,  adj: ['t_starfall', 't_moonveil', 't_ancient', 't_thornwood', 't_ashfield'] },
+    { id: 't_thornwood',   name: 'Thornwood Pass',     owner: 'elves',   x: 711, y: 87,  adj: ['t_ancient', 't_sylvan', 't_scorched', 't_ironwall'] },
+    { id: 't_whisperwood', name: 'Whisperwood',        owner: 'elves',   x: 171, y: 126, adj: ['t_moonveil', 't_raiders', 't_emberpits'] },
 
-    // ── Elves of Sylvanmere (North) ─────────────────────────────────────────
-    { id: 't_sylvan',   name: 'Sylvanmere Grove',   owner: 'elves',   x: 155, y: 62,  adj: ['t_moonveil', 't_thornwood', 't_ashfield'] },
-    { id: 't_moonveil', name: 'Moonveil Glade',     owner: 'elves',   x: 54,  y: 88,  adj: ['t_sylvan', 't_raiders'] },
-    { id: 't_thornwood',name: 'Thornwood Pass',     owner: 'elves',   x: 272, y: 90,  adj: ['t_sylvan', 't_scorched', 't_ironwall'] },
+    // ── Orcs of the Ashen Horde (West — volcanic wastelands) ──────────────
+    { id: 't_emberpits',   name: 'Ember Pits',         owner: 'orcs',    x: 99,  y: 163, adj: ['t_whisperwood', 't_raiders', 't_bloodforge'] },
+    { id: 't_raiders',     name: "Raider's Reach",     owner: 'orcs',    x: 81,  y: 213, adj: ['t_moonveil', 't_whisperwood', 't_emberpits', 't_ashfield', 't_bloodforge'] },
+    { id: 't_ashfield',    name: 'Ashfield',           owner: 'orcs',    x: 279, y: 188, adj: ['t_sylvan', 't_raiders', 't_scorched', 't_warpeak', 't_frosthold', 't_karakdun'] },
+    { id: 't_scorched',    name: 'Scorched Plains',    owner: 'orcs',    x: 549, y: 177, adj: ['t_thornwood', 't_ashfield', 't_ironwall', 't_ironvein'] },
+    { id: 't_bloodforge',  name: 'Blood Forge',        owner: 'orcs',    x: 72,  y: 271, adj: ['t_emberpits', 't_raiders', 't_warpeak', 't_deepmines'] },
+    { id: 't_warpeak',     name: 'War Peak',           owner: 'orcs',    x: 225, y: 249, adj: ['t_ashfield', 't_bloodforge', 't_deepmines', 't_karakdun'] },
 
-    // ── Orcs of the Ashen Horde (West) ──────────────────────────────────────
-    { id: 't_ashfield', name: 'Ashfield',            owner: 'orcs',    x: 122, y: 178, adj: ['t_raiders', 't_sylvan', 't_scorched', 't_deepmines', 't_karakdun'] },
-    { id: 't_raiders',  name: "Raider's Reach",      owner: 'orcs',    x: 42,  y: 198, adj: ['t_moonveil', 't_ashfield', 't_deepmines'] },
-    { id: 't_scorched', name: 'Scorched Plains',     owner: 'orcs',    x: 215, y: 192, adj: ['t_thornwood', 't_ashfield', 't_ironwall', 't_stoneforge'] },
+    // ── Dwarves of Karak Dun (Central — snowy alpine peaks) ───────────────
+    { id: 't_frosthold',   name: 'Frosthold',          owner: 'dwarves', x: 387, y: 228, adj: ['t_ashfield', 't_karakdun', 't_anvil', 't_ironvein'] },
+    { id: 't_ironvein',    name: 'Ironvein Tunnels',   owner: 'dwarves', x: 612, y: 224, adj: ['t_scorched', 't_frosthold', 't_stoneforge', 't_ironwall'] },
+    { id: 't_karakdun',    name: 'Karak Dun',          owner: 'dwarves', x: 441, y: 278, adj: ['t_ashfield', 't_warpeak', 't_frosthold', 't_deepmines', 't_stoneforge', 't_anvil', 't_gloomhollow', 't_keep'] },
+    { id: 't_deepmines',   name: 'The Deepmines',      owner: 'dwarves', x: 207, y: 300, adj: ['t_bloodforge', 't_warpeak', 't_karakdun', 't_mudmire'] },
+    { id: 't_stoneforge',  name: 'Stoneforge',         owner: 'dwarves', x: 666, y: 282, adj: ['t_ironvein', 't_karakdun', 't_anvil', 't_keep', 't_skullpeak'] },
+    { id: 't_anvil',       name: 'The Anvil',          owner: 'dwarves', x: 513, y: 318, adj: ['t_frosthold', 't_karakdun', 't_stoneforge', 't_silverbridge'] },
 
-    // ── Dwarves of Karak Dun (Central mountains) ────────────────────────────
-    { id: 't_karakdun', name: 'Karak Dun',           owner: 'dwarves', x: 178, y: 272, adj: ['t_ashfield', 't_deepmines', 't_stoneforge', 't_keep', 't_gloomhollow'] },
-    { id: 't_deepmines',name: 'The Deepmines',       owner: 'dwarves', x: 96,  y: 295, adj: ['t_raiders', 't_ashfield', 't_karakdun', 't_mudmire'] },
-    { id: 't_stoneforge',name:'Stoneforge',           owner: 'dwarves', x: 258, y: 295, adj: ['t_scorched', 't_karakdun', 't_keep', 't_skullpeak'] },
+    // ── Men of Aldermere (East — golden valleys) ──────────────────────────
+    { id: 't_ironwall',    name: 'Ironwall Cliffs',    owner: 'men',     x: 801, y: 141, adj: ['t_thornwood', 't_scorched', 't_ironvein', 't_watchtower', 't_keep'] },
+    { id: 't_keep',        name: 'Aldermere Keep',     owner: 'men',     x: 774, y: 256, adj: ['t_ironwall', 't_stoneforge', 't_karakdun', 't_silverbridge', 't_watchtower', 't_marches'] },
+    { id: 't_watchtower',  name: 'The Watchtower',     owner: 'men',     x: 837, y: 206, adj: ['t_ironwall', 't_keep', 't_harvest'] },
+    { id: 't_silverbridge',name: 'Silver Bridge',      owner: 'men',     x: 711, y: 321, adj: ['t_keep', 't_anvil', 't_harvest'] },
+    { id: 't_harvest',     name: 'Harvest Fields',     owner: 'men',     x: 828, y: 343, adj: ['t_watchtower', 't_silverbridge', 't_marches'] },
+    { id: 't_marches',     name: 'Greywatch Marches',  owner: 'men',     x: 738, y: 386, adj: ['t_keep', 't_harvest', 't_skullpeak', 't_gloomhollow'] },
 
-    // ── Goblins of Gloomhollow (South) ──────────────────────────────────────
-    { id: 't_gloomhollow',name:'Gloomhollow Warren', owner: 'goblins', x: 152, y: 402, adj: ['t_deepmines', 't_karakdun', 't_marches', 't_mudmire', 't_skullpeak', 't_citadel'] },
-    { id: 't_mudmire',  name: 'Mudmire Bog',         owner: 'goblins', x: 65,  y: 388, adj: ['t_deepmines', 't_gloomhollow'] },
-    { id: 't_skullpeak',name: 'Skullpeak',            owner: 'goblins', x: 238, y: 378, adj: ['t_stoneforge', 't_marches', 't_gloomhollow', 't_citadel'] },
+    // ── Goblins of Gloomhollow (South — toxic swamps) ─────────────────────
+    { id: 't_gloomhollow', name: 'Gloomhollow Warren', owner: 'goblins', x: 387, y: 394, adj: ['t_karakdun', 't_mudmire', 't_marches', 't_skullpeak', 't_rotfen', 't_toxicspire'] },
+    { id: 't_mudmire',     name: 'Mudmire Bog',        owner: 'goblins', x: 153, y: 386, adj: ['t_deepmines', 't_gloomhollow', 't_rotfen'] },
+    { id: 't_skullpeak',   name: 'Skullpeak',          owner: 'goblins', x: 621, y: 386, adj: ['t_stoneforge', 't_marches', 't_gloomhollow', 't_darktide'] },
+    { id: 't_rotfen',      name: 'Rotfen Marsh',       owner: 'goblins', x: 198, y: 441, adj: ['t_mudmire', 't_gloomhollow', 't_shadowpass'] },
+    { id: 't_toxicspire',  name: 'Toxicspire',         owner: 'goblins', x: 459, y: 441, adj: ['t_gloomhollow', 't_darktide', 't_shadowpass'] },
+    { id: 't_darktide',    name: 'Dark Tide',          owner: 'goblins', x: 693, y: 433, adj: ['t_skullpeak', 't_toxicspire', 't_shadowpass'] },
 
-    // ── Final territory ──────────────────────────────────────────────────────
-    { id: 't_citadel',  name: 'Obsidian Citadel',    owner: null,      x: 175, y: 462, adj: ['t_gloomhollow', 't_skullpeak'], final: true },
+    // ── Final territories ─────────────────────────────────────────────────
+    { id: 't_shadowpass',  name: 'Shadow Pass',        owner: null,      x: 396, y: 477, adj: ['t_rotfen', 't_toxicspire', 't_darktide', 't_citadel'] },
+    { id: 't_citadel',     name: 'Obsidian Citadel',   owner: null,      x: 450, y: 506, adj: ['t_shadowpass'], final: true },
   ];
 
   BF.territoryById = (id) => BF.TERRITORIES.find((t) => t.id === id);
@@ -284,7 +319,10 @@
   };
 
   // ---- Auto-recruit: free reinforcement spawned every N seconds in the most threatened lane ----
-  BF.AUTO_RECRUIT = { interval: 30 };
+  BF.AUTO_RECRUIT = { interval: 45 };
+  BF.STAR_RATE_BONUS = [0, 0.10, 0.25, 0.40];
+  BF.REPAIR_CD = 20;
+  BF.MERC_CD = 15;
 
   // ---- Tier-1 unit touch abilities (tap a deployed unit to activate) ----
   BF.TOUCH_ABILITIES = {

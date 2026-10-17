@@ -71,7 +71,13 @@
       this.events = [];
       this.abilityCd = 0;   // seconds until ability can be used again
       this.abilityBuff = 0; // seconds remaining for the active timed buff
-      this.autoRecruitCd = 0; // 0 = ready immediately; player activates manually
+      this.autoRecruitCd = 30; // 30s initial charge before first use
+      this.repairCd = 0;
+      this.mercCd = 0;
+      this.starUpg = opts.starUpg || {};
+      const tidx = this.terr.index || 0;
+      this.enemyBaseMax = Math.round(600 + 200 * tidx);
+      this.enemyBaseHp = this.enemyBaseMax;
     }
 
     // ---------- enemy wave plan ----------
@@ -157,14 +163,14 @@
       e.y = G.sky + s.row * G.cell + G.cell / 2;
       e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
       if (s.role === 'champion') {
-        Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 46, speed: 15, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.35 });
+        Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 32, speed: 11, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.5 });
       } else if (s.role === 'warlord') {
-        Object.assign(e, { hp: u.hp * norm * 10 * T.hpScale, dmg: u.dmg * norm * 2.2 * T.dmgScale, rate: u.rate * 0.8, range: 48, speed: 12, leak: 40, bounty: 300, size: 1.7 });
+        Object.assign(e, { hp: u.hp * norm * 10 * T.hpScale, dmg: u.dmg * norm * 2.2 * T.dmgScale, rate: u.rate * 0.8, range: 34, speed: 9, leak: 40, bounty: 300, size: 2.0 });
       } else {
         const melee = s.role === 'spear' || s.role === 'sword';
         Object.assign(e, {
           hp: u.hp * norm * T.hpScale, dmg: u.dmg * norm * T.dmgScale, rate: u.rate,
-          range: melee ? 40 : BF.ENEMY_RANGED_STOP,
+          range: melee ? 28 : BF.ENEMY_RANGED_STOP,
           speed: BF.ROLE[s.role].speed, leak: BF.ROLE[s.role].leak,
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
         });
@@ -188,7 +194,9 @@
         id: this.nid++, side: 'def', type, row,
         x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
         marchSpeed: spd,
-        hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m, rate: u.rate, range: u.range,
+        hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m,
+        rate: u.rate * (1 + (BF.STAR_RATE_BONUS[this.starUpg[type] || 0] || 0)),
+        range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.35, hit: 0, atk: 0, dead: false,
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
       };
@@ -214,12 +222,13 @@
       const u = this.faction.units[type];
       if (!u) return;
       const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
+      const starRate = 1 + (BF.STAR_RATE_BONUS[this.starUpg[type] || 0] || 0);
       this.defenders.push({
         id: this.nid++, side: 'def', type, row,
         x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
         marchSpeed: spd,
         hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
-        dmg: u.dmg * this.defMult, rate: u.rate, range: u.range,
+        dmg: u.dmg * this.defMult, rate: u.rate * starRate, range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost,
         cd: 0.35, hit: 0, atk: 0, dead: false, isOg: type === 'og',
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
@@ -404,6 +413,8 @@
         this.autoRecruitCd = Math.max(0, this.autoRecruitCd - dt);
         if (this.autoRecruitCd === 0) this.events.push('recruitReady');
       }
+      if (this.repairCd > 0) this.repairCd = Math.max(0, this.repairCd - dt);
+      if (this.mercCd > 0) this.mercCd = Math.max(0, this.mercCd - dt);
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
@@ -437,7 +448,15 @@
             this._defAttack(d, tgt);
           }
         } else {
-          if (!d.shielded) d.x = Math.min(G.cw - 20, d.x + d.marchSpeed * dt);
+          if (!d.shielded) d.x = Math.min(G.cw - BF.CASTLE_W, d.x + d.marchSpeed * dt);
+          if (d.x >= G.cw - BF.CASTLE_W - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
+            d.cd = 1 / d.rate;
+            const dmg = Math.round(d.dmg);
+            this.enemyBaseHp = Math.max(0, this.enemyBaseHp - dmg);
+            this._float(G.cw - BF.CASTLE_W + 10, d.y - 10, '-' + dmg, '#ff6b5e');
+            d.atk = 0.18;
+            this.events.push('siegeHit');
+          }
         }
       }
 
@@ -490,7 +509,14 @@
         this.rings  = this.rings.filter((o) => o.t < o.dur);
       }
 
-      if (this.baseHp <= 0) {
+      if (this.enemyBaseHp <= 0 && !this.over) {
+        this.enemyBaseHp = 0;
+        for (const e of this.enemies) if (!e.dead) { e.dead = true; this.enemyPool.release(e); }
+        this.enemies = [];
+        const f = this.baseHp / this.baseMax;
+        this.stars = f >= 0.8 ? 3 : f >= 0.4 ? 2 : 1;
+        this.over = 'win'; this.events.push('win');
+      } else if (this.baseHp <= 0) {
         this.baseHp = 0; this.over = 'lose'; this.events.push('lose');
       } else if (this.next >= this.schedule.length && this.enemies.length === 0) {
         const f = this.baseHp / this.baseMax;
@@ -570,12 +596,9 @@
       return true;
     }
 
-    // ---------- repair the gate (restores 25% max HP; cost scales with wave) ----------
     repairGate() {
-      const w = this.waveNow();
-      const cost = BF.WAVE_ECON.repairCost(w);
-      if (this.gold < cost || this.over) return { ok: false, reason: this.gold < cost ? 'gold' : 'over' };
-      this.gold -= cost;
+      if (this.repairCd > 0 || this.over) return { ok: false, reason: this.repairCd > 0 ? 'cooldown' : 'over' };
+      this.repairCd = BF.REPAIR_CD;
       const heal = Math.round(this.baseMax * 0.25);
       this.baseHp = Math.min(this.baseMax, this.baseHp + heal);
       this._float(BF.CASTLE_W - 6, Math.round(G.sky + G.h * 0.5), '+' + heal, '#7fcf86');
@@ -583,15 +606,15 @@
       return { ok: true };
     }
 
-    // ---------- hire emergency mercenary into least-defended lane ----------
-    hireMerc() {
-      const w = this.waveNow();
-      const cost = BF.WAVE_ECON.mercCost(w);
-      if (this.gold < cost || this.over) return { ok: false, reason: this.gold < cost ? 'gold' : 'over' };
-      this.gold -= cost;
-      const rowCount = Array(G.rows).fill(0);
-      for (const d of this.defenders) if (!d.dead) rowCount[d.row]++;
-      const row = rowCount.indexOf(Math.min(...rowCount));
+    hireMerc(targetRow) {
+      if (this.mercCd > 0 || this.over) return { ok: false, reason: this.mercCd > 0 ? 'cooldown' : 'over' };
+      let row = targetRow;
+      if (row == null || row < 0 || row >= G.rows) {
+        const rowCount = Array(G.rows).fill(0);
+        for (const d of this.defenders) if (!d.dead) rowCount[d.row]++;
+        row = rowCount.indexOf(Math.min(...rowCount));
+      }
+      this.mercCd = BF.MERC_CD;
       this._spawnFreeUnit('sword', row);
       this.events.push('place');
       return { ok: true };

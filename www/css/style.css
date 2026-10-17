@@ -58,52 +58,76 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .icon-btn.on { border-color: var(--gold); color: var(--gold); }
 
 /* ---------- legion select ---------- */
-.title { text-align: center; padding: clamp(10px, 3vw, 20px) 20px 6px; }
-.title h1 { font-size: clamp(22px, 6vw, 38px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
-.title p { margin: 4px 0 0; color: var(--dim); font-size: var(--t-sm); }
+.title { text-align: center; padding: clamp(8px, 2vw, 14px) 20px 4px; }
+.title h1 { font-size: clamp(18px, 5vw, 30px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
+.title p { margin: 2px 0 0; color: var(--dim); font-size: var(--t-xs); }
 
-/* Tile grid — 2 columns on phones, up to 3-4 on wider screens */
-.legions {
-  flex: 1; overflow-y: auto; padding: 8px 12px 10px;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: clamp(7px, 2vw, 11px); align-content: start;
-  -webkit-overflow-scrolling: touch;
+/* Split-screen body: carousel + detail stacked on mobile, side-by-side on wide */
+.legion-body { display: flex; flex-direction: column; flex: 1; min-height: 0; align-items: center; }
+
+/* Horizontal cover-flow carousel */
+.carousel-wrap { flex: none; padding: 2px 0; width: 100%; }
+.carousel {
+  display: flex; gap: 8px; padding: 6px 12px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.legion {
-  position: relative; padding: 10px 10px 11px;
-  border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
+.carousel::-webkit-scrollbar { display: none; }
+.ccard {
+  flex: none; width: 80px;
+  padding: 6px 4px 5px; border-radius: 10px;
+  background: var(--panel); border: 1.5px solid var(--line);
   overflow: hidden; display: flex; flex-direction: column; align-items: center;
-  text-align: center; gap: 4px;
+  text-align: center; gap: 2px; scroll-snap-align: center;
+  transition: border-color .2s, box-shadow .2s, transform .15s, opacity .15s;
+  position: relative;
 }
-/* Faction colour stripe along the top */
-.legion::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); border-radius: 16px 16px 0 0; }
-.legion.sel { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 8px 24px rgba(0,0,0,.38); background: var(--panel2); }
-/* Icon sits at the top of the tile, in normal document flow */
-.legion-icon {
-  width: clamp(42px, 11vw, 56px); height: clamp(42px, 11vw, 56px);
+.ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 9px 9px 0 0; }
+.ccard.sel { border-color: var(--c); background: var(--panel2); }
+.ccard-icon {
+  width: 32px; height: 32px;
   border-radius: 50%; opacity: 0.9; pointer-events: none;
-  flex: none; margin-top: 6px;
-  transition: opacity .25s, transform .25s;
+  transition: opacity .25s;
 }
-.legion.sel .legion-icon { opacity: 1; transform: scale(1.08); }
-.legion h3 { font-size: var(--t-md); color: var(--text); line-height: 1.2; margin-top: 2px; }
-.legion .tag { color: var(--dim); font-size: var(--t-xs); line-height: 1.35; }
-.progress { font-size: var(--t-xs); color: var(--dim); margin-top: 2px; }
-.roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; width: 100%; margin-top: 4px; }
-.roster div { text-align: center; padding: 4px 2px; border-radius: 7px; background: rgba(0,0,0,.25); }
-.roster div span { display: block; font-size: 8px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.roster b { display: block; color: var(--gold); font-size: 10px; margin-top: 1px; }
-.foot { padding: 8px 12px 14px; }
-.foot .btn { width: 100%; }
+.ccard.sel .ccard-icon { opacity: 1; }
+.ccard h3 { font-size: 10px; color: var(--text); line-height: 1.2; margin-top: 1px; }
+.ccard .tag { color: var(--dim); font-size: 8px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.progress { font-size: 8px; color: var(--dim); margin-top: 1px; }
 
-/* Legion tile selection animation */
-@keyframes legion-pick { 0% { transform: scale(1); } 40% { transform: scale(0.96); } 100% { transform: scale(1); } }
-.legion.sel { animation: legion-shimmer 2.2s ease-in-out infinite; }
-@keyframes legion-shimmer {
-  0%, 100% { box-shadow: 0 0 0 1px var(--c), 0 0 12px rgba(0,0,0,.3); }
-  50% { box-shadow: 0 0 0 2px var(--c), 0 0 22px color-mix(in srgb, var(--c) 55%, transparent); }
+@keyframes ccard-shimmer {
+  0%, 100% { box-shadow: 0 0 0 1px var(--c), 0 0 8px rgba(0,0,0,.3); }
+  50% { box-shadow: 0 0 0 2px var(--c), 0 0 14px color-mix(in srgb, var(--c) 55%, transparent); }
 }
-.legion:active { animation: legion-pick 0.18s ease-out; }
+.ccard.sel { animation: ccard-shimmer 2.2s ease-in-out infinite; }
+
+/* Faction detail / telemetry panel */
+.legion-detail {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 6px 16px 8px;
+  -webkit-overflow-scrolling: touch; width: 100%; max-width: 540px;
+}
+.ld-perks { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.ld-perk { font-size: var(--t-xs); color: var(--dim); padding: 4px 8px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
+.ld-perk::before { content: "✦ "; color: var(--gold); }
+.ld-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.ld-unit { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ld-unit canvas { width: clamp(28px, 7vw, 38px); height: clamp(28px, 7vw, 38px); }
+.ld-name { font-size: var(--t-xs); color: var(--text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ld-role { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
+.ld-strong { font-size: 7px; color: var(--ok); text-transform: capitalize; }
+.ld-weak { font-size: 7px; color: var(--danger); text-transform: capitalize; }
+
+.foot { padding: 6px 12px 12px; }
+.foot .btn { width: 100%; max-width: 400px; margin: 0 auto; display: flex; }
+
+/* Wide viewport: side-by-side carousel on top, detail below — all centred */
+@media (min-width: 768px) {
+  .legion-body { flex-direction: column; align-items: center; }
+  .carousel-wrap { flex: none; width: 100%; max-width: 640px; padding: 4px 0; }
+  .carousel { justify-content: center; flex-wrap: wrap; overflow-x: visible; scroll-snap-type: none; padding: 8px 16px; gap: 10px; }
+  .carousel .ccard { width: 90px; transform: none !important; opacity: 1 !important; }
+  .legion-detail { flex: 1; padding: 8px 24px; max-width: 540px; }
+  .ld-roster { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+}
 
 /* ---------- map ---------- */
 .topbar { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(8px, 2vw, 12px) clamp(10px, 3vw, 14px); }
@@ -111,7 +135,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .topbar h2 { font-size: var(--t-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar .sub { font-size: var(--t-xs); color: var(--dim); }
 .glory { display: inline-flex; align-items: center; gap: 6px; padding: clamp(5px, 1.5vw, 8px) clamp(8px, 2.5vw, 13px); border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); font-weight: 700; color: var(--gold); font-size: var(--t-sm); }
-.mapwrap { flex: 1; min-height: 0; padding: 0 12px; display: flex; }
+.mapwrap { flex: 1; min-height: 0; padding: 0 12px; display: flex; overflow: hidden; touch-action: none; }
 #mapsvg { width: 100%; height: 100%; border-radius: 18px; background: #12151d; border: 1px solid var(--line); }
 .mapbar { display: flex; gap: 10px; padding: clamp(8px, 2vw, 12px) 14px clamp(10px, 2.5vw, 16px); }
 .mapbar .btn { flex: 1; }
@@ -119,6 +143,10 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .node.locked { cursor: default; opacity: .6; }
 @keyframes pulse { 0% { r: 17; opacity: .9 } 100% { r: 30; opacity: 0 } }
 .pulse { animation: pulse 1.6s ease-out infinite; }
+@keyframes map-glow { 0%, 100% { opacity: .2; } 50% { opacity: .7; } }
+.map-particle { animation: map-glow 3s ease-in-out infinite; }
+.map-particle:nth-child(even) { animation-delay: -1.5s; }
+.map-particle:nth-child(3n) { animation-duration: 4s; }
 
 /* ---------- sheet + modal ---------- */
 .modal { position: absolute; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; background: rgba(5, 6, 10, .6); padding: env(safe-area-inset-top) 0 0 0; }
@@ -177,7 +205,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   flex: 1; min-width: 0; padding: clamp(5px, 1.5vw, 8px) 4px clamp(5px, 1.5vw, 7px); border-radius: 14px; background: var(--panel2); border: 1.5px solid var(--line);
   display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative;
 }
-.ucard canvas { width: clamp(30px, 8vw, 40px); height: clamp(30px, 8vw, 40px); }
+.ucard canvas { width: clamp(24px, 6vw, 32px); height: clamp(24px, 6vw, 32px); }
 .ucard .nm { font-size: var(--t-xs); color: #d8d0bb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .ucard .cs { font-size: var(--t-sm); font-weight: 700; color: var(--gold); display: flex; align-items: center; gap: 4px; }
 .ucard .cs .coin { width: 11px; height: 11px; }
@@ -211,7 +239,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 /* ---------- manual recruit circular button ---------- */
 .recruit-circ {
   position: relative; flex: none;
-  width: clamp(40px, 10vw, 50px); height: clamp(40px, 10vw, 50px);
+  width: clamp(52px, 13vw, 64px); height: clamp(52px, 13vw, 64px);
   border-radius: 50%;
   background: linear-gradient(160deg, #1d243a, #141820);
   border: 1px solid var(--line);
@@ -263,6 +291,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .act-btn:active { transform: scale(.97); }
 .act-btn.poor { opacity: .4; }
 .act-btn[disabled] { opacity: .35; pointer-events: none; }
+.act-btn.ready { border-color: var(--ok); }
+.act-btn.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 12px rgba(232, 197, 102, .25); }
+.act-icon { margin-right: 3px; }
 @media (orientation: landscape) {
   #act-bar { gap: 3px; grid-template-columns: 1fr 1fr; }
   .act-btn { padding: 3px 7px; font-size: clamp(9px, 2.2vh, 11px); }
@@ -270,9 +301,12 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- compact portrait (very small screens) ---------- */
 @media (max-height: 600px) and (orientation: portrait) {
-  .legion ul { display: none; }
-  .title { padding-top: 10px; }
-  .legions { gap: 6px; }
+  .title { padding-top: 6px; padding-bottom: 2px; }
+  .carousel { padding: 4px 10px; }
+  .ccard { width: 70px; padding: 5px 3px 4px; }
+  .ccard-icon { width: 26px; height: 26px; }
+  .ccard h3 { font-size: 9px; }
+  .ccard .tag { font-size: 7px; }
 }
 
 /* ---------- landscape: tighter HUD, tray stays readable ---------- */
@@ -292,7 +326,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- narrow phones (≤ 360px wide) ---------- */
 @media (max-width: 360px) {
-  .legion { padding-right: 64px; }
-  .legion-icon { width: 42px; height: 42px; right: 8px; }
-  .progress { right: 68px; }
+  .ccard { width: 72px; }
+  .ccard-icon { width: 28px; height: 28px; }
+  .ccard h3 { font-size: 9px; }
 }

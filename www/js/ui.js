@@ -26,10 +26,21 @@
         conquered: {},
         glory: 0,
         upg: { treasury: 0, barracks: 0, walls: 0 },
+        starUpg: {},
         won: false,
+        stats: { sieged: 0, killed: 0, threeStars: 0, skipGold: 0 },
       };
     }
+    if (!save.camps[fid].starUpg) save.camps[fid].starUpg = {};
+    if (!save.camps[fid].stats) save.camps[fid].stats = { sieged: 0, killed: 0, threeStars: 0, skipGold: 0 };
     return save.camps[fid];
+  }
+  function availableStars(c) {
+    let earned = 0;
+    for (const tid in c.conquered) earned += c.conquered[tid];
+    let spent = 0;
+    for (const r in c.starUpg) spent += c.starUpg[r];
+    return earned - spent;
   }
   // Territories conquered (home is not in the list)
   const conqueredCount = (c) => Object.keys(c.conquered).length;
@@ -109,37 +120,112 @@
 
   /* ======================= 1. LEGION SELECT ======================= */
   let pick = save.last || 'men';
+
+  function updateCoverFlow(carousel) {
+    if (window.innerWidth >= 768) return;
+    const cards = carousel.querySelectorAll('.ccard');
+    const cx = carousel.scrollLeft + carousel.clientWidth / 2;
+    cards.forEach((card) => {
+      const mid = card.offsetLeft + card.offsetWidth / 2;
+      const ad = M.abs((mid - cx) / (card.offsetWidth || 1));
+      const sc = M.max(0.88, 1.06 - 0.12 * ad);
+      const op = M.max(0.5, 1 - 0.28 * ad);
+      card.style.transform = 'scale(' + sc.toFixed(3) + ')';
+      card.style.opacity = op.toFixed(2);
+    });
+  }
+
   function renderLegions() {
     const root = $('#screen-legion');
     root.innerHTML =
-      '<div class="title"><h1>BANNERFALL</h1><p>Choose your legion. Conquer the world.</p></div>' +
-      '<div class="legions">' +
+      '<div class="title"><h1>BANNERFALL</h1><p>Choose your legion</p></div>' +
+      '<div class="legion-body">' +
+      '<div class="carousel-wrap"><div class="carousel" id="carousel">' +
       BF.FACTIONS.map((f) => {
         const c = save.camps[f.id];
         const done = c ? conqueredCount(c) : 0;
         return (
-          '<button class="legion' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
-          '<img class="legion-icon" src="img/icon-' + f.id + '.svg" alt="" aria-hidden="true">' +
+          '<div class="ccard' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
+          '<img class="ccard-icon" src="img/icon-' + f.id + '.svg" alt="" aria-hidden="true">' +
           '<h3>' + f.name + '</h3>' +
           '<div class="tag">' + f.tagline + '</div>' +
-          (done ? '<span class="progress">' + done + '/' + totalTerritories + ' conquered</span>' : '') +
-          '<div class="roster">' +
-          BF.ROLES.map((r) => '<div><span>' + f.units[r].name + '</span><b>' + f.units[r].cost + '</b></div>').join('') +
-          '</div></button>'
+          (done ? '<span class="progress">' + done + '/' + totalTerritories + '</span>' : '') +
+          '</div>'
         );
       }).join('') +
-      '</div><div class="foot"><button class="btn" id="go-map"></button></div>';
+      '</div></div>' +
+      '<div class="legion-detail" id="legion-detail"></div>' +
+      '</div>' +
+      '<div class="foot"><button class="btn" id="go-map"></button></div>';
+
+    function updateDetail() {
+      const f = BF.factionById(pick);
+      const mx = BF.TIER1_MATRIX;
+      $('#legion-detail').innerHTML =
+        '<div class="ld-perks">' +
+        f.perks.map((p) => '<div class="ld-perk">' + p + '</div>').join('') +
+        '</div>' +
+        '<div class="ld-roster">' +
+        BF.ROLES.map((r) => {
+          const u = f.units[r];
+          const m = mx[r];
+          return '<div class="ld-unit"><canvas width="76" height="76"></canvas>' +
+            '<span class="ld-name">' + u.name + '</span>' +
+            '<span class="ld-role dim">' + r + '</span>' +
+            '<span class="ld-strong">Strong: ' + m.strong.join(', ') + '</span>' +
+            '<span class="ld-weak">Weak: ' + m.weak.join(', ') + '</span>' +
+            '</div>';
+        }).join('') +
+        '</div>';
+      $('#legion-detail').querySelectorAll('.ld-unit canvas').forEach((cv, i) => {
+        const c2 = cv.getContext('2d');
+        c2.scale(2, 2);
+        BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
+      });
+    }
 
     const label = () => { $('#go-map').textContent = 'Lead the ' + BF.factionById(pick).short; };
-    label();
-    root.querySelectorAll('.legion').forEach((b) => {
+    label(); updateDetail();
+
+    const carousel = $('#carousel');
+    const selIdx = BF.FACTIONS.findIndex((f) => f.id === pick);
+    requestAnimationFrame(() => {
+      const cards = carousel.querySelectorAll('.ccard');
+      if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
+      updateCoverFlow(carousel);
+    });
+
+    carousel.querySelectorAll('.ccard').forEach((b) => {
       addRipple(b);
       b.addEventListener('click', () => {
         pick = b.dataset.id;
-        root.querySelectorAll('.legion').forEach((x) => x.classList.toggle('sel', x === b));
-        label(); Sound.play('ui');
+        carousel.querySelectorAll('.ccard').forEach((x) => x.classList.toggle('sel', x === b));
+        label(); updateDetail(); Sound.play('ui');
+        updateCoverFlow(carousel);
       });
     });
+
+    let scrollTimer;
+    carousel.addEventListener('scroll', () => {
+      updateCoverFlow(carousel);
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        const cards = carousel.querySelectorAll('.ccard');
+        const cx = carousel.scrollLeft + carousel.clientWidth / 2;
+        let closest = null, bestD = 1e9;
+        cards.forEach((c) => {
+          const mid = c.offsetLeft + c.offsetWidth / 2;
+          const d = M.abs(mid - cx);
+          if (d < bestD) { bestD = d; closest = c; }
+        });
+        if (closest && closest.dataset.id !== pick) {
+          pick = closest.dataset.id;
+          cards.forEach((x) => x.classList.toggle('sel', x === closest));
+          label(); updateDetail(); Sound.play('ui');
+        }
+      }, 80);
+    }, { passive: true });
+
     addRipple($('#go-map'));
     $('#go-map').addEventListener('click', () => { save.last = pick; persist(); Sound.play('ui'); renderMap(); show('map'); });
   }
@@ -169,40 +255,85 @@
       '<div class="glory">✦ <span id="glory">' + c.glory + '</span></div>' +
       '<button class="icon-btn' + (save.sound ? ' on' : '') + '" id="snd" aria-label="Sound">♪</button>' +
       '</div>' +
-      '<div class="mapwrap"><svg id="mapsvg" viewBox="0 0 360 500" preserveAspectRatio="xMidYMid meet"></svg></div>' +
-      '<div class="mapbar"><button class="btn ghost" id="council">War Council</button></div>';
+      '<div class="mapwrap"><svg id="mapsvg" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet"></svg></div>' +
+      '<div class="mapbar"><button class="btn ghost" id="council">War Council</button><button class="btn ghost" id="barracks">★ Barracks</button><button class="btn ghost" id="stats">Stats</button></div>';
 
     const svg = $('#mapsvg');
-
-    // Background land mass
     const defs = svgEl('defs', {}, svg);
+
     // Land gradient
     const landGrad = svgEl('radialGradient', { id: 'land', cx: '50%', cy: '45%', r: '65%' }, defs);
     svgEl('stop', { offset: '0', 'stop-color': '#1c2535' }, landGrad);
     svgEl('stop', { offset: '1', 'stop-color': '#0f1420' }, landGrad);
-    // Continent silhouette path
+
+    // Continent silhouette (landscape 900×520 viewBox)
     svgEl('path', {
-      d: 'M28 95 L10 190 L22 290 L14 375 L50 490 L115 505 L195 510 L265 498 L338 470 L348 370 L342 270 L350 175 L334 80 L264 42 L168 35 L80 52 Z',
-      fill: 'url(#land)', stroke: 'rgba(232,220,192,.12)', 'stroke-width': 2,
+      d: 'M54 58 L22 144 L36 246 L22 332 L72 433 L180 491 L360 513 L576 506 L774 477 L855 390 L864 289 L873 188 L846 101 L756 43 L558 22 L324 18 L144 33 Z',
+      fill: 'url(#land)', stroke: 'rgba(232,220,192,.10)', 'stroke-width': 2,
     }, svg);
+
+    // Biome region fills — colored terrain areas per faction
+    const biomeLayer = svgEl('g', { opacity: '0.12' }, svg);
+    svgEl('ellipse', { cx: 396, cy: 72, rx: 396, ry: 79, fill: '#40c070' }, biomeLayer);
+    svgEl('ellipse', { cx: 171, cy: 217, rx: 198, ry: 94, fill: '#c03020' }, biomeLayer);
+    svgEl('ellipse', { cx: 468, cy: 274, rx: 288, ry: 72, fill: '#6090c0' }, biomeLayer);
+    svgEl('ellipse', { cx: 792, cy: 274, rx: 180, ry: 144, fill: '#d0a040' }, biomeLayer);
+    svgEl('ellipse', { cx: 396, cy: 419, rx: 360, ry: 72, fill: '#408030' }, biomeLayer);
+    svgEl('ellipse', { cx: 432, cy: 498, rx: 144, ry: 36, fill: '#6020a0' }, biomeLayer);
+
+    // Mountain ridges (dwarf region)
+    const mtnG = svgEl('g', { opacity: '0.2' }, svg);
+    svgEl('path', { d: 'M252 246 L306 217 L360 238 L414 209 L468 231 L522 206 L576 228 L630 213 L684 238',
+      fill: 'none', stroke: '#8098b0', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, mtnG);
+    svgEl('path', { d: 'M180 289 L234 267 L279 285 L333 260 L378 278',
+      fill: 'none', stroke: '#8098b0', 'stroke-width': 2, 'stroke-linejoin': 'round' }, mtnG);
+
+    // Forest canopy dots (elf region)
+    const forestG = svgEl('g', { opacity: '0.18', fill: '#308050' }, svg);
+    [[216,43],[324,33],[504,40],[612,58],[288,79],[180,94],[540,72],[720,69],[450,51]].forEach(([fx,fy]) => {
+      svgEl('circle', { cx: fx, cy: fy, r: 12 + (fx % 7) }, forestG);
+    });
+
+    // River paths
+    svgEl('path', { d: 'M450 116 C432 159, 360 202, 324 253 S252 318, 234 368',
+      fill: 'none', stroke: 'rgba(80,160,220,.18)', 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
+    svgEl('path', { d: 'M684 123 C720 166, 738 224, 711 289',
+      fill: 'none', stroke: 'rgba(80,160,220,.14)', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, svg);
+
+    // Animated biome particles
+    const particleG = svgEl('g', {}, svg);
+    const biomeParticles = [
+      { cx: 288, cy: 51, fill: '#60ff90', r: 2 }, { cx: 504, cy: 61, fill: '#60ff90', r: 1.5 },
+      { cx: 180, cy: 40, fill: '#80ffa0', r: 2.5 }, { cx: 630, cy: 47, fill: '#60ff90', r: 1.8 },
+      { cx: 90, cy: 181, fill: '#ff6030', r: 2 }, { cx: 126, cy: 231, fill: '#ff8040', r: 2.5 },
+      { cx: 72, cy: 260, fill: '#ff5020', r: 1.5 },
+      { cx: 360, cy: 238, fill: '#a0c0e0', r: 2 }, { cx: 558, cy: 253, fill: '#90b8d8', r: 1.8 },
+      { cx: 180, cy: 412, fill: '#40ff60', r: 2 }, { cx: 450, cy: 426, fill: '#60e080', r: 1.5 },
+      { cx: 630, cy: 419, fill: '#80ff60', r: 2 },
+    ];
+    biomeParticles.forEach((p) => {
+      const c = svgEl('circle', { cx: p.cx, cy: p.cy, r: p.r, fill: p.fill, class: 'map-particle' }, particleG);
+    });
+
     // Terrain texture lines
-    for (let k = 0; k < 7; k++) {
+    for (let k = 0; k < 10; k++) {
       svgEl('path', {
-        d: 'M-10 ' + (55 + k * 70) + ' C 80 ' + (15 + k * 70) + ', 240 ' + (105 + k * 70) + ', 380 ' + (50 + k * 70),
-        fill: 'none', stroke: 'rgba(232,220,192,.04)', 'stroke-width': 1.3,
+        d: 'M-10 ' + (36 + k * 51) + ' C 180 ' + (14 + k * 51) + ', 630 ' + (65 + k * 51) + ', 940 ' + (33 + k * 51),
+        fill: 'none', stroke: 'rgba(232,220,192,.03)', 'stroke-width': 1.3,
       }, svg);
     }
 
-    // Region labels (behind nodes)
+    // Region labels
     const regions = [
-      { label: 'ALDERMERE', x: 310, y: 248, color: BF.factionById('men').color },
-      { label: 'SYLVANMERE', x: 155, y: 38, color: BF.factionById('elves').color },
-      { label: 'ASHEN WASTES', x: 80, y: 148, color: BF.factionById('orcs').color },
-      { label: 'KARAK DUN', x: 155, y: 248, color: BF.factionById('dwarves').color },
-      { label: 'GLOOMHOLLOW', x: 140, y: 368, color: BF.factionById('goblins').color },
+      { label: 'ALDERMERE', x: 810, y: 231, color: BF.factionById('men').color },
+      { label: 'SYLVANMERE', x: 396, y: 14, color: BF.factionById('elves').color },
+      { label: 'ASHEN WASTES', x: 144, y: 144, color: BF.factionById('orcs').color },
+      { label: 'KARAK DUN', x: 450, y: 253, color: BF.factionById('dwarves').color },
+      { label: 'GLOOMHOLLOW', x: 387, y: 368, color: BF.factionById('goblins').color },
+      { label: 'THE VOID', x: 432, y: 466, color: '#8040c0' },
     ];
     regions.forEach(({ label, x, y, color }) => {
-      const el = svgEl('text', { x, y, 'text-anchor': 'middle', fill: color, 'font-size': 8.5, 'font-weight': 700, opacity: 0.3, 'letter-spacing': 2 }, svg);
+      const el = svgEl('text', { x, y, 'text-anchor': 'middle', fill: color, 'font-size': 11, 'font-weight': 700, opacity: 0.25, 'letter-spacing': 2.5 }, svg);
       el.textContent = label;
     });
 
@@ -314,9 +445,101 @@
       if (open || won) g.addEventListener('click', () => onNode(t));
     });
 
+    // Pinch-to-zoom and pan on the map SVG
+    (function() {
+      const wrap = $('.mapwrap');
+      let vb = { x: 0, y: 0, w: 900, h: 520 };
+      const VB_BASE = { x: 0, y: 0, w: 900, h: 520 };
+      const MIN_ZOOM = 1, MAX_ZOOM = 3;
+      let zoom = 1;
+      let pointers = {};
+      let lastDist = 0, lastMid = null, dragging = false;
+
+      function applyVB() {
+        svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h);
+      }
+      function clampVB() {
+        vb.w = VB_BASE.w / zoom;
+        vb.h = VB_BASE.h / zoom;
+        vb.x = M.max(VB_BASE.x, M.min(VB_BASE.x + VB_BASE.w - vb.w, vb.x));
+        vb.y = M.max(VB_BASE.y, M.min(VB_BASE.y + VB_BASE.h - vb.h, vb.y));
+      }
+      function svgPt(e) {
+        const r = svg.getBoundingClientRect();
+        return { x: vb.x + ((e.clientX - r.left) / r.width) * vb.w, y: vb.y + ((e.clientY - r.top) / r.height) * vb.h };
+      }
+
+      wrap.addEventListener('pointerdown', (e) => {
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const pts = Object.values(pointers);
+        if (pts.length === 1) { dragging = true; lastMid = { x: e.clientX, y: e.clientY }; }
+        if (pts.length === 2) {
+          lastDist = M.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          lastMid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        }
+        wrap.setPointerCapture(e.pointerId);
+      }, { passive: true });
+
+      wrap.addEventListener('pointermove', (e) => {
+        if (!pointers[e.pointerId]) return;
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        const pts = Object.values(pointers);
+        if (pts.length === 2) {
+          const dist = M.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          const mid = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+          if (lastDist > 0) {
+            const scale = dist / lastDist;
+            const focusBefore = svgPt({ clientX: mid.x, clientY: mid.y });
+            zoom = M.max(MIN_ZOOM, M.min(MAX_ZOOM, zoom * scale));
+            clampVB();
+            const focusAfter = svgPt({ clientX: mid.x, clientY: mid.y });
+            vb.x += focusBefore.x - focusAfter.x;
+            vb.y += focusBefore.y - focusAfter.y;
+            clampVB(); applyVB();
+          }
+          // Pan with two fingers
+          if (lastMid) {
+            const dx = (mid.x - lastMid.x) / svg.getBoundingClientRect().width * vb.w;
+            const dy = (mid.y - lastMid.y) / svg.getBoundingClientRect().height * vb.h;
+            vb.x -= dx; vb.y -= dy;
+            clampVB(); applyVB();
+          }
+          lastDist = dist; lastMid = mid;
+        } else if (pts.length === 1 && dragging && zoom > 1) {
+          const dx = (e.clientX - lastMid.x) / svg.getBoundingClientRect().width * vb.w;
+          const dy = (e.clientY - lastMid.y) / svg.getBoundingClientRect().height * vb.h;
+          vb.x -= dx; vb.y -= dy;
+          clampVB(); applyVB();
+          lastMid = { x: e.clientX, y: e.clientY };
+        }
+      });
+
+      function ptrUp(e) {
+        delete pointers[e.pointerId];
+        const pts = Object.values(pointers);
+        if (pts.length < 2) lastDist = 0;
+        if (pts.length === 0) dragging = false;
+        if (pts.length === 1) lastMid = { x: pts[0].x, y: pts[0].y };
+      }
+      wrap.addEventListener('pointerup', ptrUp);
+      wrap.addEventListener('pointercancel', ptrUp);
+
+      // Double-tap to reset zoom
+      let lastTap = 0;
+      wrap.addEventListener('click', (e) => {
+        const now = Date.now();
+        if (now - lastTap < 300 && zoom > 1) {
+          zoom = 1; vb.x = VB_BASE.x; vb.y = VB_BASE.y; clampVB(); applyVB();
+        }
+        lastTap = now;
+      });
+    })();
+
     $('#back').addEventListener('click', () => { Sound.play('ui'); renderLegions(); show('legion'); });
     $('#snd').addEventListener('click', (e) => { save.sound = !save.sound; persist(); e.currentTarget.classList.toggle('on', save.sound); Sound.play('ui'); });
     $('#council').addEventListener('click', openCouncil);
+    $('#barracks').addEventListener('click', openBarracks);
+    $('#stats').addEventListener('click', openStats);
   }
 
   function hexA(hex, a) {
@@ -384,6 +607,55 @@
     draw();
   }
 
+  function openBarracks() {
+    const f = BF.factionById(save.last), c = camp(f.id);
+    const draw = () => {
+      const avail = availableStars(c);
+      const card = openModal(
+        '<h2>Barracks</h2><p class="dim" style="margin:0 0 6px">Spend earned stars to boost attack speed. You have <b class="gold">★ ' + avail + '</b> available.</p>' +
+        BF.ROLES.map((r) => {
+          const u = f.units[r];
+          const lv = c.starUpg[r] || 0;
+          const bonus = Math.round((BF.STAR_RATE_BONUS[lv] || 0) * 100);
+          return (
+            '<div class="upg"><div class="info"><b>' + u.name + '</b><small>Attack speed +' + bonus + '%' +
+            (lv < 3 ? ' → +' + Math.round((BF.STAR_RATE_BONUS[lv + 1] || 0) * 100) + '%' : '') +
+            '</small>' + pips(lv, 3) + '</div>' +
+            (lv >= 3 ? '<span class="dim">Max</span>' : '<button class="btn small" data-r="' + r + '"' + (avail < 1 ? ' disabled' : '') + '>★ 1</button>') +
+            '</div>'
+          );
+        }).join('') +
+        '<div class="row"><button class="btn" id="done">Done</button></div>'
+      );
+      card.querySelectorAll('[data-r]').forEach((b) =>
+        b.addEventListener('click', () => {
+          const r = b.dataset.r;
+          const lv = c.starUpg[r] || 0;
+          if (lv < 3 && availableStars(c) >= 1) { c.starUpg[r] = lv + 1; persist(); Sound.play('coin'); draw(); }
+        })
+      );
+      $('#done', card).onclick = closeModal;
+    };
+    draw();
+  }
+
+  function openStats() {
+    const f = BF.factionById(save.last), c = camp(f.id);
+    const s = c.stats;
+    const card = openModal(
+      '<h2>Legion Statistics</h2>' +
+      '<p class="dim" style="margin:0 0 8px">' + f.name + '</p>' +
+      '<div class="kv"><span class="dim">Territories sieged</span><b>' + s.sieged + '</b></div>' +
+      '<div class="kv"><span class="dim">Enemies defeated</span><b>' + s.killed + '</b></div>' +
+      '<div class="kv"><span class="dim">3-star victories</span><b class="gold">' + s.threeStars + '</b></div>' +
+      '<div class="kv"><span class="dim">Gold from wave skips</span><b class="gold">' + s.skipGold + '</b></div>' +
+      '<div class="kv"><span class="dim">Territories conquered</span><b>' + conqueredCount(c) + ' / ' + totalTerritories + '</b></div>' +
+      '<div class="kv"><span class="dim">Glory earned</span><b class="gold">✦ ' + c.glory + '</b></div>' +
+      '<div class="row"><button class="btn" id="done">Done</button></div>'
+    );
+    $('#done', card).onclick = closeModal;
+  }
+
   /* ======================= 3. BATTLE ======================= */
   const cv = $('#cv');
   const ctx = cv.getContext('2d');
@@ -391,9 +663,14 @@
 
   function fit() {
     const box = $('#field');
-    const w = box.clientWidth - 8, h = box.clientHeight - 8;
-    if (w <= 0 || h <= 0) return;
-    const s = Math.min(w / G.cw, h / G.ch);
+    const bw = box.clientWidth - 8, bh = box.clientHeight - 8;
+    if (bw <= 0 || bh <= 0) return;
+    BF.reflow(bw, bh);
+    if (B) {
+      for (const d of B.defenders) d.y = G.sky + d.row * G.cell + G.cell / 2;
+      for (const e of B.enemies) e.y = G.sky + e.row * G.cell + G.cell / 2;
+    }
+    const s = Math.min(bw / G.cw, bh / G.ch);
     const cssW = Math.floor(G.cw * s), cssH = Math.floor(G.ch * s);
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
@@ -445,8 +722,6 @@
     // Action bar: recruit + ability + repair + merc
     const actBar = document.createElement('div');
     actBar.id = 'act-bar';
-    const rCost = BF.WAVE_ECON.repairCost(0);
-    const mCost = BF.WAVE_ECON.mercCost(0);
     actBar.innerHTML =
       '<button id="btn-recruit" class="recruit-circ ready" aria-label="Reinforce all lanes">' +
         '<svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>' +
@@ -457,8 +732,8 @@
         '<span id="ability-cd" class="ability-cd-text">READY</span>' +
         '<span class="ability-bar"><i id="ability-bar-fill"></i></span>' +
       '</button>' +
-      '<button class="act-btn" id="btn-repair">' + coin + rCost + ' Repair</button>' +
-      '<button class="act-btn" id="btn-merc">'   + coin + mCost + ' Merc</button>';
+      '<button class="act-btn" id="btn-repair"><span class="act-icon">🔨</span><span id="repair-label">Repair</span></button>' +
+      '<button class="act-btn" id="btn-merc"><span class="act-icon">⚔</span><span id="merc-label">Merc</span></button>';
     tray.appendChild(actBar);
 
     $('#btn-recruit', actBar).addEventListener('click', () => {
@@ -470,32 +745,38 @@
       if (B.useAbility()) { Sound.play('place'); }
     });
     $('#btn-repair', actBar).addEventListener('click', () => {
+      if (!B || B.over) return;
       const res = B.repairGate();
-      if (res.ok) Sound.play('coin'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
+      if (res.ok) Sound.play('coin');
       syncTray();
     });
     $('#btn-merc', actBar).addEventListener('click', () => {
-      const res = B.hireMerc();
-      if (res.ok) Sound.play('place'); else if (res.reason === 'gold') { Sound.play('deny'); flashGold(); }
-      syncTray();
+      if (!B || B.over || B.mercCd > 0) return;
+      uiS.selected = uiS.selected === 'merc' ? null : 'merc';
+      uiS.sellMode = false; $('#btn-sell').classList.remove('on');
+      Sound.play('ui'); syncTray();
     });
   }
   function syncActBtns() {
     if (!B) return;
-    const w = B.waveNow();
     const repairBtn = $('#btn-repair');
     const mercBtn   = $('#btn-merc');
     if (repairBtn) {
-      const c = BF.WAVE_ECON.repairCost(w);
-      repairBtn.innerHTML = coin + c + ' Repair';
-      repairBtn.disabled  = B.gold < c || !!B.over;
-      repairBtn.classList.toggle('poor', B.gold < c);
+      const ready = B.repairCd <= 0;
+      const label = $('#repair-label');
+      if (label) label.textContent = ready ? 'Repair' : M.ceil(B.repairCd) + 's';
+      repairBtn.disabled = !ready || !!B.over;
+      repairBtn.classList.toggle('ready', ready);
+      repairBtn.classList.remove('poor');
     }
     if (mercBtn) {
-      const c = BF.WAVE_ECON.mercCost(w);
-      mercBtn.innerHTML = coin + c + ' Merc';
-      mercBtn.disabled  = B.gold < c || !!B.over;
-      mercBtn.classList.toggle('poor', B.gold < c);
+      const ready = B.mercCd <= 0;
+      const label = $('#merc-label');
+      if (label) label.textContent = ready ? 'Merc' : M.ceil(B.mercCd) + 's';
+      mercBtn.disabled = !ready || !!B.over;
+      mercBtn.classList.toggle('ready', ready);
+      mercBtn.classList.toggle('sel', uiS.selected === 'merc');
+      mercBtn.classList.remove('poor');
     }
   }
 
@@ -507,16 +788,24 @@
     syncActBtns();
   }
 
+  function lockLandscape() {
+    try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){}); } catch(e) {}
+  }
+  function unlockOrientation() {
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
+  }
+
   function startBattle(t) {
     const f = BF.factionById(save.last), c = camp(f.id);
     terr = t;
-    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c) });
-    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Defend the gate', t: 2.2 }, gateFlash: 0, abilityFlash: 0 };
+    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg });
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0 };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     $('#btn-speed').textContent = '1×';
     $('#btn-sell').classList.remove('on');
     buildTray();
     show('battle');
+    lockLandscape();
     fit();
     const hint = $('#hint');
     if (!save.hintSeen) hint.classList.remove('hidden'); else hint.classList.add('hidden');
@@ -541,6 +830,11 @@
         uiS.sellMode = false; $('#btn-sell').classList.remove('on'); // snap to purchase mode
         syncTray();
       }
+      return;
+    }
+    if (uiS.selected === 'merc') {
+      const res = B.hireMerc(row);
+      if (res.ok) { Sound.play('place'); uiS.selected = null; syncTray(); }
       return;
     }
     if (uiS.selected) {
@@ -632,6 +926,7 @@
       }
       for (const ev of B.events) {
         if (ev === 'leak') uiS.gateFlash = 0.5;
+        if (ev === 'siegeHit') uiS.siegeFlash = 0.3;
         if (ev === 'ability') { uiS.abilityFlash = 0.4; }
         if (ev === 'reinforce') { uiS.banner = { text: '⚔ Reinforcements Deployed!', t: 1.4 }; }
         if (ev === 'recruitReady') { uiS.banner = { text: '⚔ Reinforce Ready!', t: 1.2 }; }
@@ -643,6 +938,7 @@
       if (w !== lastWave && w > 0) { lastWave = w; uiS.banner = { text: w === terr.waves ? 'Final wave' : 'Wave ' + w, t: 1.8 }; }
       if (uiS.banner.t > 0) uiS.banner.t -= dt;
       if (uiS.gateFlash > 0) uiS.gateFlash -= dt;
+      if (uiS.siegeFlash > 0) uiS.siegeFlash -= dt;
       if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
     }
@@ -660,7 +956,12 @@
   $('#btn-skip').addEventListener('click', () => {
     if (!B || B.over) return;
     const reward = B.skipWave();
-    if (reward) { Sound.play('coin'); syncTray(); }
+    if (reward) {
+      const c = camp(save.last);
+      c.stats.skipGold += reward;
+      persist();
+      Sound.play('coin'); syncTray();
+    }
   });
   $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
   $('#btn-pause').addEventListener('click', openPause);
@@ -680,7 +981,7 @@
     $('#retreat', card).onclick = leaveBattle;
   }
 
-  function leaveBattle() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); renderMap(); show('map'); }
+  function leaveBattle() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); unlockOrientation(); renderMap(); show('map'); }
 
   function showResult() {
     if (!B) return;
@@ -693,6 +994,9 @@
       c.conquered[terr.id] = Math.max(prev, B.stars);
       c.glory += reward;
       if (terr.final) c.won = true;
+      c.stats.sieged++;
+      c.stats.killed += B.kills;
+      if (B.stars === 3) c.stats.threeStars++;
       persist();
       const card = openModal(
         '<h2 class="center-t gold">' + (terr.final ? 'The world is yours' : 'Territory conquered') + '</h2>' +

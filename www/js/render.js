@@ -611,7 +611,7 @@
     // Scaled token radii — derived from cell size so 8-row layouts stay readable
     const DR  = M.round(G.cell * 0.38);   // defender token radius (~16 for cell=42)
     const ER  = M.round(G.cell * 0.32);   // enemy token radius   (~13 for cell=42)
-    const OGR = M.round(G.cell * 0.47);   // OG Force token radius (~20 for cell=42)
+    const OGR = M.round(G.cell * 0.58);   // OG Force token radius — imposing elite units
     const AUR = M.round(G.cell * 0.47);   // aura/ring radius
 
     // Colorful biome background (sky + terrain + clouds + particles)
@@ -750,6 +750,13 @@
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
     ctx.save(); ctx.translate(0, G.sky);
     drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T);
+    ctx.restore();
+
+    // ── ENEMY FORTRESS (right side, mirrored castle) ─────────────────
+    ctx.save();
+    ctx.translate(G.cw, G.sky);
+    ctx.scale(-1, 1);
+    drawCastle(ctx, G.h, b.enemyBaseHp, b.enemyBaseMax, ui.siegeFlash || 0, foe.color, T);
     ctx.restore();
 
     // Bottom decorative strip
