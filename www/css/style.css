@@ -246,8 +246,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
 
 /* ---------- battle ---------- */
-#screen-battle { /* position: absolute inherited from .screen — creates containing block for child absolutes */ }
-#hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-right)) clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-left)); position: absolute; top: 0; left: 0; right: 0; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#screen-battle { display: flex; flex-direction: column; }
+#hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-right)) clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-left)); flex: none; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .hud-gold { display: flex; align-items: center; gap: clamp(3px, 1vw, 6px); min-width: clamp(60px, 14vw, 90px); font-size: clamp(14px, 3.5vw, 20px); font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
 .hud-gold.deny { animation: shake .3s; color: var(--danger); }
 @keyframes shake { 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
@@ -256,11 +256,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .hud-wave-bar { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .1); margin: 2px 4px 0; overflow: hidden; }
 .hud-wave-bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s; }
 .hud-btns { display: flex; gap: clamp(4px, 1vw, 7px); }
-#field { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+#field { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
 #cv { width: 100%; height: 100%; border-radius: 0; border: none; background: #10131a; touch-action: none; }
 .hint { position: absolute; left: 50%; bottom: 50%; transform: translate(-50%, 50%); background: rgba(10, 12, 18, .85); border: 1px solid var(--line); padding: clamp(6px, 1.5vw, 9px) clamp(10px, 2.5vw, 14px); border-radius: 12px; font-size: var(--t-sm); color: var(--text); width: max-content; max-width: 86%; text-align: center; pointer-events: none; z-index: 4; }
 
-#tray { display: flex; align-items: flex-end; gap: clamp(2px, 0.5vw, 4px); padding: clamp(3px, 0.8vw, 6px) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-right)) calc(clamp(3px, 0.8vw, 6px) + env(safe-area-inset-bottom)) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-left)); position: absolute; bottom: 0; left: 0; right: 0; z-index: 5; background: rgba(15, 17, 23, .6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#tray { display: flex; align-items: flex-end; gap: clamp(2px, 0.5vw, 4px); padding: clamp(3px, 0.8vw, 6px) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-right)) calc(clamp(3px, 0.8vw, 6px) + env(safe-area-inset-bottom)) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-left)); flex: none; z-index: 5; background: rgba(15, 17, 23, .6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .tray-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 1px; flex: none; }
 .ucard {
   flex: 1; min-width: 0; padding: clamp(3px, 0.8vw, 6px) 2px clamp(3px, 0.8vw, 5px); border-radius: 10px; background: var(--panel2); border: 1.5px solid var(--line);

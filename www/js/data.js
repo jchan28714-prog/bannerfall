@@ -332,7 +332,7 @@
       return Object.assign({}, t, {
         owner,
         index: idx,
-        waves: t.final ? 9 : Math.max(3, 2 + d),
+        waves: t.final ? 9 : 5 + d,
         hpScale:    0.90 + 0.12 * idx,
         dmgScale:   0.85 + 0.12 * idx,
         countScale: 0.90 + 0.10 * idx,

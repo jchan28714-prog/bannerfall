@@ -111,7 +111,7 @@
     _buildSchedule() {
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const waveGap = 60; // 1 minute per wave
+      const waveGap = 15;
       const hasBoss = idx >= 2;
       const mm = this.modeMult;
       // More units in easy mode, fewer in hard
@@ -141,7 +141,7 @@
         }
       }
       if (hasBoss) {
-        const bossT = (W - 1) * waveGap + 50;
+        const bossT = (W - 1) * waveGap + 10;
         const br = Math.floor(r() * G.rows);
         const n = 1 + Math.floor(idx / 3);
         for (let c = 0; c < n; c++) {
