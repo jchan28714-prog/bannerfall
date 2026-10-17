@@ -761,6 +761,10 @@
     const ab = BF.ABILITIES[f.id];
     const tray = $('#tray');
     tray.innerHTML = '';
+
+    // Units section (60% width)
+    const unitsDiv = document.createElement('div');
+    unitsDiv.className = 'tray-units';
     BF.ROLES.forEach((r) => {
       const u = f.units[r];
       const b = document.createElement('button');
@@ -773,7 +777,7 @@
         uiS.selected = uiS.selected === r ? null : r;
         Sound.play('ui'); syncTray();
       });
-      tray.appendChild(b);
+      unitsDiv.appendChild(b);
     });
 
     // OG Force card (elite purchasable unit)
@@ -789,10 +793,14 @@
         uiS.selected = uiS.selected === 'og' ? null : 'og';
         Sound.play('ui'); syncTray();
       });
-      tray.appendChild(b);
+      unitsDiv.appendChild(b);
     }
+    tray.appendChild(unitsDiv);
 
-    // Action bar: recruit + ability + repair + merc
+    // Actions section (40% width): recruit + ability + repair + merc
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'tray-actions';
+
     const actBar = document.createElement('div');
     actBar.id = 'act-bar';
     actBar.innerHTML =
@@ -800,15 +808,23 @@
         '<svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>' +
         '<span id="recruit-icon">⚔</span><span class="recruit-label">Reinforce</span><span id="recruit-cd" class="recruit-cd2"></span>' +
       '</button>' +
-      '<button id="btn-ability" class="ability-btn" style="--c:' + f.color + '" aria-label="' + (ab ? ab.name : 'Ability') + '">' +
-        '<span id="ability-name">' + (ab ? ab.name : '—') + '</span>' +
-        '<span id="ability-desc" class="ability-desc-text">' + (ab ? ab.desc : '') + '</span>' +
-        '<span id="ability-cd" class="ability-cd-text">READY</span>' +
-        '<span class="ability-bar"><i id="ability-bar-fill"></i></span>' +
-      '</button>' +
       '<button class="act-btn" id="btn-repair"><span class="act-icon">🔨</span><span id="repair-label">Repair</span></button>' +
       '<button class="act-btn" id="btn-merc"><span class="act-icon">⚔</span><span id="merc-label">Merc</span></button>';
-    tray.appendChild(actBar);
+
+    const abilBtn = document.createElement('button');
+    abilBtn.id = 'btn-ability';
+    abilBtn.className = 'ability-btn';
+    abilBtn.style.cssText = '--c:' + f.color;
+    abilBtn.setAttribute('aria-label', ab ? ab.name : 'Ability');
+    abilBtn.innerHTML =
+      '<span id="ability-name">' + (ab ? ab.name : '—') + '</span>' +
+      '<span id="ability-desc" class="ability-desc-text">' + (ab ? ab.desc : '') + '</span>' +
+      '<span id="ability-cd" class="ability-cd-text">READY</span>' +
+      '<span class="ability-bar"><i id="ability-bar-fill"></i></span>';
+
+    actionsDiv.appendChild(abilBtn);
+    actionsDiv.appendChild(actBar);
+    tray.appendChild(actionsDiv);
 
     $('#btn-recruit', actBar).addEventListener('click', () => {
       if (!B || B.over) return;
