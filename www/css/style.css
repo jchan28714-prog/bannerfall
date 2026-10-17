@@ -79,7 +79,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .legion-body { display: flex; flex-direction: column; flex: 1; min-height: 0; align-items: center; }
 
 /* Horizontal cover-flow carousel */
-.carousel-wrap { flex: none; padding: 2px 0; width: 100%; }
+.carousel-wrap { flex: none; padding: 10px 0; width: 100%; }
 .carousel {
   display: flex; gap: 8px; padding: 6px 12px;
   overflow-x: auto; scroll-snap-type: x mandatory;
@@ -92,11 +92,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   background: var(--panel); border: 1.5px solid var(--line);
   overflow: hidden; display: flex; flex-direction: column; align-items: center;
   text-align: center; gap: 2px; scroll-snap-align: center;
-  transition: border-color .2s, box-shadow .2s;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
   position: relative;
 }
 .ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 9px 9px 0 0; }
-.ccard.sel { border-color: var(--c); background: var(--panel2); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); }
+.ccard.sel { border-color: var(--c); background: var(--panel2); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); transform: scale(1.3); z-index: 2; }
 .ccard-icon {
   width: 32px; height: 32px;
   border-radius: 50%; opacity: 0.85; pointer-events: none;
