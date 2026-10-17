@@ -79,61 +79,97 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .leg-header h1 { font-size: clamp(16px, 4.5vw, 28px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
 .leg-header p { margin: 1px 0 0; color: var(--dim); font-size: var(--t-xs); }
 
-/* Horizontal snap-scroll of full-height cards */
+/* Horizontal snap-scroll of cards */
 .leg-scroll {
-  flex: 1; min-height: 0; display: flex; gap: 16px;
-  padding: 0 calc(50% - 190px) 12px;
+  flex: 1; min-height: 0; display: flex; gap: 14px;
+  padding: 0 calc(50% - 80px) 12px;
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  align-items: center;
 }
 .leg-scroll::-webkit-scrollbar { display: none; }
 
+/* --- Collapsed card (not selected): just icon + name --- */
 .lcard {
-  flex: none; width: 380px; max-width: 90vw;
+  flex: none; width: 140px;
   border-radius: 16px; background: var(--panel); border: 2px solid var(--line);
-  overflow-y: auto; overflow-x: hidden;
+  overflow: hidden;
   scroll-snap-align: center; position: relative;
-  display: flex; flex-direction: column; gap: 12px;
-  padding: 18px 18px 20px;
-  transition: border-color .25s, box-shadow .25s, transform .25s, opacity .25s;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 18px 10px;
+  transition: width .35s ease, border-color .25s, box-shadow .25s, opacity .25s, padding .35s ease;
+  cursor: pointer;
 }
 .lcard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); border-radius: 14px 14px 0 0; }
-.lcard:not(.sel) { opacity: .45; transform: scale(.93); filter: saturate(.5); }
-.lcard.sel { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 4px 24px rgba(0,0,0,.5); transform: scale(1); }
+.lcard:not(.sel) { opacity: .55; }
 
-/* Card header: icon + name + tagline */
-.lcard-head { display: flex; align-items: center; gap: 10px; }
-.lcard-icon { width: 52px; height: 52px; border-radius: 50%; flex: none; }
-.lcard-title { flex: 1; min-width: 0; }
-.lcard-title h3 { font-size: var(--t-xl); color: var(--text); line-height: 1.2; }
-.lcard-tag { font-size: var(--t-sm); color: var(--dim); line-height: 1.3; }
-.lcard-prog { font-size: var(--t-xs); color: var(--gold); font-weight: 700; flex: none; padding: 3px 8px; border-radius: 8px; background: rgba(232,197,102,.12); }
+/* --- Expanded card (selected): full content --- */
+.lcard.sel {
+  width: 420px; max-width: 92vw;
+  border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 4px 24px rgba(0,0,0,.5);
+  padding: 20px 20px 22px;
+  align-items: stretch;
+  overflow-y: auto;
+}
+
+/* Card header: icon + name */
+.lcard-head { display: flex; align-items: center; gap: 12px; justify-content: center; }
+.lcard-icon { width: 56px; height: 56px; border-radius: 50%; flex: none; }
+.lcard-head h3 { font-size: clamp(16px, 4.5vw, 24px); color: var(--text); line-height: 1.15; margin: 0; }
+.lcard-prog { font-size: var(--t-sm); color: var(--gold); font-weight: 700; flex: none; padding: 3px 8px; border-radius: 8px; background: rgba(232,197,102,.12); }
+
+/* Collapsed: hide everything except head */
+.lcard-expanded { display: none; }
+.lcard.sel .lcard-expanded { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+
+/* Collapsed: stack icon above name */
+.lcard:not(.sel) .lcard-head { flex-direction: column; gap: 8px; text-align: center; }
+.lcard:not(.sel) .lcard-head h3 { font-size: clamp(12px, 3vw, 16px); }
+.lcard:not(.sel) .lcard-icon { width: 48px; height: 48px; }
+.lcard:not(.sel) .lcard-prog { font-size: 9px; padding: 2px 6px; }
+
+/* Tagline */
+.lcard-tagline { font-size: clamp(13px, 3.5vw, 17px); color: var(--dim); line-height: 1.35; margin: 0; }
+
+/* Lore */
+.lcard-lore { font-size: clamp(12px, 3vw, 15px); color: var(--text); margin: 0; line-height: 1.4; font-style: italic; }
+
+/* Details dropdown */
+.lcard-details { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); }
+.lcard-details summary {
+  padding: 8px 12px; cursor: pointer; font-size: clamp(12px, 3vw, 15px); font-weight: 600;
+  color: var(--gold); list-style: none; display: flex; align-items: center; gap: 6px;
+}
+.lcard-details summary::before { content: "▸"; transition: transform .2s; }
+.lcard-details[open] summary::before { transform: rotate(90deg); }
+.lcard-details summary::-webkit-details-marker { display: none; }
+.lcard-detail-body { padding: 0 12px 12px; }
+
+.lcard-crisis { font-size: clamp(11px, 2.8vw, 14px); color: var(--danger); margin: 0 0 8px; line-height: 1.4; opacity: 0.85; }
+.lcard-crisis::before { content: "\26A0  "; }
 
 /* Perks */
-.lcard-perks { display: flex; flex-wrap: wrap; gap: 4px; }
-.lcard-perk { font-size: var(--t-sm); color: var(--dim); padding: 5px 10px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
+.lcard-perks { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.lcard-perk { font-size: clamp(11px, 2.8vw, 14px); color: var(--dim); padding: 5px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
 .lcard-perk::before { content: "✦ "; color: var(--gold); }
 
-/* Unit roster — horizontal row */
-.lcard-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+/* Roster title */
+.lcard-roster-title { font-size: clamp(12px, 3vw, 15px); color: var(--text); margin: 0 0 6px; }
+
+/* Unit roster */
+.lcard-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .lcard-unit { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.lcard-unit canvas { width: clamp(32px, 8vw, 42px); height: clamp(32px, 8vw, 42px); }
+.lcard-unit canvas { width: clamp(32px, 8vw, 44px); height: clamp(32px, 8vw, 44px); }
 .lcard-unit-info { text-align: center; }
-.lcard-unit-info b { font-size: var(--t-sm); color: var(--text); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
+.lcard-unit-info b { font-size: clamp(10px, 2.5vw, 13px); color: var(--text); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; }
 .lcard-role { font-size: 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); display: block; }
 .lcard-matchup { font-size: 8px; display: block; line-height: 1.3; }
 .lcard-matchup .ok { color: var(--ok); text-transform: capitalize; }
 .lcard-matchup .bad { color: var(--danger); text-transform: capitalize; }
 
-/* Deep-dive lore (visible on vertical scroll within card) */
-.lcard-deep { padding-top: 4px; border-top: 1px solid var(--line); }
-.lcard-lore { font-size: var(--t-sm); color: var(--text); margin: 0 0 6px; line-height: 1.4; font-style: italic; }
-.lcard-crisis { font-size: var(--t-sm); color: var(--danger); margin: 0; line-height: 1.4; opacity: 0.85; }
-.lcard-crisis::before { content: "\26A0  "; }
-
 /* CTA button inside each card */
-.lcard-go { width: 100%; margin-top: auto; flex: none; }
+.lcard-go { width: 100%; margin-top: 4px; flex: none; }
 
 /* ---------- map ---------- */
 .topbar { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(8px, 2vw, 12px) clamp(10px, 3vw, 14px); }
@@ -322,10 +358,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- compact portrait (very small screens) ---------- */
 @media (max-height: 600px) and (orientation: portrait) {
-  .lcard { width: 280px; padding: 10px 10px 12px; gap: 6px; }
-  .lcard-icon { width: 36px; height: 36px; }
-  .lcard-title h3 { font-size: 13px; }
-  .lcard-unit canvas { width: 24px; height: 24px; }
+  .lcard { width: 120px; padding: 12px 8px; }
+  .lcard.sel { width: 300px; }
+  .lcard:not(.sel) .lcard-icon { width: 40px; height: 40px; }
 }
 
 /* ---------- legion select in landscape ---------- */
@@ -333,19 +368,22 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .leg-header { padding: 3px 10px; }
   .leg-header h1 { font-size: 15px; letter-spacing: .2em; }
   .leg-header p { font-size: 8px; }
-  .leg-scroll { gap: 10px; padding-bottom: 6px; }
-  .lcard { width: 260px; padding: 8px 10px 10px; gap: 6px; border-radius: 12px; }
-  .lcard-icon { width: 30px; height: 30px; }
-  .lcard-title h3 { font-size: 12px; }
-  .lcard-tag { font-size: 8px; }
-  .lcard-perk { font-size: 8px; padding: 2px 6px; }
-  .lcard-unit canvas { width: 22px; height: 22px; }
-  .lcard-unit-info b { font-size: 8px; }
-  .lcard-role { font-size: 6px; }
-  .lcard-matchup { font-size: 6px; }
-  .lcard-lore { font-size: 8px; }
-  .lcard-crisis { font-size: 8px; }
+  .leg-scroll { gap: 8px; padding: 0 calc(50% - 60px) 4px; }
+  .lcard { width: 100px; padding: 10px 6px; border-radius: 12px; }
+  .lcard:not(.sel) .lcard-icon { width: 36px; height: 36px; }
+  .lcard:not(.sel) .lcard-head h3 { font-size: 10px; }
+  .lcard.sel { width: 320px; padding: 10px 12px 12px; }
+  .lcard-icon { width: 36px; height: 36px; }
+  .lcard-head h3 { font-size: 14px; }
+  .lcard-tagline { font-size: 11px; }
+  .lcard-lore { font-size: 10px; }
+  .lcard-perk { font-size: 9px; padding: 3px 6px; }
+  .lcard-unit canvas { width: 24px; height: 24px; }
+  .lcard-unit-info b { font-size: 9px; }
+  .lcard-crisis { font-size: 9px; }
   .lcard-go { padding: 6px 12px; font-size: 11px; }
+  .lcard-details summary { font-size: 11px; padding: 5px 8px; }
+  .lcard-detail-body { padding: 0 8px 8px; }
   /* Map in landscape */
   .topbar { padding: 4px 10px; }
   .topbar h2 { font-size: 14px; }
@@ -410,8 +448,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- narrow phones (≤ 360px wide) ---------- */
 @media (max-width: 360px) {
-  .lcard { width: 260px; padding: 12px 12px 14px; }
-  .lcard-icon { width: 38px; height: 38px; }
+  .lcard { width: 110px; padding: 12px 6px; }
+  .lcard.sel { width: 280px; }
 }
 
 /* ---------- mobile landscape (short screens ≤ 440px height) ---------- */

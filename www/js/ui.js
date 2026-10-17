@@ -196,43 +196,48 @@
       BF.FACTIONS.map((f) => {
         const c = save.camps[f.id];
         const done = c ? conqueredCount(c) : 0;
+        const isSel = f.id === pick;
         return (
-          '<div class="lcard' + (f.id === pick ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
+          '<div class="lcard' + (isSel ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
           '<div class="lcard-head">' +
             '<img class="lcard-icon" src="img/icon-' + f.id + '.svg" alt="">' +
-            '<div class="lcard-title">' +
-              '<h3>' + f.name + '</h3>' +
-              '<span class="lcard-tag">' + f.tagline + '</span>' +
-            '</div>' +
+            '<h3>' + f.name + '</h3>' +
             (done ? '<span class="lcard-prog">' + done + '/' + totalTerritories + '</span>' : '') +
           '</div>' +
-          '<div class="lcard-perks">' +
-            f.perks.map((p) => '<span class="lcard-perk">' + p + '</span>').join('') +
-          '</div>' +
-          '<div class="lcard-roster">' +
-            BF.ROLES.map((r) => {
-              var u = f.units[r], m = mx[r];
-              return '<div class="lcard-unit">' +
-                '<canvas width="76" height="76"></canvas>' +
-                '<div class="lcard-unit-info">' +
-                  '<b>' + u.name + '</b>' +
-                  '<span class="lcard-role">' + r + '</span>' +
-                  '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span> <span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
+          '<div class="lcard-expanded">' +
+            '<p class="lcard-tagline">' + f.tagline + '</p>' +
+            (f.lore ? '<p class="lcard-lore">' + f.lore.goal + '</p>' : '') +
+            '<details class="lcard-details">' +
+              '<summary>Legion Details</summary>' +
+              '<div class="lcard-detail-body">' +
+                (f.lore ? '<p class="lcard-crisis">' + f.lore.crisis + '</p>' : '') +
+                '<div class="lcard-perks">' +
+                  f.perks.map((p) => '<span class="lcard-perk">' + p + '</span>').join('') +
                 '</div>' +
-              '</div>';
-            }).join('') +
+                '<h4 class="lcard-roster-title">Units</h4>' +
+                '<div class="lcard-roster">' +
+                  BF.ROLES.map((r) => {
+                    var u = f.units[r], m = mx[r];
+                    return '<div class="lcard-unit">' +
+                      '<canvas width="76" height="76"></canvas>' +
+                      '<div class="lcard-unit-info">' +
+                        '<b>' + u.name + '</b>' +
+                        '<span class="lcard-role">' + r + '</span>' +
+                        '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span> <span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
+                      '</div>' +
+                    '</div>';
+                  }).join('') +
+                '</div>' +
+              '</div>' +
+            '</details>' +
+            '<button class="btn lcard-go" data-id="' + f.id + '">Lead the ' + f.short + '</button>' +
           '</div>' +
-          '<div class="lcard-deep">' +
-            (f.lore ? '<p class="lcard-lore">' + f.lore.goal + '</p><p class="lcard-crisis">' + f.lore.crisis + '</p>' : '') +
-          '</div>' +
-          '<button class="btn lcard-go" data-id="' + f.id + '">Lead the ' + f.short + '</button>' +
           '</div>'
         );
       }).join('') +
       '</div>';
 
-    // Draw unit tokens
-    root.querySelectorAll('.lcard').forEach((card) => {
+    function drawTokensFor(card) {
       const fid = card.dataset.id;
       const f = BF.factionById(fid);
       card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
@@ -240,9 +245,11 @@
         c2.scale(2, 2);
         BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
       });
-    });
+    }
 
-    // Scroll snap picks the selected card
+    // Draw tokens for the initially selected card
+    root.querySelectorAll('.lcard.sel').forEach(drawTokensFor);
+
     const scroll = $('#leg-scroll');
     const selIdx = BF.FACTIONS.findIndex((f) => f.id === pick);
     requestAnimationFrame(() => {
@@ -250,17 +257,24 @@
       if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
     });
 
-    // Tap card to select
+    function selectCard(id) {
+      if (id === pick) return;
+      pick = id;
+      scroll.querySelectorAll('.lcard').forEach((x) => {
+        const isSel = x.dataset.id === pick;
+        x.classList.toggle('sel', isSel);
+        if (isSel) drawTokensFor(x);
+      });
+      Sound.play('ui');
+    }
+
     scroll.querySelectorAll('.lcard').forEach((b) => {
       b.addEventListener('click', (e) => {
-        if (e.target.closest('.lcard-go')) return;
-        pick = b.dataset.id;
-        scroll.querySelectorAll('.lcard').forEach((x) => x.classList.toggle('sel', x.dataset.id === pick));
-        Sound.play('ui');
+        if (e.target.closest('.lcard-go') || e.target.closest('.lcard-details')) return;
+        selectCard(b.dataset.id);
       });
     });
 
-    // Scroll-snap auto-select
     let scrollTimer;
     scroll.addEventListener('scroll', () => {
       clearTimeout(scrollTimer);
@@ -273,15 +287,10 @@
           const d = M.abs(mid - cx);
           if (d < bestD) { bestD = d; closest = c; }
         });
-        if (closest && closest.dataset.id !== pick) {
-          pick = closest.dataset.id;
-          cards.forEach((x) => x.classList.toggle('sel', x.dataset.id === pick));
-          Sound.play('ui');
-        }
+        if (closest) selectCard(closest.dataset.id);
       }, 80);
     }, { passive: true });
 
-    // "Lead the X" buttons
     scroll.querySelectorAll('.lcard-go').forEach((btn) => {
       addRipple(btn);
       btn.addEventListener('click', () => {
@@ -830,7 +839,7 @@
       if (!B || B.over) return;
       if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
     });
-    $('#btn-ability', actBar).addEventListener('click', () => {
+    abilBtn.addEventListener('click', () => {
       if (!B || B.over || B.abilityCd > 0) return;
       uiS.selected = uiS.selected === 'ability' ? null : 'ability';
       uiS.sellMode = false; $('#btn-sell').classList.remove('on');
