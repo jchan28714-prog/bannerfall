@@ -726,18 +726,16 @@
 
   function fit() {
     const box = $('#field');
-    const bw = box.clientWidth - 8, bh = box.clientHeight - 8;
+    const bw = box.clientWidth, bh = box.clientHeight;
     if (bw <= 0 || bh <= 0) return;
     BF.reflow(bw, bh);
     if (B) {
       for (const d of B.defenders) d.y = G.sky + d.row * G.cell + G.cell / 2;
       for (const e of B.enemies) e.y = G.sky + e.row * G.cell + G.cell / 2;
     }
-    const s = Math.min(bw / G.cw, bh / G.ch);
-    const cssW = Math.floor(G.cw * s), cssH = Math.floor(G.ch * s);
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px';
-    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+    cv.style.width = bw + 'px'; cv.style.height = bh + 'px';
+    cv.width = Math.round(bw * dpr); cv.height = Math.round(bh * dpr);
     drawScale = cv.width / G.cw;
   }
   window.addEventListener('resize', () => { if ($('#screen-battle').classList.contains('active')) fit(); });

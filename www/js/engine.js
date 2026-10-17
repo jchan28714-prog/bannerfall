@@ -110,16 +110,20 @@
     _buildSchedule() {
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const waveGap = W <= 1 ? 0 : Math.min(25, 175 / (W - 1));
+      const waveGap = 60; // 1 minute per wave
       const hasBoss = idx >= 2;
+      const mm = this.modeMult;
+      // More units in easy mode, fewer in hard
+      const modeMult = mm < 1 ? 1.4 : mm > 1 ? 0.85 : 1;
 
       for (let w = 0; w < W; w++) {
-        const waveT = 5 + w * waveGap;
+        const waveT = 3 + w * waveGap;
         const wd = (idx <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
-        const n = Math.max(4, wd
-          ? Math.round(wd.count * T.countScale * 1.4)
-          : Math.round((4 + 2.2 * w) * T.countScale));
-        const gap = Math.max(0.5, 1.6 - 0.04 * w - 0.03 * idx);
+        const baseCount = wd
+          ? Math.round(wd.count * T.countScale * 1.6 * modeMult)
+          : Math.round((6 + 3 * w) * T.countScale * modeMult);
+        const n = Math.max(5, baseCount);
+        const gap = Math.max(0.4, 1.2 - 0.03 * w - 0.02 * idx);
         const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
         let t = waveT;
         for (let k = 0; k < n; k++) {
@@ -136,12 +140,13 @@
         }
       }
       if (hasBoss) {
+        const bossT = (W - 1) * waveGap + 50;
         const br = Math.floor(r() * G.rows);
         const n = 1 + Math.floor(idx / 3);
         for (let c = 0; c < n; c++) {
-          out.push({ t: 120 + c * 1.5, row: (br + c * 2) % G.rows, role: 'champion', wave: W - 1 });
+          out.push({ t: bossT + c * 1.5, row: (br + c * 2) % G.rows, role: 'champion', wave: W - 1 });
         }
-        if (T.final) out.push({ t: 121.5, row: Math.floor(G.rows / 2), role: 'warlord', wave: W - 1 });
+        if (T.final) out.push({ t: bossT + 1.5, row: Math.floor(G.rows / 2), role: 'warlord', wave: W - 1 });
       }
       return out.sort((a, b) => a.t - b.t);
     }
@@ -301,15 +306,6 @@
           }
         }
         this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.38, '#d0a030');
-      } else if (fid === 'citadel') {
-        // Divine Judgment: targeted damage — purging light on all enemies
-        for (const e of this.enemies) {
-          if (!e.dead) {
-            this._hurtEnemy(e, 25 + this.waveNow() * 2.5);
-            this._ring(e.x, e.y, 34, '#c8b0f0');
-            this._shot(e.x, e.y - 80, e.x, e.y, 'bolt', '#c8b0f0', 0.25);
-          }
-        }
       }
 
       this.events.push('ability');
