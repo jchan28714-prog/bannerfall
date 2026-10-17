@@ -96,6 +96,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   position: relative;
 }
 .ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 9px 9px 0 0; }
+.ccard:not(.sel) { filter: blur(1px); opacity: 0.55; }
 .ccard.sel { border-color: var(--c); background: var(--panel2); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); transform: scale(1.3); z-index: 2; }
 .ccard-icon {
   width: 32px; height: 32px;
