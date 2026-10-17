@@ -13,7 +13,7 @@
   const KEY = 'bannerfall.save.v2';
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 2) return s; } catch (e) {}
-    return { v: 2, sound: true, last: null, hintSeen: false, camps: {} };
+    return { v: 2, sound: true, last: null, hintSeen: false, mode: 'veteran', camps: {} };
   }
   let save = loadSave();
   function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
@@ -118,6 +118,71 @@
     return t.adj.some((adjId) => adjId === c.homeId || !!c.conquered[adjId]);
   }
 
+  /* ======================= 0. HOME SCREEN ======================= */
+  const MODES = [
+    { id: 'novice',    label: 'Novice' },
+    { id: 'veteran',   label: 'Veteran' },
+    { id: 'legendary', label: 'Legendary' },
+  ];
+  if (!save.mode) save.mode = 'veteran';
+
+  function renderHome() {
+    const root = $('#screen-home');
+    const hasSave = save.last && BF.factionById(save.last);
+    root.innerHTML =
+      '<div class="home">' +
+      '<h1>BANNERFALL</h1>' +
+      '<p class="subtitle">A Medieval Strategy</p>' +
+      '<div class="home-menu">' +
+      (hasSave ? '<button class="btn" id="home-continue">Continue</button>' : '') +
+      '<button class="btn' + (hasSave ? ' ghost' : '') + '" id="home-new">New Game</button>' +
+      '<button class="btn ghost" id="home-options">Options</button>' +
+      '</div>' +
+      '<div class="home-mode">' +
+      '<span class="tag">Difficulty:</span>' +
+      MODES.map(function (m) {
+        return '<button class="mode-btn' + (save.mode === m.id ? ' on' : '') + '" data-m="' + m.id + '">' + m.label + '</button>';
+      }).join('') +
+      '</div>' +
+      '<span class="home-ver">v1.0</span>' +
+      '</div>';
+
+    if (hasSave) {
+      addRipple($('#home-continue'));
+      $('#home-continue').addEventListener('click', function () {
+        Sound.play('ui'); renderMap(); renderLegions(); show('map');
+      });
+    }
+
+    addRipple($('#home-new'));
+    $('#home-new').addEventListener('click', function () {
+      Sound.play('ui'); renderLegions(); show('legion');
+    });
+
+    addRipple($('#home-options'));
+    $('#home-options').addEventListener('click', function () {
+      Sound.play('ui');
+      var card = openModal(
+        '<h2>Options</h2>' +
+        '<div class="kv"><span>Sound effects</span><button class="btn small ghost" id="opt-sound">' + (save.sound ? 'On' : 'Off') + '</button></div>' +
+        '<div class="row"><button class="btn" id="opt-close">Done</button></div>',
+        { center: true }
+      );
+      $('#opt-sound', card).addEventListener('click', function () {
+        save.sound = !save.sound; persist();
+        this.textContent = save.sound ? 'On' : 'Off';
+      });
+      $('#opt-close', card).addEventListener('click', closeModal);
+    });
+
+    root.querySelectorAll('.mode-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        save.mode = b.dataset.m; persist(); Sound.play('ui');
+        root.querySelectorAll('.mode-btn').forEach(function (x) { x.classList.toggle('on', x === b); });
+      });
+    });
+  }
+
   /* ======================= 1. LEGION SELECT ======================= */
   let pick = save.last || 'men';
 
@@ -138,7 +203,7 @@
   function renderLegions() {
     const root = $('#screen-legion');
     root.innerHTML =
-      '<div class="title"><h1>BANNERFALL</h1><p>Choose your legion</p></div>' +
+      '<div class="title"><button class="icon-btn" id="leg-back" style="position:absolute;left:12px;top:12px">←</button><h1>BANNERFALL</h1><p>Choose your legion</p></div>' +
       '<div class="legion-body">' +
       '<div class="carousel-wrap"><div class="carousel" id="carousel">' +
       BF.FACTIONS.map((f) => {
@@ -228,6 +293,8 @@
 
     addRipple($('#go-map'));
     $('#go-map').addEventListener('click', () => { save.last = pick; persist(); Sound.play('ui'); renderMap(); show('map'); });
+    addRipple($('#leg-back'));
+    $('#leg-back').addEventListener('click', () => { Sound.play('ui'); show('home'); });
   }
 
   /* ======================= 2. WORLD MAP (Risk-style) ======================= */
@@ -535,7 +602,7 @@
       });
     })();
 
-    $('#back').addEventListener('click', () => { Sound.play('ui'); renderLegions(); show('legion'); });
+    $('#back').addEventListener('click', () => { Sound.play('ui'); renderHome(); show('home'); });
     $('#snd').addEventListener('click', (e) => { save.sound = !save.sound; persist(); e.currentTarget.classList.toggle('on', save.sound); Sound.play('ui'); });
     $('#council').addEventListener('click', openCouncil);
     $('#barracks').addEventListener('click', openBarracks);
@@ -798,7 +865,8 @@
   function startBattle(t) {
     const f = BF.factionById(save.last), c = camp(f.id);
     terr = t;
-    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg });
+    var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
+    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm });
     uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0 };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     $('#btn-speed').textContent = '1×';
@@ -1027,6 +1095,6 @@
   }
 
   /* ======================= start ======================= */
-  if (save.last && BF.factionById(save.last)) { renderMap(); show('map'); renderLegions(); } else { renderLegions(); show('legion'); }
-  BF.app = { get save() { return save; }, startBattle, renderMap, renderLegions, get battle() { return B; } };
+  renderHome(); show('home');
+  BF.app = { get save() { return save; }, startBattle, renderMap, renderLegions, renderHome, get battle() { return B; } };
 })();

@@ -57,8 +57,21 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 }
 .icon-btn.on { border-color: var(--gold); color: var(--gold); }
 
+/* ---------- home screen ---------- */
+.home { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0; padding: 0 24px; }
+.home h1 { font-size: clamp(26px, 7vw, 44px); letter-spacing: .32em; color: var(--gold); text-indent: .32em; margin-bottom: 2px; }
+.home .subtitle { color: var(--dim); font-size: var(--t-xs); margin-bottom: clamp(20px, 5vh, 40px); }
+.home-menu { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px; }
+.home-menu .btn { width: 100%; }
+.home-menu .btn.ghost { font-size: var(--t-sm); padding: clamp(8px, 2vw, 11px) 16px; }
+.home-mode { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; }
+.home-mode .tag { font-size: var(--t-xs); color: var(--dim); }
+.mode-btn { font-size: var(--t-xs); padding: 4px 10px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); color: var(--dim); transition: border-color .2s, color .2s; }
+.mode-btn.on { border-color: var(--gold); color: var(--gold); }
+.home-ver { position: absolute; bottom: 10px; font-size: 9px; color: rgba(255,255,255,.18); }
+
 /* ---------- legion select ---------- */
-.title { text-align: center; padding: clamp(8px, 2vw, 14px) 20px 4px; }
+.title { text-align: center; padding: clamp(8px, 2vw, 14px) 20px 4px; position: relative; }
 .title h1 { font-size: clamp(18px, 5vw, 30px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
 .title p { margin: 2px 0 0; color: var(--dim); font-size: var(--t-xs); }
 
@@ -74,31 +87,25 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 }
 .carousel::-webkit-scrollbar { display: none; }
 .ccard {
-  flex: none; width: 80px;
+  flex: none; width: 80px; height: 110px;
   padding: 6px 4px 5px; border-radius: 10px;
   background: var(--panel); border: 1.5px solid var(--line);
   overflow: hidden; display: flex; flex-direction: column; align-items: center;
   text-align: center; gap: 2px; scroll-snap-align: center;
-  transition: border-color .2s, box-shadow .2s, transform .15s, opacity .15s;
+  transition: border-color .2s, transform .15s, opacity .15s;
   position: relative;
 }
 .ccard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c); border-radius: 9px 9px 0 0; }
-.ccard.sel { border-color: var(--c); background: var(--panel2); }
+.ccard.sel { border-color: var(--c); background: var(--panel2); transform: scale(1.06); box-shadow: 0 0 0 1px var(--c), 0 0 10px color-mix(in srgb, var(--c) 40%, transparent); }
 .ccard-icon {
   width: 32px; height: 32px;
-  border-radius: 50%; opacity: 0.9; pointer-events: none;
+  border-radius: 50%; opacity: 0.85; pointer-events: none;
   transition: opacity .25s;
 }
 .ccard.sel .ccard-icon { opacity: 1; }
 .ccard h3 { font-size: 10px; color: var(--text); line-height: 1.2; margin-top: 1px; }
 .ccard .tag { color: var(--dim); font-size: 8px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .progress { font-size: 8px; color: var(--dim); margin-top: 1px; }
-
-@keyframes ccard-shimmer {
-  0%, 100% { box-shadow: 0 0 0 1px var(--c), 0 0 8px rgba(0,0,0,.3); }
-  50% { box-shadow: 0 0 0 2px var(--c), 0 0 14px color-mix(in srgb, var(--c) 55%, transparent); }
-}
-.ccard.sel { animation: ccard-shimmer 2.2s ease-in-out infinite; }
 
 /* Faction detail / telemetry panel */
 .legion-detail {
@@ -124,7 +131,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .legion-body { flex-direction: column; align-items: center; }
   .carousel-wrap { flex: none; width: 100%; max-width: 640px; padding: 4px 0; }
   .carousel { justify-content: center; flex-wrap: wrap; overflow-x: visible; scroll-snap-type: none; padding: 8px 16px; gap: 10px; }
-  .carousel .ccard { width: 90px; transform: none !important; opacity: 1 !important; }
+  .carousel .ccard { width: 90px; height: 115px; }
+  .carousel .ccard:not(.sel) { transform: none !important; opacity: 1 !important; }
   .legion-detail { flex: 1; padding: 8px 24px; max-width: 540px; }
   .ld-roster { grid-template-columns: repeat(4, 1fr); gap: 10px; }
 }
@@ -303,7 +311,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 @media (max-height: 600px) and (orientation: portrait) {
   .title { padding-top: 6px; padding-bottom: 2px; }
   .carousel { padding: 4px 10px; }
-  .ccard { width: 70px; padding: 5px 3px 4px; }
+  .ccard { width: 70px; height: 95px; padding: 5px 3px 4px; }
   .ccard-icon { width: 26px; height: 26px; }
   .ccard h3 { font-size: 9px; }
   .ccard .tag { font-size: 7px; }
@@ -326,7 +334,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- narrow phones (≤ 360px wide) ---------- */
 @media (max-width: 360px) {
-  .ccard { width: 72px; }
+  .ccard { width: 72px; height: 100px; }
   .ccard-icon { width: 28px; height: 28px; }
   .ccard h3 { font-size: 9px; }
 }

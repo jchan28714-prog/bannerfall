@@ -43,6 +43,7 @@
       this.up = Object.assign({ treasury: 0, barracks: 0, walls: 0 }, opts.upgrades || {});
       this.rand = BF.rng(opts.seed != null ? opts.seed : (Math.random() * 2147483647) | 0);
       this.fx = opts.fx !== false;
+      this.modeMult = opts.modeMult || 1;
 
       const m = this.faction.mods;
       this.gold = BF.ECON.startGold + 40 * this.up.treasury
@@ -162,14 +163,15 @@
       e.x = G.cw + 20;
       e.y = G.sky + s.row * G.cell + G.cell / 2;
       e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
+      const mm = this.modeMult;
       if (s.role === 'champion') {
-        Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale, dmg: u.dmg * norm * 1.7 * T.dmgScale, rate: u.rate * 0.8, range: 32, speed: 11, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.5 });
+        Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale * mm, dmg: u.dmg * norm * 1.7 * T.dmgScale * mm, rate: u.rate * 0.8, range: 32, speed: 11, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.5 });
       } else if (s.role === 'warlord') {
-        Object.assign(e, { hp: u.hp * norm * 10 * T.hpScale, dmg: u.dmg * norm * 2.2 * T.dmgScale, rate: u.rate * 0.8, range: 34, speed: 9, leak: 40, bounty: 300, size: 2.0 });
+        Object.assign(e, { hp: u.hp * norm * 10 * T.hpScale * mm, dmg: u.dmg * norm * 2.2 * T.dmgScale * mm, rate: u.rate * 0.8, range: 34, speed: 9, leak: 40, bounty: 300, size: 2.0 });
       } else {
         const melee = s.role === 'spear' || s.role === 'sword';
         Object.assign(e, {
-          hp: u.hp * norm * T.hpScale, dmg: u.dmg * norm * T.dmgScale, rate: u.rate,
+          hp: u.hp * norm * T.hpScale * mm, dmg: u.dmg * norm * T.dmgScale * mm, rate: u.rate,
           range: melee ? 28 : BF.ENEMY_RANGED_STOP,
           speed: BF.ROLE[s.role].speed, leak: BF.ROLE[s.role].leak,
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
