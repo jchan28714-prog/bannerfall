@@ -39,7 +39,10 @@
     let earned = 0;
     for (const tid in c.conquered) earned += c.conquered[tid];
     let spent = 0;
-    for (const r in c.starUpg) spent += c.starUpg[r];
+    for (const key in c.starUpg) {
+      const lv = c.starUpg[key];
+      spent += BF.starUpgTotalSpent(lv);
+    }
     return earned - spent;
   }
   // Territories conquered (home is not in the list)
@@ -114,7 +117,15 @@
   // A territory is available to attack if it borders the player's homeland OR
   // any territory they have already conquered.
   function unlocked(c, t) {
-    if (t.id === c.homeId) return false; // home is not attackable
+    if (t.id === c.homeId) return false;
+    // Citadel requires conquering 3 of 4 enemy faction home territories
+    if (t.final) {
+      const playerId = Object.keys(BF.FACTION_HOME).find(fid => BF.FACTION_HOME[fid] === c.homeId);
+      const enemyHomes = BF.enemyHomes(playerId);
+      let conquered = 0;
+      for (const hid of enemyHomes) { if (c.conquered[hid]) conquered++; }
+      return conquered >= 3;
+    }
     return t.adj.some((adjId) => adjId === c.homeId || !!c.conquered[adjId]);
   }
 
@@ -257,8 +268,10 @@
       if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
     });
 
-    function selectCard(id) {
+    let clickLock = false;
+    function selectCard(id, fromClick) {
       if (id === pick) return;
+      if (fromClick) { clickLock = true; setTimeout(() => { clickLock = false; }, 600); }
       pick = id;
       scroll.querySelectorAll('.lcard').forEach((x) => {
         const isSel = x.dataset.id === pick;
@@ -271,7 +284,7 @@
     scroll.querySelectorAll('.lcard').forEach((b) => {
       b.addEventListener('click', (e) => {
         if (e.target.closest('.lcard-go') || e.target.closest('.lcard-details')) return;
-        selectCard(b.dataset.id);
+        selectCard(b.dataset.id, true);
       });
     });
 
@@ -279,6 +292,7 @@
     scroll.addEventListener('scroll', () => {
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
+        if (clickLock) return;
         const cards = scroll.querySelectorAll('.lcard');
         const cx = scroll.scrollLeft + scroll.clientWidth / 2;
         let closest = null, bestD = 1e9;
@@ -288,7 +302,7 @@
           if (d < bestD) { bestD = d; closest = c; }
         });
         if (closest) selectCard(closest.dataset.id);
-      }, 80);
+      }, 300);
     }, { passive: true });
 
     scroll.querySelectorAll('.lcard-go').forEach((btn) => {
@@ -410,27 +424,35 @@
       el.textContent = label;
     });
 
-    // Adjacency roads (draw all unique pairs)
+    // Adjacency roads (draw all unique pairs, using rotated positions)
     const drawnEdges = new Set();
     BF.TERRITORIES.forEach((t) => {
+      const tc = terrMap[t.id];
+      const x1 = tc && tc.mapX != null ? tc.mapX : t.x;
+      const y1 = tc && tc.mapY != null ? tc.mapY : t.y;
       t.adj.forEach((adjId) => {
         const key = [t.id, adjId].sort().join('|');
         if (drawnEdges.has(key)) return;
         drawnEdges.add(key);
         const adj = BF.territoryById(adjId);
         if (!adj) return;
+        const ac = terrMap[adjId];
+        const x2 = ac && ac.mapX != null ? ac.mapX : adj.x;
+        const y2 = ac && ac.mapY != null ? ac.mapY : adj.y;
         const tConq = c.conquered[t.id] || t.id === c.homeId;
         const aConq = c.conquered[adjId] || adjId === c.homeId;
         const roadColor = (tConq && aConq) ? hexA(f.color, 0.5) : 'rgba(232,220,192,.13)';
         const roadW = (tConq && aConq) ? 3 : 1.8;
-        svgEl('line', { x1: t.x, y1: t.y, x2: adj.x, y2: adj.y,
+        svgEl('line', { x1, y1, x2, y2,
           stroke: roadColor, 'stroke-width': roadW, 'stroke-linecap': 'round',
           'stroke-dasharray': (tConq && aConq) ? '' : '3 6' }, svg);
       });
     });
 
-    // Homeland marker
-    const home = BF.territoryById(c.homeId);
+    // Homeland marker (use rotated position from campaign data)
+    const homeRaw = BF.territoryById(c.homeId);
+    const homeCamp = terrMap[c.homeId];
+    const home = homeCamp ? { x: homeCamp.mapX, y: homeCamp.mapY, name: homeRaw.name } : homeRaw;
     if (home) {
       const hg = svgEl('g', {}, svg);
       // Home pulse ring
@@ -449,8 +471,10 @@
 
     // Territory nodes
     BF.TERRITORIES.forEach((rawT) => {
-      if (rawT.id === c.homeId) return; // homeland handled above
+      if (rawT.id === c.homeId) return;
       const t = terrMap[rawT.id] || rawT;
+      const tx = t.mapX != null ? t.mapX : t.x;
+      const ty = t.mapY != null ? t.mapY : t.y;
       const won = c.conquered[t.id];
       const open = unlocked(c, t);
       const owner = BF.factionById(t.owner) || BF.FACTIONS[0];
@@ -461,11 +485,11 @@
 
       // Pulse ring for attackable territories
       if (open && !won) {
-        svgEl('circle', { cx: t.x, cy: t.y, r: r + 8, fill: 'none', stroke: '#e8c566', 'stroke-width': 2, class: 'pulse' }, g);
+        svgEl('circle', { cx: tx, cy: ty, r: r + 8, fill: 'none', stroke: '#e8c566', 'stroke-width': 2, class: 'pulse' }, g);
       }
 
       // Tap area
-      svgEl('circle', { cx: t.x, cy: t.y, r: r + 10, fill: 'transparent' }, g);
+      svgEl('circle', { cx: tx, cy: ty, r: r + 10, fill: 'transparent' }, g);
 
       // Territory circle — filled with faction color, opacity based on ownership
       let fillColor, strokeColor, fillOp;
@@ -476,24 +500,21 @@
       } else {
         fillColor = owner.color; strokeColor = owner.color; fillOp = 0.12;
       }
-      // Draw fill as a separate element so we can control opacity independently
-      svgEl('circle', { cx: t.x, cy: t.y, r, fill: fillColor, opacity: fillOp }, g);
-      svgEl('circle', { cx: t.x, cy: t.y, r, fill: 'none', stroke: strokeColor, 'stroke-width': isFinal ? 4 : 2.5,
+      svgEl('circle', { cx: tx, cy: ty, r, fill: fillColor, opacity: fillOp }, g);
+      svgEl('circle', { cx: tx, cy: ty, r, fill: 'none', stroke: strokeColor, 'stroke-width': isFinal ? 4 : 2.5,
         opacity: won ? 1 : open ? 0.9 : 0.4 }, g);
 
       // Citadel crown symbol
       if (isFinal) {
-        const cx2 = t.x, cy2 = t.y;
+        const cx2 = tx, cy2 = ty;
         svgEl('path', {
           d: 'M'+(cx2-10)+' '+(cy2+6)+' L'+(cx2-12)+' '+(cy2-7)+' L'+(cx2-4)+' '+(cy2-1)+' L'+cx2+' '+(cy2-11)+' L'+(cx2+4)+' '+(cy2-1)+' L'+(cx2+12)+' '+(cy2-7)+' L'+(cx2+10)+' '+(cy2+6)+' Z',
           fill: won ? '#fff' : open ? '#e8c566' : '#3a4152',
         }, g);
       } else {
-        // Territory number for non-final
         const difficulty = Math.ceil(((t.index || 0) + 1) / 2);
-        const skull = isFinal ? '☠' : '';
         const numEl = svgEl('text', {
-          x: t.x, y: t.y + 4.5, 'text-anchor': 'middle',
+          x: tx, y: ty + 4.5, 'text-anchor': 'middle',
           fill: won ? '#fff' : open ? '#ece4d0' : '#4a5163',
           'font-size': 11, 'font-weight': 700,
         }, g);
@@ -503,14 +524,13 @@
       // Territory name label
       if (won || open) {
         const lbl = svgEl('text', {
-          x: t.x, y: t.y + r + 14, 'text-anchor': 'middle',
+          x: tx, y: ty + r + 14, 'text-anchor': 'middle',
           fill: won ? f.accent : open ? '#c9c2ad' : '#4a5163',
           'font-size': won ? 9.5 : 9,
         }, g);
         lbl.textContent = t.name;
         if (won) {
-          // Faction owner label
-          const oLbl = svgEl('text', { x: t.x, y: t.y + r + 24, 'text-anchor': 'middle', fill: f.color, 'font-size': 8, opacity: 0.8 }, g);
+          const oLbl = svgEl('text', { x: tx, y: ty + r + 24, 'text-anchor': 'middle', fill: f.color, 'font-size': 8, opacity: 0.8 }, g);
           oLbl.textContent = '✦ ' + BF.factionById(save.last).short;
         }
       }
@@ -647,7 +667,7 @@
       '<div class="kv"><span class="dim">Waves</span><b>' + t.waves + '</b></div>' +
       '<div class="kv"><span class="dim">Glory (up to)</span><b class="gold">✦ ' + reward + '</b></div>' +
       '<div class="kv"><span class="dim">Best result</span><b class="gold">' + (best ? '★'.repeat(best) : '—') + '</b></div>' +
-      (t.final ? '<p class="dim" style="margin:10px 0 0">A warlord guards the throne. Bring everything you have.</p>' : '') +
+      (t.final ? '<p class="dim" style="margin:10px 0 0">The Demon God guards the throne. Conquer 3 of 4 enemy legions to unlock. Bring everything you have.</p>' : '') +
       '</div>' +
       '<div class="row"><button class="btn ghost" id="close">Not yet</button><button class="btn" id="march">' + (best ? 'Fight again' : 'March') + '</button></div>'
     );
@@ -691,30 +711,60 @@
 
   function openBarracks() {
     const f = BF.factionById(save.last), c = camp(f.id);
+    if (!c.starUpg || typeof c.starUpg !== 'object') c.starUpg = {};
+    // Migrate old format (e.g. { spear: 2 }) to new format ({ 'spear:atkSpd': 2 })
+    for (const r of BF.ROLES) {
+      if (typeof c.starUpg[r] === 'number') {
+        const old = c.starUpg[r];
+        delete c.starUpg[r];
+        if (old > 0) c.starUpg[r + ':atkSpd'] = old;
+      }
+    }
     const draw = () => {
       const avail = availableStars(c);
-      const card = openModal(
-        '<div class="modal-icon">🏰</div>' +
-        '<h2 class="center-t">Barracks</h2><p class="dim center-t" style="margin:0 0 6px">Spend earned stars to boost attack speed. You have <b class="gold">★ ' + avail + '</b> available.</p>' +
-        BF.ROLES.map((r) => {
-          const u = f.units[r];
-          const lv = c.starUpg[r] || 0;
-          const bonus = Math.round((BF.STAR_RATE_BONUS[lv] || 0) * 100);
-          return (
-            '<div class="upg"><div class="info"><b>' + u.name + '</b><small>Attack speed +' + bonus + '%' +
-            (lv < 3 ? ' → +' + Math.round((BF.STAR_RATE_BONUS[lv + 1] || 0) * 100) + '%' : '') +
-            '</small>' + pips(lv, 3) + '</div>' +
-            (lv >= 3 ? '<span class="dim">Max</span>' : '<button class="btn small" data-r="' + r + '"' + (avail < 1 ? ' disabled' : '') + '>★ 1</button>') +
-            '</div>'
-          );
-        }).join('') +
-        '<div class="row"><button class="btn" id="done">Done</button></div>'
-      );
-      card.querySelectorAll('[data-r]').forEach((b) =>
+      let html = '<div class="modal-icon">🏰</div>' +
+        '<h2 class="center-t">Barracks</h2>' +
+        '<p class="dim center-t" style="margin:0 0 8px">Upgrade your units. You have <b class="gold">★ ' + avail + '</b> stars.</p>';
+
+      BF.ROLES.forEach((r) => {
+        const u = f.units[r];
+        html += '<div class="bk-unit"><div class="bk-unit-head"><canvas width="76" height="76" class="bk-cv" data-role="' + r + '"></canvas><b>' + u.name + '</b></div>';
+        html += '<div class="bk-grid">';
+        BF.UPGRADE_ATTRS.forEach((attr) => {
+          const key = r + ':' + attr.id;
+          const lv = c.starUpg[key] || 0;
+          const cost = BF.starUpgCost(lv);
+          const atMax = lv >= attr.max;
+          const bonus = Math.round(lv * attr.perLv * 100);
+          html += '<div class="bk-tile">' +
+            '<div class="bk-tile-name">' + attr.name + '</div>' +
+            '<div class="bk-tile-val">' + (bonus > 0 ? (attr.id === 'goldReduc' ? '-' : '+') + bonus + '%' : '—') + '</div>' +
+            pips(lv, attr.max) +
+            (atMax ? '<span class="dim" style="font-size:9px">Max</span>' : '<button class="btn small bk-buy" data-key="' + key + '"' + (avail < cost ? ' disabled' : '') + '>★ ' + cost + '</button>') +
+            '</div>';
+        });
+        html += '</div></div>';
+      });
+      html += '<div class="row"><button class="btn" id="done">Done</button></div>';
+
+      const card = openModal(html);
+
+      // Draw unit tokens on canvases
+      card.querySelectorAll('.bk-cv').forEach((cv) => {
+        const ctx2 = cv.getContext('2d');
+        ctx2.scale(2, 2);
+        BF.drawToken(ctx2, 19, 19, 16, f, cv.dataset.role, false, 0);
+      });
+
+      card.querySelectorAll('.bk-buy').forEach((b) =>
         b.addEventListener('click', () => {
-          const r = b.dataset.r;
-          const lv = c.starUpg[r] || 0;
-          if (lv < 3 && availableStars(c) >= 1) { c.starUpg[r] = lv + 1; persist(); Sound.play('coin'); draw(); }
+          const key = b.dataset.key;
+          const lv = c.starUpg[key] || 0;
+          const cost = BF.starUpgCost(lv);
+          const attr = BF.UPGRADE_ATTRS.find(a => key.endsWith(':' + a.id));
+          if (attr && lv < attr.max && availableStars(c) >= cost) {
+            c.starUpg[key] = lv + 1; persist(); Sound.play('coin'); draw();
+          }
         })
       );
       $('#done', card).onclick = closeModal;
@@ -771,14 +821,15 @@
     const tray = $('#tray');
     tray.innerHTML = '';
 
-    // Units section (60% width)
+    // Top row: unit selection cards
     const unitsDiv = document.createElement('div');
     unitsDiv.className = 'tray-units';
     BF.ROLES.forEach((r) => {
       const u = f.units[r];
+      const cost = B.unitCost(r);
       const b = document.createElement('button');
       b.className = 'ucard'; b.dataset.role = r;
-      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + u.name + '</div><div class="cs">' + coin + u.cost + '</div>';
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + u.name + '</div><div class="cs">' + coin + cost + '</div>';
       const c2 = $('canvas', b).getContext('2d');
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
@@ -789,7 +840,6 @@
       unitsDiv.appendChild(b);
     });
 
-    // OG Force card (elite purchasable unit)
     const og = f.units.og;
     if (og) {
       const b = document.createElement('button');
@@ -806,52 +856,48 @@
     }
     tray.appendChild(unitsDiv);
 
-    // Actions section (40% width): recruit + ability + repair + merc
-    const actionsDiv = document.createElement('div');
-    actionsDiv.className = 'tray-actions';
+    // Bottom row: 4 evenly spaced action buttons
+    const footerDiv = document.createElement('div');
+    footerDiv.className = 'tray-footer';
+    var circR = 18, circC = 113.1;
+    function circBtn(id, label, iconSvg, barId, extra) {
+      return '<button id="' + id + '" class="footer-btn" ' + (extra || '') + ' aria-label="' + label + '">' +
+        '<svg class="footer-ring" viewBox="0 0 40 40">' +
+          '<circle class="fr-track" cx="20" cy="20" r="' + circR + '"/>' +
+          '<circle class="fr-fill" id="' + barId + '" cx="20" cy="20" r="' + circR + '"/>' +
+        '</svg>' +
+        '<span class="footer-icon-svg">' + iconSvg + '</span>' +
+        '<span class="footer-label">' + label + '</span>' +
+      '</button>';
+    }
+    var swordIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>';
+    var daggerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2L15 9l-3 3-3-3z"/><path d="M12 14v8"/><path d="M9 18h6"/></svg>';
+    var hammerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l4-4"/><path d="M15 5l-3 3 4 4 3-3z"/><path d="M2 22l5-5"/></svg>';
+    var boltIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>';
+    footerDiv.innerHTML =
+      circBtn('btn-recruit', 'Reinforce', swordIcon, 'recruit-bar', '') +
+      circBtn('btn-merc', 'Merc', daggerIcon, 'merc-bar', '') +
+      circBtn('btn-repair', 'Repair', hammerIcon, 'repair-bar', '') +
+      circBtn('btn-ability', (ab ? ab.key : 'EQ'), boltIcon, 'ability-bar-fill', 'style="--c:' + f.color + '"');
+    tray.appendChild(footerDiv);
 
-    const actBar = document.createElement('div');
-    actBar.id = 'act-bar';
-    actBar.innerHTML =
-      '<button id="btn-recruit" class="recruit-circ ready" aria-label="Reinforce all lanes">' +
-        '<svg class="recruit-svg" viewBox="0 0 44 44"><circle class="rc-track" cx="22" cy="22" r="18"/><circle class="rc-fill" id="recruit-arc" cx="22" cy="22" r="18"/></svg>' +
-        '<span id="recruit-icon">⚔</span><span class="recruit-label">Reinforce</span><span id="recruit-cd" class="recruit-cd2"></span>' +
-      '</button>' +
-      '<button class="act-btn" id="btn-repair"><span class="act-icon">🔨</span><span id="repair-label">Repair</span></button>' +
-      '<button class="act-btn" id="btn-merc"><span class="act-icon">⚔</span><span id="merc-label">Merc</span></button>';
-
-    const abilBtn = document.createElement('button');
-    abilBtn.id = 'btn-ability';
-    abilBtn.className = 'ability-btn';
-    abilBtn.style.cssText = '--c:' + f.color;
-    abilBtn.setAttribute('aria-label', ab ? ab.name : 'Ability');
-    abilBtn.innerHTML =
-      '<span id="ability-name">' + (ab ? ab.name : '—') + '</span>' +
-      '<span id="ability-desc" class="ability-desc-text">' + (ab ? ab.desc : '') + '</span>' +
-      '<span id="ability-cd" class="ability-cd-text">READY</span>' +
-      '<span class="ability-bar"><i id="ability-bar-fill"></i></span>';
-
-    actionsDiv.appendChild(abilBtn);
-    actionsDiv.appendChild(actBar);
-    tray.appendChild(actionsDiv);
-
-    $('#btn-recruit', actBar).addEventListener('click', () => {
+    $('#btn-recruit').addEventListener('click', () => {
       if (!B || B.over) return;
       if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
     });
-    abilBtn.addEventListener('click', () => {
+    $('#btn-ability').addEventListener('click', () => {
       if (!B || B.over || B.abilityCd > 0) return;
       uiS.selected = uiS.selected === 'ability' ? null : 'ability';
       uiS.sellMode = false; $('#btn-sell').classList.remove('on');
       Sound.play('ui'); syncTray();
     });
-    $('#btn-repair', actBar).addEventListener('click', () => {
+    $('#btn-repair').addEventListener('click', () => {
       if (!B || B.over) return;
       const res = B.repairGate();
       if (res.ok) Sound.play('coin');
       syncTray();
     });
-    $('#btn-merc', actBar).addEventListener('click', () => {
+    $('#btn-merc').addEventListener('click', () => {
       if (!B || B.over || B.mercCd > 0) return;
       uiS.selected = uiS.selected === 'merc' ? null : 'merc';
       uiS.sellMode = false; $('#btn-sell').classList.remove('on');
@@ -864,27 +910,26 @@
     const mercBtn   = $('#btn-merc');
     if (repairBtn) {
       const ready = B.repairCd <= 0;
-      const label = $('#repair-label');
-      if (label) label.textContent = ready ? 'Repair' : M.ceil(B.repairCd) + 's';
       repairBtn.disabled = !ready || !!B.over;
       repairBtn.classList.toggle('ready', ready);
-      repairBtn.classList.remove('poor');
+      const bar = $('#repair-bar');
+      if (bar) { var p = ready ? 1 : (1 - B.repairCd / BF.REPAIR_CD); bar.style.strokeDashoffset = (113.1 * (1 - p)).toFixed(1); }
     }
     if (mercBtn) {
       const ready = B.mercCd <= 0;
-      const label = $('#merc-label');
-      if (label) label.textContent = ready ? 'Merc' : M.ceil(B.mercCd) + 's';
       mercBtn.disabled = !ready || !!B.over;
       mercBtn.classList.toggle('ready', ready);
       mercBtn.classList.toggle('sel', uiS.selected === 'merc');
-      mercBtn.classList.remove('poor');
+      const bar = $('#merc-bar');
+      if (bar) { var p = ready ? 1 : (1 - B.mercCd / BF.MERC_CD); bar.style.strokeDashoffset = (113.1 * (1 - p)).toFixed(1); }
     }
   }
 
   function syncTray() {
     document.querySelectorAll('.ucard').forEach((c) => {
-      c.classList.toggle('sel', uiS.selected === c.dataset.role);
-      c.classList.toggle('poor', B.gold < B.faction.units[c.dataset.role].cost);
+      const role = c.dataset.role;
+      c.classList.toggle('sel', uiS.selected === role);
+      c.classList.toggle('poor', B.gold < B.unitCost(role));
     });
     const abilBtn = $('#btn-ability');
     if (abilBtn) abilBtn.classList.toggle('sel', uiS.selected === 'ability');
@@ -994,20 +1039,17 @@
       }).join('') : '';
     }
     syncActBtns();
-    // Manual recruit circular button (now in tray)
-    const arc = $('#recruit-arc');
-    if (arc) {
-      const interval = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
-      const circ = 2 * M.PI * 18;
+    // Recruit bar (visual only, no text countdown)
+    const recruitBar = $('#recruit-bar');
+    if (recruitBar) {
+      const interval = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 50;
       const rReady = B.autoRecruitCd <= 0;
-      const frac = rReady ? 1 : M.max(0, 1 - B.autoRecruitCd / interval);
-      arc.style.strokeDashoffset = (circ * (1 - frac)).toFixed(2);
+      const frac = rReady ? 100 : M.round((1 - B.autoRecruitCd / interval) * 100);
+      recruitBar.style.strokeDashoffset = (113.1 * (1 - frac / 100)).toFixed(1);
       const btn = $('#btn-recruit');
       if (btn) { btn.classList.toggle('ready', rReady); btn.disabled = !!B.over; }
-      const cdR = $('#recruit-cd');
-      if (cdR) cdR.textContent = rReady ? '' : M.ceil(B.autoRecruitCd) + 's';
     }
-    // Ability cooldown (now in tray)
+    // Ability cooldown bar
     const ab = BF.ABILITIES[B.faction.id];
     const abilBtn = $('#btn-ability');
     if (ab && abilBtn) {
@@ -1015,10 +1057,8 @@
       const aReady = cd <= 0;
       abilBtn.classList.toggle('ready', aReady);
       abilBtn.disabled = !aReady || !!B.over;
-      const cdA = $('#ability-cd');
-      if (cdA) cdA.textContent = aReady ? 'READY' : M.ceil(cd) + 's';
       const fill = $('#ability-bar-fill');
-      if (fill) fill.style.width = (aReady ? 100 : M.round((1 - cd / ab.cooldown) * 100)) + '%';
+      if (fill) { var p = aReady ? 1 : (1 - cd / ab.cooldown); fill.style.strokeDashoffset = (113.1 * (1 - p)).toFixed(1); }
     }
     // Wave skip button
     const skipBtn = $('#btn-skip');

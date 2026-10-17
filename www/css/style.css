@@ -171,6 +171,20 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 /* CTA button inside each card */
 .lcard-go { width: 100%; margin-top: 4px; flex: none; }
 
+/* Landscape-friendly details layout */
+@media (orientation: landscape) {
+  .lcard.sel { width: min(520px, 92vw); max-height: 90vh; }
+  .lcard-detail-body { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+  .lcard-crisis { width: 100%; margin: 0; }
+  .lcard-perks { width: auto; flex: 1; min-width: 140px; margin: 0; align-self: flex-start; }
+  .lcard-roster-title { width: 100%; margin: 0; font-size: 11px; }
+  .lcard-roster { flex: 2; min-width: 200px; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .lcard-unit canvas { width: 28px; height: 28px; }
+  .lcard-unit-info b { font-size: 10px; max-width: 60px; }
+  .lcard-matchup { font-size: 7px; }
+  .lcard-perk { font-size: 10px; padding: 3px 7px; }
+}
+
 /* ---------- map ---------- */
 .topbar { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(8px, 2vw, 12px) clamp(10px, 3vw, 14px); }
 .topbar .mid { flex: 1; min-width: 0; }
@@ -246,11 +260,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 #cv { width: 100%; height: 100%; border-radius: 0; border: none; background: #10131a; touch-action: none; }
 .hint { position: absolute; left: 50%; bottom: 50%; transform: translate(-50%, 50%); background: rgba(10, 12, 18, .85); border: 1px solid var(--line); padding: clamp(6px, 1.5vw, 9px) clamp(10px, 2.5vw, 14px); border-radius: 12px; font-size: var(--t-sm); color: var(--text); width: max-content; max-width: 86%; text-align: center; pointer-events: none; z-index: 4; }
 
-#tray { display: flex; gap: clamp(2px, 0.5vw, 4px); padding: clamp(3px, 0.8vw, 6px) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-right)) calc(clamp(3px, 0.8vw, 6px) + env(safe-area-inset-bottom)) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-left)); align-items: stretch; position: absolute; bottom: 0; left: 0; right: 0; z-index: 5; background: rgba(15, 17, 23, .6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-/* Units section: 60% of tray width */
-.tray-units { display: flex; gap: clamp(2px, 0.5vw, 4px); flex: 0 0 60%; min-width: 0; }
-/* Actions section: 40% of tray width */
-.tray-actions { display: flex; gap: clamp(2px, 0.5vw, 4px); flex: 0 0 40%; min-width: 0; align-items: stretch; }
+#tray { display: flex; flex-direction: column; gap: 2px; padding: clamp(2px, 0.5vw, 4px) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-right)) calc(clamp(2px, 0.5vw, 4px) + env(safe-area-inset-bottom)) calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-left)); position: absolute; bottom: 0; left: 0; right: 0; z-index: 5; background: rgba(15, 17, 23, .6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+/* Top row: unit cards */
+.tray-units { display: flex; gap: clamp(2px, 0.5vw, 4px); min-width: 0; }
+/* Bottom row: 4 evenly spaced action buttons */
+.tray-footer { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(3px, 0.8vw, 6px); }
 .ucard {
   flex: 1; min-width: 0; padding: clamp(3px, 0.8vw, 6px) 2px clamp(3px, 0.8vw, 5px); border-radius: 10px; background: var(--panel2); border: 1.5px solid var(--line);
   display: flex; flex-direction: column; align-items: center; gap: 1px; position: relative;
@@ -322,7 +336,49 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .recruit-circ[disabled] { opacity: .4; pointer-events: none; }
 @keyframes recruit-flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
-/* ---------- action bar (Repair / Merc) ---------- */
+/* ---------- footer action buttons (circular) ---------- */
+.footer-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  position: relative; gap: 2px; background: none; border: none; padding: 0;
+  transition: opacity .2s;
+}
+.footer-btn .footer-icon-svg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); pointer-events: none; }
+.footer-btn .footer-icon-svg svg { width: clamp(14px, 3.5vw, 18px); height: clamp(14px, 3.5vw, 18px); color: var(--dim); transition: color .2s; }
+.footer-btn .footer-label { font-size: clamp(7px, 1.8vw, 10px); font-weight: 600; color: var(--dim); white-space: nowrap; margin-top: clamp(32px, 8vw, 44px); }
+.footer-btn.ready .footer-icon-svg svg { color: var(--ok); }
+.footer-btn.ready .footer-label { color: var(--text); }
+.footer-btn.sel .footer-icon-svg svg { color: var(--gold); }
+.footer-btn.sel .footer-label { color: var(--gold); }
+.footer-btn[disabled] { opacity: .35; pointer-events: none; }
+.footer-btn:active { transform: scale(.95); }
+.footer-ring {
+  width: clamp(34px, 8.5vw, 48px); height: clamp(34px, 8.5vw, 48px);
+  transform: rotate(-90deg);
+}
+.fr-track { fill: none; stroke: rgba(255,255,255,.10); stroke-width: 2; }
+.fr-fill { fill: none; stroke: var(--ok); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 113.1; stroke-dashoffset: 113.1; transition: stroke-dashoffset .3s linear; }
+#btn-ability .fr-fill { stroke: var(--c, var(--gold)); }
+#btn-ability.ready { }
+#btn-ability.ready .footer-icon-svg svg { color: var(--c, var(--gold)); }
+#btn-ability.ready .footer-label { color: var(--gold); }
+.footer-btn.sel { }
+#btn-ability.sel .footer-icon-svg svg { color: var(--gold); filter: drop-shadow(0 0 6px rgba(232,197,102,.4)); }
+
+/* ---------- barracks grid ---------- */
+.bk-unit { margin-bottom: 10px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.bk-unit:last-of-type { border-bottom: 0; margin-bottom: 0; }
+.bk-unit-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bk-unit-head canvas { width: 32px; height: 32px; flex: none; }
+.bk-unit-head b { font-size: var(--t-md); }
+.bk-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.bk-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
+.bk-tile-name { font-size: 7px; color: var(--dim); text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bk-tile-val { font-size: clamp(9px, 2.2vw, 12px); font-weight: 700; color: var(--text); }
+.bk-tile .pips { margin: 1px 0; }
+.bk-tile .pips i { width: 5px; height: 5px; }
+.bk-buy { padding: 3px 6px !important; font-size: 8px !important; border-radius: 6px !important; }
+
+/* ---------- action bar (legacy compat) ---------- */
 #act-bar {
   display: grid; grid-template-columns: 1fr 1fr; gap: 3px; align-items: stretch; flex: 1; min-width: 0;
 }
@@ -352,8 +408,10 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .act-btn.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 12px rgba(232, 197, 102, .25); }
 .act-icon { margin-right: 3px; }
 @media (orientation: landscape) {
-  #act-bar { gap: 2px; }
-  .act-btn { padding: 3px 5px; font-size: clamp(8px, 2vh, 11px); }
+  .tray-footer { gap: 2px; }
+  .footer-ring { width: clamp(30px, 7vh, 42px); height: clamp(30px, 7vh, 42px); }
+  .footer-btn .footer-label { font-size: clamp(6px, 1.4vh, 9px); margin-top: clamp(28px, 7vh, 40px); }
+  .footer-btn .footer-icon-svg svg { width: clamp(12px, 3vh, 16px); height: clamp(12px, 3vh, 16px); }
 }
 
 /* ---------- compact portrait (very small screens) ---------- */
@@ -403,7 +461,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .wave-forecast { min-height: 10px; margin-top: 1px; }
   .fc-pip { font-size: 8px; }
   .icon-btn  { min-width: clamp(26px, 6vh, 34px); height: clamp(26px, 6vh, 34px); font-size: clamp(8px, 2vh, 11px); }
-  #tray { padding: 2px calc(4px + env(safe-area-inset-right)) calc(2px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 2px; }
+  #tray { padding: 1px calc(4px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 1px; }
   .ucard { padding: 2px 1px 2px; border-radius: 7px; gap: 0; }
   .ucard canvas { width: clamp(18px, 4.5vh, 24px); height: clamp(18px, 4.5vh, 24px); }
   .ucard .nm { font-size: clamp(6px, 1.4vh, 8px); }
@@ -414,10 +472,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .ability-desc-text { display: none; }
   .ability-cd-text { font-size: clamp(6px, 1.5vh, 8px); }
   .ability-bar { height: 2px; margin-top: 0; }
-  .recruit-circ { width: clamp(34px, 8vh, 48px); height: clamp(34px, 8vh, 48px); }
-  .recruit-circ #recruit-icon { font-size: clamp(8px, 2vh, 10px); }
-  .recruit-label { font-size: 5px; }
-  .recruit-cd2 { font-size: 6px; }
   .leg-header h1 { font-size: clamp(14px, 3.5vh, 22px); }
   /* Modals in landscape */
   .card { padding: clamp(10px, 2.5vh, 18px) clamp(10px, 2.5vw, 16px); max-height: 90%; }
@@ -429,9 +483,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .card .row { margin-top: clamp(6px, 1.5vh, 12px); }
   .btn { padding: clamp(8px, 2vh, 12px) clamp(10px, 2.5vw, 18px); font-size: clamp(11px, 2.8vh, 14px); }
   .btn.ghost { font-size: clamp(10px, 2.5vh, 13px); }
-  #act-bar { gap: 2px; }
-  .act-btn { padding: 2px 5px; font-size: clamp(7px, 1.8vh, 9px); border-radius: 7px; }
-  .act-icon { font-size: 9px; }
 }
 
 /* ---------- force landscape via CSS rotation in portrait ---------- */
@@ -461,20 +512,15 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .hud-countdown { font-size: 8px; min-height: 10px; }
   .wave-forecast { min-height: 10px; }
   .icon-btn { min-width: 28px; height: 28px; font-size: 9px; border-radius: 8px; }
-  #tray { padding: 1px calc(4px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 2px; }
+  #tray { padding: 1px calc(4px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 1px; }
   .ucard { padding: 2px 1px 2px; border-radius: 6px; }
   .ucard canvas { width: 18px; height: 18px; }
   .ucard .nm { font-size: 6px; }
   .ucard .cs { font-size: 8px; gap: 1px; }
-  .ability-btn { padding: 2px 3px; border-radius: 6px; }
-  .ability-btn #ability-name { font-size: 8px; }
-  .ability-desc-text { display: none; }
-  .ability-cd-text { font-size: 7px; }
-  .recruit-circ { width: 34px; height: 34px; }
-  .recruit-circ #recruit-icon { font-size: 8px; }
-  .recruit-label { font-size: 5px; }
-  .recruit-cd2 { font-size: 6px; }
-  .act-btn { padding: 2px 4px; font-size: 8px; }
+  .footer-btn { padding: 2px 1px; border-radius: 5px; }
+  .footer-btn .footer-icon { font-size: 10px; }
+  .footer-btn .footer-label { font-size: 6px; }
+  .tray-footer { gap: 2px; }
   .card { padding: 10px 10px; border-radius: 14px; }
   .card h2 { font-size: 14px; margin-bottom: 2px; }
   .card .modal-icon { font-size: 20px; margin-bottom: 3px; }

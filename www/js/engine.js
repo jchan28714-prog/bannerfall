@@ -76,6 +76,7 @@
       this.repairCd = 0;
       this.mercCd = 0;
       this.starUpg = opts.starUpg || {};
+      this._starLv = (type, attr) => this.starUpg[type + ':' + attr] || 0;
       const tidx = this.terr.index || 0;
       this.enemyBaseMax = Math.round(600 + 200 * tidx);
       this.enemyBaseHp = this.enemyBaseMax;
@@ -190,24 +191,36 @@
     }
 
     // ---------- player action: spawn a unit in a lane ----------
+    unitCost(type) {
+      const u = this.faction.units[type];
+      if (!u) return 0;
+      const reduc = this._starLv(type, 'goldReduc') * 0.05;
+      return Math.max(10, Math.round(u.cost * (1 - reduc)));
+    }
+
     spawn(type, row) {
       const u = this.faction.units[type];
       if (!u) return { ok: false, reason: 'unknown' };
       if (row < 0 || row >= G.rows) return { ok: false, reason: 'invalid' };
-      if (this.gold < u.cost) return { ok: false, reason: 'gold' };
-      this.gold -= u.cost;
+      const cost = this.unitCost(type);
+      if (this.gold < cost) return { ok: false, reason: 'gold' };
+      this.gold -= cost;
       const m = this.defMult;
-      // March speed: faster for lighter units, slower for heavy
       const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : 0);
+      const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
+      const atkStrBonus = 1 + this._starLv(type, 'atkStr') * 0.08;
+      const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
+      const movBonus    = 1 + this._starLv(type, 'moveSpd') * 0.06;
       const d = {
         id: this.nid++, side: 'def', type, row,
         x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
-        marchSpeed: spd,
-        hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m,
-        rate: u.rate * (1 + (BF.STAR_RATE_BONUS[this.starUpg[type] || 0] || 0)),
+        marchSpeed: spd * movBonus,
+        hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m * atkStrBonus,
+        rate: u.rate * atkSpdBonus,
         range: u.range,
-        aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost, cd: 0.35, hit: 0, atk: 0, dead: false,
+        aoe: u.aoe || 0, ranged: u.range > 120, cost, cd: 0.35, hit: 0, atk: 0, dead: false,
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
+        starDefMod: defBonus, frozenDur: 0,
       };
       this.defenders.push(d);
       this.events.push('place');
@@ -231,16 +244,20 @@
       const u = this.faction.units[type];
       if (!u) return;
       const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
-      const starRate = 1 + (BF.STAR_RATE_BONUS[this.starUpg[type] || 0] || 0);
+      const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
+      const atkStrBonus = 1 + this._starLv(type, 'atkStr') * 0.08;
+      const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
+      const movBonus    = 1 + this._starLv(type, 'moveSpd') * 0.06;
       this.defenders.push({
         id: this.nid++, side: 'def', type, row,
         x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
-        marchSpeed: spd,
+        marchSpeed: spd * movBonus,
         hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
-        dmg: u.dmg * this.defMult, rate: u.rate * starRate, range: u.range,
+        dmg: u.dmg * this.defMult * atkStrBonus, rate: u.rate * atkSpdBonus, range: u.range,
         aoe: u.aoe || 0, ranged: u.range > 120, cost: u.cost,
         cd: 0.35, hit: 0, atk: 0, dead: false, isOg: type === 'og',
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
+        starDefMod: defBonus, frozenDur: 0,
       });
     }
 
@@ -346,9 +363,10 @@
 
     _hurtDef(d, dmg) {
       if (d.dead) return;
-      const ironReduce   = d.ironclad ? 0.4 : 1;  // Ironclad: 60% less damage
-      const shieldReduce = d.shielded ? 0.4 : 1;  // Shield Wall: 60% less damage
-      d.hp -= dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce;
+      const ironReduce   = d.ironclad ? 0.4 : 1;
+      const shieldReduce = d.shielded ? 0.4 : 1;
+      const starDef      = d.starDefMod != null ? d.starDefMod : 1;
+      d.hp -= dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce * starDef;
       d.hit = 0.12;
       if (d.hp <= 0) this._killDef(d);
     }
@@ -429,12 +447,16 @@
         if (d.touchCd > 0)  d.touchCd  = Math.max(0, d.touchCd  - dt);
         if (d.shielded) { d.shieldDur -= dt; if (d.shieldDur <= 0) { d.shielded = false; d.shieldDur = 0; } }
         if (d.rallied)  { d.rallyDur  -= dt; if (d.rallyDur  <= 0) { d.rallied  = false; d.rallyDur  = 0; } }
+        if (d.frozenDur > 0) d.frozenDur = Math.max(0, d.frozenDur - dt);
+
+        // Frozen defenders cannot move or attack
+        if (d.frozenDur > 0) continue;
 
         // Target: nearest enemy in same lane within range (to the right of defender)
         let tgt = null, best = 1e9;
         for (const e of this.enemies) {
           if (e.dead || e.row !== d.row) continue;
-          const gap = e.x - d.x; // positive = enemy is ahead (to the right)
+          const gap = e.x - d.x;
           if (gap > -6 && gap <= d.range && e.x < best) { best = e.x; tgt = e; }
         }
 
@@ -511,20 +533,28 @@
         this.rings  = this.rings.filter((o) => o.t < o.dur);
       }
 
-      // AI reinforcements at health thresholds — spawn elite units
+      // AI reinforcements at health thresholds — spawn elite units + freeze player
       const eRatio = this.enemyBaseHp / this.enemyBaseMax;
       for (let ti = 0; ti < this._aiThresholds.length; ti++) {
         if (!this._aiFired[ti] && eRatio <= this._aiThresholds[ti]) {
           this._aiFired[ti] = true;
           const wave = Math.max(0, this.waveNow() - 1);
-          const count = 2 + ti;
-          const eliteRoles = ['sword', 'champion', 'warlord'];
+          const count = 3 + ti * 2;
+          const eliteRoles = ['champion', 'champion', 'warlord'];
           for (let k = 0; k < count; k++) {
             const row = Math.floor(this.rand() * G.rows);
             const role = eliteRoles[Math.min(ti, eliteRoles.length - 1)];
-            this.schedule.push({ t: this.time + 0.3 + k * 0.6, row, role, wave });
+            this.schedule.push({ t: this.time + 0.3 + k * 0.5, row, role, wave });
           }
           this.schedule.sort((a, b) => a.t - b.t);
+          // Freeze all player defenders for 3 seconds
+          const freezeDur = 3 + ti;
+          for (const d of this.defenders) {
+            if (!d.dead) {
+              d.frozenDur = freezeDur;
+              this._ring(d.x, d.y, 18, '#60c8ff');
+            }
+          }
           this.events.push('aiReinforce');
         }
       }

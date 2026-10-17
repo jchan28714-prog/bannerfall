@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2030"/>
+      <stop offset="1" stop-color="#0f1117"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0d27a"/>
+      <stop offset="1" stop-color="#c9a45c"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8eaf0"/>
+      <stop offset="1" stop-color="#a0a8b8"/>
+    </linearGradient>
+    <linearGradient id="banner-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9464a"/>
+      <stop offset="1" stop-color="#8a1a1e"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="180" fill="url(#bg)"/>
+
+  <!-- Subtle radial glow -->
+  <circle cx="512" cy="460" r="320" fill="#e8c566" opacity=".06"/>
+
+  <!-- Shield shape -->
+  <path d="M512 160 L740 240 L740 520 C740 680 512 840 512 840 C512 840 284 680 284 520 L284 240 Z"
+        fill="#1a1e2c" stroke="url(#gold)" stroke-width="8"/>
+  <path d="M512 190 L714 264 L714 510 C714 658 512 808 512 808 C512 808 310 658 310 510 L310 264 Z"
+        fill="#141820" stroke="none"/>
+
+  <!-- Shield cross emblem -->
+  <rect x="498" y="260" width="28" height="380" rx="4" fill="url(#gold)" opacity=".25"/>
+  <rect x="350" y="420" width="324" height="28" rx="4" fill="url(#gold)" opacity=".25"/>
+
+  <!-- Sword behind shield -->
+  <!-- Blade -->
+  <rect x="496" y="80" width="32" height="520" rx="6" fill="url(#blade)" filter="url(#glow)"/>
+  <!-- Sword tip -->
+  <path d="M496 80 L512 30 L528 80 Z" fill="url(#blade)"/>
+  <!-- Crossguard -->
+  <rect x="440" y="590" width="144" height="22" rx="6" fill="url(#gold)"/>
+  <rect x="448" y="596" width="128" height="10" rx="3" fill="#d8ac43"/>
+  <!-- Pommel -->
+  <circle cx="512" cy="660" r="22" fill="url(#gold)"/>
+  <circle cx="512" cy="660" r="14" fill="#1a1405"/>
+  <circle cx="512" cy="660" r="8" fill="#d8ac43"/>
+  <!-- Grip -->
+  <rect x="502" y="612" width="20" height="48" rx="4" fill="#3a2810"/>
+  <rect x="506" y="618" width="4" height="36" rx="2" fill="#5a4020" opacity=".6"/>
+  <rect x="514" y="618" width="4" height="36" rx="2" fill="#5a4020" opacity=".6"/>
+
+  <!-- Banner/flag draped from crossguard — left side -->
+  <path d="M448 594 C430 630, 360 660, 340 720 C330 750, 350 770, 360 790 L380 786 C370 766, 355 748, 362 724 C378 670, 440 644, 454 612 Z"
+        fill="url(#banner-grad)" opacity=".9"/>
+  <!-- Banner — right side -->
+  <path d="M576 594 C594 630, 664 660, 684 720 C694 750, 674 770, 664 790 L644 786 C654 766, 669 748, 662 724 C646 670, 584 644, 570 612 Z"
+        fill="url(#banner-grad)" opacity=".9"/>
+
+  <!-- Torn banner edges (decorative notches) -->
+  <path d="M360 790 L368 780 L376 790 L380 786" fill="url(#banner-grad)" opacity=".7"/>
+  <path d="M664 790 L656 780 L648 790 L644 786" fill="url(#banner-grad)" opacity=".7"/>
+
+  <!-- Crown above shield -->
+  <path d="M440 180 L428 130 L468 155 L512 110 L556 155 L596 130 L584 180 Z"
+        fill="url(#gold)" filter="url(#glow)"/>
+  <path d="M452 172 L444 140 L472 158 L512 128 L552 158 L580 140 L572 172 Z"
+        fill="#d8ac43"/>
+  <!-- Crown gems -->
+  <circle cx="512" cy="135" r="8" fill="#c9464a"/>
+  <circle cx="456" cy="152" r="5" fill="#4a78c2"/>
+  <circle cx="568" cy="152" r="5" fill="#3f9a6a"/>
+
+  <!-- Title text -->
+  <text x="512" y="940" text-anchor="middle" font-family="Georgia, serif"
+        font-size="72" font-weight="700" fill="url(#gold)" letter-spacing="18">BANNERFALL</text>
+</svg>

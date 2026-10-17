@@ -13,7 +13,7 @@
 
   // ---- Board geometry (logical units; the canvas scales this to any screen) ----
   // 20/80 Horizon Rule: sky=20% of canvas height, battlefield=80%
-  BF.GRID = { rows: 8, cell: 36, sky: 80, w: 504, h: 288, cw: 504, ch: 376 };
+  BF.GRID = { rows: 7, cell: 36, sky: 80, w: 504, h: 288, cw: 504, ch: 376 };
   BF.CASTLE_W  = 54;   // pixel width of the castle gate drawing
   BF.SPAWN_X   = 66;   // x where new defenders appear (emerge from the castle)
   BF.MARCH_SPD = 13;   // px/s base march speed for defenders (slower for epic scale)
@@ -238,14 +238,14 @@
     { id: 't_starfall',    name: 'Starfall Pools',     owner: 'elves',   x: 315, y: 29,  adj: ['t_sylvan', 't_moonveil', 't_ancient'] },
     { id: 't_ancient',     name: 'Ancient Canopy',     owner: 'elves',   x: 612, y: 36,  adj: ['t_starfall', 't_sylvan', 't_thornwood'] },
     { id: 't_moonveil',    name: 'Moonveil Glade',     owner: 'elves',   x: 144, y: 69,  adj: ['t_starfall', 't_sylvan', 't_whisperwood', 't_raiders'] },
-    { id: 't_sylvan',      name: 'Sylvanmere Grove',   owner: 'elves',   x: 405, y: 65,  adj: ['t_starfall', 't_moonveil', 't_ancient', 't_thornwood', 't_ashfield'] },
+    { id: 't_sylvan',      name: 'Sylvanmere Grove',   owner: 'elves',   x: 405, y: 65,  adj: ['t_starfall', 't_moonveil', 't_ancient', 't_thornwood', 't_ashfield', 't_citadel'] },
     { id: 't_thornwood',   name: 'Thornwood Pass',     owner: 'elves',   x: 711, y: 87,  adj: ['t_ancient', 't_sylvan', 't_scorched', 't_ironwall'] },
     { id: 't_whisperwood', name: 'Whisperwood',        owner: 'elves',   x: 171, y: 126, adj: ['t_moonveil', 't_raiders', 't_emberpits'] },
 
     // ── Orcs of the Ashen Horde (West — volcanic wastelands) ──────────────
     { id: 't_emberpits',   name: 'Ember Pits',         owner: 'orcs',    x: 99,  y: 163, adj: ['t_whisperwood', 't_raiders', 't_bloodforge'] },
     { id: 't_raiders',     name: "Raider's Reach",     owner: 'orcs',    x: 81,  y: 213, adj: ['t_moonveil', 't_whisperwood', 't_emberpits', 't_ashfield', 't_bloodforge'] },
-    { id: 't_ashfield',    name: 'Ashfield',           owner: 'orcs',    x: 279, y: 188, adj: ['t_sylvan', 't_raiders', 't_scorched', 't_warpeak', 't_frosthold', 't_karakdun'] },
+    { id: 't_ashfield',    name: 'Ashfield',           owner: 'orcs',    x: 279, y: 188, adj: ['t_sylvan', 't_raiders', 't_scorched', 't_warpeak', 't_frosthold', 't_karakdun', 't_citadel'] },
     { id: 't_scorched',    name: 'Scorched Plains',    owner: 'orcs',    x: 549, y: 177, adj: ['t_thornwood', 't_ashfield', 't_ironwall', 't_ironvein'] },
     { id: 't_bloodforge',  name: 'Blood Forge',        owner: 'orcs',    x: 72,  y: 271, adj: ['t_emberpits', 't_raiders', 't_warpeak', 't_deepmines'] },
     { id: 't_warpeak',     name: 'War Peak',           owner: 'orcs',    x: 225, y: 249, adj: ['t_ashfield', 't_bloodforge', 't_deepmines', 't_karakdun'] },
@@ -253,30 +253,29 @@
     // ── Dwarves of Karak Dun (Central — snowy alpine peaks) ───────────────
     { id: 't_frosthold',   name: 'Frosthold',          owner: 'dwarves', x: 387, y: 228, adj: ['t_ashfield', 't_karakdun', 't_anvil', 't_ironvein'] },
     { id: 't_ironvein',    name: 'Ironvein Tunnels',   owner: 'dwarves', x: 612, y: 224, adj: ['t_scorched', 't_frosthold', 't_stoneforge', 't_ironwall'] },
-    { id: 't_karakdun',    name: 'Karak Dun',          owner: 'dwarves', x: 441, y: 278, adj: ['t_ashfield', 't_warpeak', 't_frosthold', 't_deepmines', 't_stoneforge', 't_anvil', 't_gloomhollow', 't_keep'] },
+    { id: 't_karakdun',    name: 'Karak Dun',          owner: 'dwarves', x: 441, y: 278, adj: ['t_ashfield', 't_warpeak', 't_frosthold', 't_deepmines', 't_stoneforge', 't_anvil', 't_gloomhollow', 't_keep', 't_citadel'] },
     { id: 't_deepmines',   name: 'The Deepmines',      owner: 'dwarves', x: 207, y: 300, adj: ['t_bloodforge', 't_warpeak', 't_karakdun', 't_mudmire'] },
     { id: 't_stoneforge',  name: 'Stoneforge',         owner: 'dwarves', x: 666, y: 282, adj: ['t_ironvein', 't_karakdun', 't_anvil', 't_keep', 't_skullpeak'] },
     { id: 't_anvil',       name: 'The Anvil',          owner: 'dwarves', x: 513, y: 318, adj: ['t_frosthold', 't_karakdun', 't_stoneforge', 't_silverbridge'] },
 
     // ── Men of Aldermere (East — golden valleys) ──────────────────────────
     { id: 't_ironwall',    name: 'Ironwall Cliffs',    owner: 'men',     x: 801, y: 141, adj: ['t_thornwood', 't_scorched', 't_ironvein', 't_watchtower', 't_keep'] },
-    { id: 't_keep',        name: 'Aldermere Keep',     owner: 'men',     x: 774, y: 256, adj: ['t_ironwall', 't_stoneforge', 't_karakdun', 't_silverbridge', 't_watchtower', 't_marches'] },
+    { id: 't_keep',        name: 'Aldermere Keep',     owner: 'men',     x: 774, y: 256, adj: ['t_ironwall', 't_stoneforge', 't_karakdun', 't_silverbridge', 't_watchtower', 't_marches', 't_citadel'] },
     { id: 't_watchtower',  name: 'The Watchtower',     owner: 'men',     x: 837, y: 206, adj: ['t_ironwall', 't_keep', 't_harvest'] },
     { id: 't_silverbridge',name: 'Silver Bridge',      owner: 'men',     x: 711, y: 321, adj: ['t_keep', 't_anvil', 't_harvest'] },
     { id: 't_harvest',     name: 'Harvest Fields',     owner: 'men',     x: 828, y: 343, adj: ['t_watchtower', 't_silverbridge', 't_marches'] },
     { id: 't_marches',     name: 'Greywatch Marches',  owner: 'men',     x: 738, y: 386, adj: ['t_keep', 't_harvest', 't_skullpeak', 't_gloomhollow'] },
 
     // ── Goblins of Gloomhollow (South — toxic swamps) ─────────────────────
-    { id: 't_gloomhollow', name: 'Gloomhollow Warren', owner: 'goblins', x: 387, y: 394, adj: ['t_karakdun', 't_mudmire', 't_marches', 't_skullpeak', 't_rotfen', 't_toxicspire'] },
+    { id: 't_gloomhollow', name: 'Gloomhollow Warren', owner: 'goblins', x: 387, y: 394, adj: ['t_karakdun', 't_mudmire', 't_marches', 't_skullpeak', 't_rotfen', 't_toxicspire', 't_citadel'] },
     { id: 't_mudmire',     name: 'Mudmire Bog',        owner: 'goblins', x: 153, y: 386, adj: ['t_deepmines', 't_gloomhollow', 't_rotfen'] },
     { id: 't_skullpeak',   name: 'Skullpeak',          owner: 'goblins', x: 621, y: 386, adj: ['t_stoneforge', 't_marches', 't_gloomhollow', 't_darktide'] },
-    { id: 't_rotfen',      name: 'Rotfen Marsh',       owner: 'goblins', x: 198, y: 441, adj: ['t_mudmire', 't_gloomhollow', 't_shadowpass'] },
-    { id: 't_toxicspire',  name: 'Toxicspire',         owner: 'goblins', x: 459, y: 441, adj: ['t_gloomhollow', 't_darktide', 't_shadowpass'] },
-    { id: 't_darktide',    name: 'Dark Tide',          owner: 'goblins', x: 693, y: 433, adj: ['t_skullpeak', 't_toxicspire', 't_shadowpass'] },
+    { id: 't_rotfen',      name: 'Rotfen Marsh',       owner: 'goblins', x: 198, y: 441, adj: ['t_mudmire', 't_gloomhollow'] },
+    { id: 't_toxicspire',  name: 'Toxicspire',         owner: 'goblins', x: 459, y: 441, adj: ['t_gloomhollow', 't_darktide'] },
+    { id: 't_darktide',    name: 'Dark Tide',          owner: 'goblins', x: 693, y: 433, adj: ['t_skullpeak', 't_toxicspire'] },
 
-    // ── Final territories ─────────────────────────────────────────────────
-    { id: 't_shadowpass',  name: 'Shadow Pass',        owner: null,      x: 396, y: 477, adj: ['t_rotfen', 't_toxicspire', 't_darktide', 't_citadel'] },
-    { id: 't_citadel',     name: 'Obsidian Citadel',   owner: 'citadel', x: 450, y: 506, adj: ['t_shadowpass'], final: true },
+    // ── Obsidian Citadel (centre of the world — requires 3 of 4 enemy legion homes) ──
+    { id: 't_citadel', name: 'Obsidian Citadel', owner: 'citadel', x: 450, y: 260, adj: ['t_keep', 't_sylvan', 't_ashfield', 't_karakdun', 't_gloomhollow'], final: true },
   ];
 
   BF.territoryById = (id) => BF.TERRITORIES.find((t) => t.id === id);
@@ -284,6 +283,11 @@
   /* Build the campaign for a given player faction.
      Returns territory objects with difficulty stats injected.
      Territories owned by the player's faction are reassigned to rival factions. */
+  // Faction homes of the 4 enemies (used for Citadel unlock check)
+  BF.enemyHomes = function (playerId) {
+    return BF.FACTIONS.filter(f => f.id !== playerId).map(f => BF.FACTION_HOME[f.id]);
+  };
+
   BF.buildCampaign = function (playerId) {
     const homeId = BF.FACTION_HOME[playerId];
     const rivals = BF.FACTIONS.filter((f) => f.id !== playerId);
@@ -301,16 +305,30 @@
       }
     }
 
+    // Dynamic layout: rotate all territory positions so player's home is at the bottom
+    // and the Citadel stays at centre
+    const cx = 450, cy = 260;
+    const homeT = BF.territoryById(homeId);
+    const homeAngle = Math.atan2(homeT.y - cy, homeT.x - cx);
+    const targetAngle = Math.PI / 2; // bottom
+    const rot = targetAngle - homeAngle;
+    const cosR = Math.cos(rot), sinR = Math.sin(rot);
+
     return BF.TERRITORIES.map((t) => {
       const d = dist[t.id] !== undefined ? dist[t.id] : 8;
       const idx = Math.max(0, d - 1);
-      // If this territory belongs to the player's faction, assign a rival
       let owner = t.owner;
       if (owner === playerId) {
         const r = rivals[BF.TERRITORIES.indexOf(t) % rivals.length];
         owner = r.id;
       }
       if (t.final) owner = owner || rivals[0].id;
+
+      // Rotate position around map centre
+      const dx = t.x - cx, dy = t.y - cy;
+      const rx = cx + dx * cosR - dy * sinR;
+      const ry = cy + dx * sinR + dy * cosR;
+
       return Object.assign({}, t, {
         owner,
         index: idx,
@@ -318,6 +336,8 @@
         hpScale:    0.90 + 0.12 * idx,
         dmgScale:   0.85 + 0.12 * idx,
         countScale: 0.90 + 0.10 * idx,
+        mapX: Math.round(rx),
+        mapY: Math.round(ry),
       });
     });
   };
@@ -343,10 +363,20 @@
   };
 
   // ---- Auto-recruit: free reinforcement spawned every N seconds in the most threatened lane ----
-  BF.AUTO_RECRUIT = { interval: 45 };
-  BF.STAR_RATE_BONUS = [0, 0.10, 0.25, 0.40];
+  BF.AUTO_RECRUIT = { interval: 50 };
   BF.REPAIR_CD = 20;
   BF.MERC_CD = 15;
+
+  // ---- Barracks upgrade attributes (progressive star cost: level N costs N stars) ----
+  BF.UPGRADE_ATTRS = [
+    { id: 'atkSpd',    name: 'Attack Speed',          desc: '+8% attack speed per level',      max: 5, perLv: 0.08 },
+    { id: 'atkStr',    name: 'Attack Strength',       desc: '+8% attack damage per level',     max: 5, perLv: 0.08 },
+    { id: 'def',       name: 'Defence',               desc: '+6% damage reduction per level',  max: 5, perLv: 0.06 },
+    { id: 'moveSpd',   name: 'Movement Speed',        desc: '+6% movement speed per level',    max: 5, perLv: 0.06 },
+    { id: 'goldReduc', name: 'Gold Cost Reduction',   desc: '-5% unit gold cost per level',    max: 5, perLv: 0.05 },
+  ];
+  BF.starUpgCost = (currentLevel) => currentLevel + 1;
+  BF.starUpgTotalSpent = (level) => level * (level + 1) / 2;
 
   // ---- Tier-1 unit touch abilities (tap a deployed unit to activate) ----
   BF.TOUCH_ABILITIES = {
