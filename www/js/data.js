@@ -92,6 +92,7 @@
       id: 'men', name: 'Men of Aldermere', short: 'Men',
       color: '#4a78c2', accent: '#a9c1ec',
       tagline: 'Disciplined steel. The finest swordsmen in the realm.',
+      lore: { goal: 'Reclaim the lost capital and unite the fractured mountain provinces under the true King’s banner.', crisis: 'The high council has been corrupted by an occult cult. Former allies brand you a traitor.' },
       perks: ['Elite swordsmen: heavy, hard-hitting blades', '+20% gold income'],
       mods: { income: 1.2, bounty: 1, baseHp: 1, armor: 0, regen: 0, berserk: false },
       units: {
@@ -105,6 +106,7 @@
       id: 'elves', name: 'Elves of Sylvanmere', short: 'Elves',
       color: '#3f9a6a', accent: '#a6e3bf',
       tagline: 'Slow, patient arrows that reach across the whole field.',
+      lore: { goal: 'Cleanse the ancient forest canopies from a spreading dark-magic blight and seal the ancestral rifts.', crisis: 'Goblin logging mechs are clear-cutting the outer woods, accelerating the blight into a desperate two-front war.' },
       perks: ['Longest-ranged archers in the game', 'Defenders regenerate 3 HP/s'],
       mods: { income: 1, bounty: 1, baseHp: 1, armor: 0, regen: 3, berserk: false },
       units: {
@@ -118,6 +120,7 @@
       id: 'orcs', name: 'Orcs of the Ashen Horde', short: 'Orcs',
       color: '#b5482f', accent: '#f0a98e',
       tagline: 'Brutes who grow wilder the more they bleed.',
+      lore: { goal: 'Migrate the clans away from the erupting volcanic wasteland and secure a fertile new homeland.', crisis: 'The Dwarves refuse passage through their mountain gates. With lava at the rear, a brutal time-sensitive siege begins.' },
       perks: ['Massive health and damage in melee', 'Berserk: attacks 25% faster below half health'],
       mods: { income: 1.1, bounty: 1, baseHp: 1, armor: 0, regen: 0, berserk: true },
       units: {
@@ -131,6 +134,7 @@
       id: 'goblins', name: 'Goblins of Gloomhollow', short: 'Goblins',
       color: '#a3a93a', accent: '#e3e68f',
       tagline: 'Cheap, quick and everywhere. Win by sheer numbers.',
+      lore: { goal: 'Escape the collapsing underworld caverns and seize surface territory for the goblin clans.', crisis: 'Volatile scrap-tech keeps misfiring and infighting among greedy scrap-barons threatens to tear alliances apart.' },
       perks: ['Cheapest units in the game', '+35% gold from kills, +25% starting gold'],
       mods: { income: 1.25, bounty: 1.35, baseHp: 1, armor: 0, regen: 0, berserk: false },
       units: {
@@ -144,6 +148,7 @@
       id: 'dwarves', name: 'Dwarves of Karak Dun', short: 'Dwarves',
       color: '#c08a3e', accent: '#f1d09a',
       tagline: 'Armoured and immovable. Nothing gets through the line.',
+      lore: { goal: 'Reclaim the legendary ancestral deep-mines and unearth forgotten runic technologies.', crisis: 'An ancient underground menace has breached the lower shafts. Defend the vaults while keeping the surface gates sealed.' },
       perks: ['Armour: all damage cut by 15%', 'Gate has 25% more health'],
       mods: { income: 1, bounty: 1, baseHp: 1.25, armor: 0.15, regen: 0, berserk: false },
       units: {

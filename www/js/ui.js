@@ -101,7 +101,7 @@
   const modalEl = $('#modal');
   function openModal(html, opts) {
     opts = opts || {};
-    modalEl.className = 'modal' + (opts.center ? ' center' : '');
+    modalEl.className = 'modal';
     modalEl.innerHTML = '<div class="card">' + html + '</div>';
     modalEl.onclick = (e) => { if (e.target === modalEl && opts.dismiss !== false) closeModal(); };
     return $('.card', modalEl);
@@ -163,10 +163,10 @@
     $('#home-options').addEventListener('click', function () {
       Sound.play('ui');
       var card = openModal(
-        '<h2>Options</h2>' +
+        '<div class="modal-icon">⚙️</div>' +
+        '<h2 class="center-t">Options</h2>' +
         '<div class="kv"><span>Sound effects</span><button class="btn small ghost" id="opt-sound">' + (save.sound ? 'On' : 'Off') + '</button></div>' +
-        '<div class="row"><button class="btn" id="opt-close">Done</button></div>',
-        { center: true }
+        '<div class="row"><button class="btn" id="opt-close">Done</button></div>'
       );
       $('#opt-sound', card).addEventListener('click', function () {
         save.sound = !save.sound; persist();
@@ -214,6 +214,7 @@
       const f = BF.factionById(pick);
       const mx = BF.TIER1_MATRIX;
       $('#legion-detail').innerHTML =
+        (f.lore ? '<p class="ld-lore">' + f.lore.goal + '</p><p class="ld-crisis">' + f.lore.crisis + '</p>' : '') +
         '<div class="ld-perks">' +
         f.perks.map((p) => '<div class="ld-perk">' + p + '</div>').join('') +
         '</div>' +
@@ -602,7 +603,7 @@
     const f = BF.factionById(save.last), c = camp(f.id);
     Sound.play('ui');
     if (!unlocked(c, t)) {
-      const card = openModal('<h2>Out of reach</h2><p class="dim">Conquer an adjacent territory first.</p><div class="row"><button class="btn" id="ok">Understood</button></div>', { center: true });
+      const card = openModal('<div class="modal-icon">🔒</div><h2 class="center-t">Out of reach</h2><p class="dim center-t">Conquer an adjacent territory first.</p><div class="row"><button class="btn" id="ok">Understood</button></div>');
       $('#ok', card).onclick = closeModal;
       return;
     }
@@ -610,8 +611,9 @@
     const best = c.conquered[t.id] || 0;
     const reward = (6 + 3 * (t.index || 0)) * 3;
     const card = openModal(
-      '<h2>' + t.name + '</h2>' +
-      (owner ? '<div class="owner" style="--c:' + owner.color + '"><i></i>Held by ' + owner.name + '</div>' : '') +
+      '<div class="modal-icon">⚔️</div>' +
+      '<h2 class="center-t">' + t.name + '</h2>' +
+      (owner ? '<div class="owner" style="--c:' + owner.color + ';justify-content:center;margin-top:4px"><i></i>Held by ' + owner.name + '</div>' : '') +
       '<div style="margin-top:12px">' +
       '<div class="kv"><span class="dim">Threat</span>' + pips(Math.min(5, Math.ceil(((t.index || 0) + 1) / 1.5)), 5) + '</div>' +
       '<div class="kv"><span class="dim">Waves</span><b>' + t.waves + '</b></div>' +
@@ -629,7 +631,8 @@
     const f = BF.factionById(save.last), c = camp(f.id);
     const draw = () => {
       const card = openModal(
-        '<h2>War Council</h2><p class="dim" style="margin:0 0 6px">Spend Glory on permanent upgrades for the ' + f.short + '. You have <b class="gold">✦ ' + c.glory + '</b>.</p>' +
+        '<div class="modal-icon">🏛️</div>' +
+        '<h2 class="center-t">War Council</h2><p class="dim center-t" style="margin:0 0 6px">Spend Glory on permanent upgrades for the ' + f.short + '. You have <b class="gold">✦ ' + c.glory + '</b>.</p>' +
         BF.UPGRADES.map((u) => {
           const lv = c.upg[u.id];
           const cost = BF.upgradeCost(lv);
@@ -650,7 +653,7 @@
       );
       $('#done', card).onclick = closeModal;
       $('#reset', card).onclick = () => {
-        const cf = openModal('<h2>Reset campaign?</h2><p class="dim">This erases all conquests, Glory and upgrades for the ' + f.name + '.</p><div class="row"><button class="btn ghost" id="no">Keep it</button><button class="btn" id="yes" style="background:linear-gradient(180deg,#ec8a84,#c0463f);color:#fff">Reset</button></div>', { center: true });
+        const cf = openModal('<div class="modal-icon">⚠️</div><h2 class="center-t">Reset campaign?</h2><p class="dim center-t">This erases all conquests, Glory and upgrades for the ' + f.name + '.</p><div class="row"><button class="btn ghost" id="no">Keep it</button><button class="btn" id="yes" style="background:linear-gradient(180deg,#ec8a84,#c0463f);color:#fff">Reset</button></div>');
         $('#no', cf).onclick = draw;
         $('#yes', cf).onclick = () => { delete save.camps[f.id]; persist(); closeModal(); renderMap(); };
       };
@@ -663,7 +666,8 @@
     const draw = () => {
       const avail = availableStars(c);
       const card = openModal(
-        '<h2>Barracks</h2><p class="dim" style="margin:0 0 6px">Spend earned stars to boost attack speed. You have <b class="gold">★ ' + avail + '</b> available.</p>' +
+        '<div class="modal-icon">🏰</div>' +
+        '<h2 class="center-t">Barracks</h2><p class="dim center-t" style="margin:0 0 6px">Spend earned stars to boost attack speed. You have <b class="gold">★ ' + avail + '</b> available.</p>' +
         BF.ROLES.map((r) => {
           const u = f.units[r];
           const lv = c.starUpg[r] || 0;
@@ -694,8 +698,9 @@
     const f = BF.factionById(save.last), c = camp(f.id);
     const s = c.stats;
     const card = openModal(
-      '<h2>Legion Statistics</h2>' +
-      '<p class="dim" style="margin:0 0 8px">' + f.name + '</p>' +
+      '<div class="modal-icon">📊</div>' +
+      '<h2 class="center-t">Legion Statistics</h2>' +
+      '<p class="dim center-t" style="margin:0 0 8px">' + f.name + '</p>' +
       '<div class="kv"><span class="dim">Territories sieged</span><b>' + s.sieged + '</b></div>' +
       '<div class="kv"><span class="dim">Enemies defeated</span><b>' + s.killed + '</b></div>' +
       '<div class="kv"><span class="dim">3-star victories</span><b class="gold">' + s.threeStars + '</b></div>' +
@@ -1023,10 +1028,11 @@
     if (!B || B.over || paused) return;
     paused = true;
     const card = openModal(
+      '<div class="modal-icon">⏸️</div>' +
       '<h2 class="center-t">Paused</h2>' +
       '<div class="row" style="flex-direction:column"><button class="btn" id="resume">Resume</button>' +
       '<button class="btn ghost" id="restart">Restart battle</button><button class="btn ghost" id="retreat">Retreat to map</button></div>',
-      { center: true, dismiss: false }
+      { dismiss: false }
     );
     $('#resume', card).onclick = () => { closeModal(); paused = false; last = performance.now(); };
     $('#restart', card).onclick = () => { closeModal(); startBattle(terr); };
@@ -1051,6 +1057,7 @@
       if (B.stars === 3) c.stats.threeStars++;
       persist();
       const card = openModal(
+        '<div class="modal-icon">' + (terr.final ? '👑' : '🏆') + '</div>' +
         '<h2 class="center-t gold">' + (terr.final ? 'The world is yours' : 'Territory conquered') + '</h2>' +
         '<div class="center-t dim">' + terr.name + '</div>' +
         '<div class="stars"><b>' + '★'.repeat(B.stars) + '</b>' + '★'.repeat(3 - B.stars) + '</div>' +
@@ -1065,6 +1072,7 @@
       $('#cont', card).onclick = leaveBattle;
     } else {
       const card = openModal(
+        '<div class="modal-icon">💀</div>' +
         '<h2 class="center-t" style="color:var(--danger)">The gate has fallen</h2>' +
         '<div class="center-t dim" style="margin-top:6px">' + terr.name + '</div>' +
         '<div class="kv" style="margin-top:12px"><span class="dim">Enemies defeated</span><b>' + B.kills + '</b></div>' +
