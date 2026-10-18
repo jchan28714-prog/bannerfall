@@ -80,8 +80,8 @@
       const tidx = this.terr.index || 0;
       this.enemyBaseMax = Math.round(600 + 200 * tidx);
       this.enemyBaseHp = this.enemyBaseMax;
-      this._aiThresholds = [0.75, 0.50, 0.25];
-      this._aiFired = [false, false, false];
+      this._aiThresholds = [0.50, 0.25];
+      this._aiFired = [false, false];
     }
 
     // ---------- enemy wave plan ----------
@@ -468,12 +468,14 @@
             this._defAttack(d, tgt);
           }
         } else {
-          if (!d.shielded) d.x = Math.min(G.cw - BF.CASTLE_W, d.x + d.marchSpeed * dt);
-          if (d.x >= G.cw - BF.CASTLE_W - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
+          const castleWall = G.cw - BF.CASTLE_W;
+          const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
+          if (!d.shielded) d.x = Math.min(siegeThresh, d.x + d.marchSpeed * dt);
+          if (d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
             d.cd = 1 / d.rate;
             const dmg = Math.round(d.dmg);
             this.enemyBaseHp = Math.max(0, this.enemyBaseHp - dmg);
-            this._float(G.cw - BF.CASTLE_W + 10, d.y - 10, '-' + dmg, '#ff6b5e');
+            this._float(castleWall + 10, d.y - 10, '-' + dmg, '#ff6b5e');
             d.atk = 0.18;
             this.events.push('siegeHit');
           }
@@ -547,12 +549,19 @@
             this.schedule.push({ t: this.time + 0.3 + k * 0.5, row, role, wave });
           }
           this.schedule.sort((a, b) => a.t - b.t);
-          // Freeze all player defenders for 3 seconds
-          const freezeDur = 3 + ti;
+          // Freeze all defenders and push back those near the castle by 8 cells
+          const freezeDur = 3 + ti * 2;
+          const pushDist = 8 * G.cell;
+          const castleX = G.cw - BF.CASTLE_W;
           for (const d of this.defenders) {
             if (!d.dead) {
               d.frozenDur = freezeDur;
-              this._ring(d.x, d.y, 18, '#60c8ff');
+              if (d.x >= castleX - 3 * G.cell) {
+                d.x = Math.max(BF.SPAWN_X, d.x - pushDist);
+                this._ring(d.x, d.y, 24, '#ff6040');
+              } else {
+                this._ring(d.x, d.y, 18, '#60c8ff');
+              }
             }
           }
           this.events.push('aiReinforce');
