@@ -507,20 +507,7 @@
         if (tgt && best <= e.range) {
           if (e.cd <= 0) { e.cd = 1 / e.rate; this._enemyAttack(e, tgt); }
         } else {
-          // Bunching: units overlap when near fortress or boss, faster units pass slower
-          let blocked = false;
-          const nearFortress = e.x <= 80;
-          if (!nearFortress) {
-            for (const o of this.enemies) {
-              if (o === e || o.dead || o.row !== e.row) continue;
-              const g = e.x - o.x;
-              const minGap = 12 + 4 * Math.max(e.size, o.size);
-              if (g > 0 && g < minGap && e.speed <= o.speed) {
-                blocked = true; break;
-              }
-            }
-          }
-          if (!blocked) e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
+          e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
           if (e.x <= 10) {  // enemy has entered the castle gate
             e.dead = true;
             this.leaked++;

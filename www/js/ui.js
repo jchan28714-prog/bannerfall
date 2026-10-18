@@ -874,6 +874,10 @@
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
       b.addEventListener('click', () => {
+        if (uiS.selected === 'reinforce') {
+          if (B.manualRecruit(r)) { Sound.play('reinforce'); uiS.selected = null; syncTray(); }
+          return;
+        }
         uiS.selected = uiS.selected === r ? null : r;
         Sound.play('ui'); syncTray();
       });
@@ -911,9 +915,10 @@
     while (actFrag.firstChild) tray.appendChild(actFrag.firstChild);
 
     $('#btn-recruit').addEventListener('click', () => {
-      if (!B || B.over) return;
-      var type = uiS.selected && uiS.selected !== 'ability' && uiS.selected !== 'merc' ? uiS.selected : null;
-      if (B.manualRecruit(type)) { Sound.play('reinforce'); syncTray(); }
+      if (!B || B.over || B.autoRecruitCd > 0) return;
+      uiS.selected = uiS.selected === 'reinforce' ? null : 'reinforce';
+      uiS.sellMode = false; $('#btn-sell').classList.remove('on');
+      Sound.play('ui'); syncTray();
     });
     $('#btn-ability').addEventListener('click', () => {
       if (!B || B.over || B.abilityCd > 0) return;
@@ -956,13 +961,17 @@
   }
 
   function syncTray() {
+    const isReinforce = uiS.selected === 'reinforce';
     document.querySelectorAll('.ucard').forEach((c) => {
       const role = c.dataset.role;
-      c.classList.toggle('sel', uiS.selected === role);
+      c.classList.toggle('sel', isReinforce ? false : uiS.selected === role);
       c.classList.toggle('poor', B.gold < B.unitCost(role));
+      c.classList.toggle('reinforce-pick', isReinforce && B.gold >= B.unitCost(role));
     });
     const abilBtn = $('#btn-ability');
     if (abilBtn) abilBtn.classList.toggle('sel', uiS.selected === 'ability');
+    const recruitBtn = $('#btn-recruit');
+    if (recruitBtn) recruitBtn.classList.toggle('sel', isReinforce);
     syncActBtns();
   }
 

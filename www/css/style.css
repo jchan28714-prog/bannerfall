@@ -273,6 +273,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .ucard .cs .coin { width: 8px; height: 8px; }
 .ucard.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 18px rgba(232, 197, 102, .25); transform: translateY(-3px); }
 .ucard.poor { opacity: .45; }
+.ucard.reinforce-pick { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok), 0 0 12px rgba(127,207,134,.25); animation: reinforce-pulse 1s ease-in-out infinite; }
+@keyframes reinforce-pulse { 0%, 100% { box-shadow: 0 0 0 1px var(--ok), 0 0 8px rgba(127,207,134,.2); } 50% { box-shadow: 0 0 0 1px var(--ok), 0 0 18px rgba(127,207,134,.4); } }
 
 /* ---------- ability button ---------- */
 .ability-btn {
