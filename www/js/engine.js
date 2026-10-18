@@ -600,9 +600,9 @@
     manualRecruit(type) {
       if (this.autoRecruitCd > 0 || this.over) return false;
       var role = type && this.faction.units[type] ? type : 'spear';
-      var cost = this.unitCost(role) * G.rows;
+      var cost = this.unitCost(role);
       if (this.gold < cost) role = 'spear';
-      cost = this.unitCost(role) * G.rows;
+      cost = this.unitCost(role);
       if (this.gold < cost) { this._autoRecruit(); } else {
         this.gold -= cost;
         for (let row = 0; row < G.rows; row++) this._spawnFreeUnit(role, row);

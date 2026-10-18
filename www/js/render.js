@@ -120,11 +120,13 @@
 
     switch (role) {
       case 'spear': {
-        // Two-handed: spear angled forward, thrusts during attack
-        const sDir = armDir - 0.25 + sin(ap * pi) * 0.45;
+        // Two-handed: spear held forward, thrusts linearly during attack
+        const sDir = armDir - 0.25;
+        const thrustDist = sin(ap * pi) * 12;
         const shaft = 30;
-        const tx = ex + cos(sDir) * shaft, ty = ey + sin(sDir) * shaft;
-        const bx = ex - cos(sDir) * 14,   by = ey - sin(sDir) * 14;
+        const ox = cos(sDir) * thrustDist, oy = sin(sDir) * thrustDist;
+        const tx = ex + ox + cos(sDir) * shaft, ty = ey + oy + sin(sDir) * shaft;
+        const bx = ex + ox - cos(sDir) * 14,   by = ey + oy - sin(sDir) * 14;
         ctx.strokeStyle = '#7a5a28'; ctx.lineWidth = 2.2;
         ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(tx, ty); ctx.stroke();
         // Blade tip
