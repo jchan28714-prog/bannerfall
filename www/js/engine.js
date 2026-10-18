@@ -70,11 +70,11 @@
       this.leaked = 0;
       this.nid = 1;
       this.events = [];
-      this.abilityCd = 0;   // seconds until ability can be used again
+      this.abilityCd = 30;  // 30s initial charge before first use
       this.abilityBuff = 0; // seconds remaining for the active timed buff
       this.autoRecruitCd = 30; // 30s initial charge before first use
       this.repairCd = 0;
-      this.mercCd = 0;
+      this.mercCd = 20;     // 20s initial charge before first use
       this.starUpg = opts.starUpg || {};
       this._starLv = (type, attr) => this.starUpg[type + ':' + attr] || 0;
       const tidx = this.terr.index || 0;
