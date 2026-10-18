@@ -98,11 +98,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   scroll-snap-align: center; position: relative;
   display: flex; flex-direction: column; align-items: center;
   padding: 18px 10px;
-  transition: width .35s ease, border-color .25s, box-shadow .25s, opacity .25s, padding .35s ease;
+  transition: width .35s ease, border-color .25s, box-shadow .25s, opacity .25s, padding .35s ease, transform .3s ease;
   cursor: pointer;
 }
 .lcard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); border-radius: 14px 14px 0 0; }
-.lcard:not(.sel) { opacity: .55; }
+.lcard:not(.sel) { opacity: .4; transform: scale(.92); }
 
 /* --- Expanded card (selected): full content --- */
 .lcard.sel {
@@ -246,8 +246,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
 
 /* ---------- battle ---------- */
+#screen-battle { padding: 0 !important; }
 #screen-battle.active { display: flex; flex-direction: column; }
-#hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-right)) clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-left)); flex: none; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-right)) clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-left)); padding-top: calc(clamp(4px, 1vw, 8px) + env(safe-area-inset-top)); flex: none; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .hud-gold { display: flex; align-items: center; gap: clamp(3px, 1vw, 6px); min-width: clamp(60px, 14vw, 90px); font-size: clamp(14px, 3.5vw, 20px); font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
 .hud-gold.deny { animation: shake .3s; color: var(--danger); }
 @keyframes shake { 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }

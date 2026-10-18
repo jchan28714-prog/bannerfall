@@ -269,17 +269,28 @@
     });
 
     let clickLock = false;
+    let swiping = false;
+    let lastScrollX = scroll.scrollLeft;
+    let scrollVel = 0;
+
     function selectCard(id, fromClick) {
-      if (id === pick) return;
+      if (id === pick && !fromClick) return;
       if (fromClick) { clickLock = true; setTimeout(() => { clickLock = false; }, 600); }
       pick = id;
-      scroll.querySelectorAll('.lcard').forEach((x) => {
+      const cards = scroll.querySelectorAll('.lcard');
+      cards.forEach((x) => {
         const isSel = x.dataset.id === pick;
         x.classList.toggle('sel', isSel);
-        if (isSel) drawTokensFor(x);
+        if (isSel) {
+          drawTokensFor(x);
+          if (fromClick) x.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
       });
       Sound.play('ui');
     }
+
+    scroll.addEventListener('touchstart', () => { swiping = true; scrollVel = 0; lastScrollX = scroll.scrollLeft; }, { passive: true });
+    scroll.addEventListener('touchend', () => { setTimeout(() => { swiping = false; }, 80); }, { passive: true });
 
     scroll.querySelectorAll('.lcard').forEach((b) => {
       b.addEventListener('click', (e) => {
@@ -290,6 +301,8 @@
 
     let scrollTimer;
     scroll.addEventListener('scroll', () => {
+      scrollVel = M.abs(scroll.scrollLeft - lastScrollX);
+      lastScrollX = scroll.scrollLeft;
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
         if (clickLock) return;
@@ -301,8 +314,11 @@
           const d = M.abs(mid - cx);
           if (d < bestD) { bestD = d; closest = c; }
         });
-        if (closest) selectCard(closest.dataset.id);
-      }, 300);
+        if (closest) {
+          selectCard(closest.dataset.id);
+          closest.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+      }, 250);
     }, { passive: true });
 
     scroll.querySelectorAll('.lcard-go').forEach((btn) => {
