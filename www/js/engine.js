@@ -112,14 +112,16 @@
     _buildSchedule() {
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const waveGap = 45;
+      const waveGaps = [0, 15, 15, 20, 20, 20, 25]; // wave 1 instant, 2-3: 15s, 4-6: 20s, 7+: 25s
       const hasBoss = idx >= 2;
       const mm = this.modeMult;
       // More units in easy mode, fewer in hard
       const modeMult = mm < 1 ? 1.4 : mm > 1 ? 0.85 : 1;
 
+      var cumT = 3;
       for (let w = 0; w < W; w++) {
-        const waveT = 3 + w * waveGap;
+        if (w > 0) cumT += (waveGaps[Math.min(w, waveGaps.length - 1)] || 25);
+        const waveT = cumT;
         const wd = (idx <= 1 && BF.WAVE_DESIGN[w]) ? BF.WAVE_DESIGN[w] : null;
         const baseCount = wd
           ? Math.round(wd.count * T.countScale * 1.6 * modeMult)
@@ -142,7 +144,7 @@
         }
       }
       if (hasBoss) {
-        const bossT = (W - 1) * waveGap + 35;
+        const bossT = cumT + 10;
         const br = Math.floor(r() * G.rows);
         const n = 1 + Math.floor(idx / 3);
         for (let c = 0; c < n; c++) {
@@ -186,7 +188,8 @@
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
         });
       }
-      if (s.boosted) { e.hp *= 2; e.dmg *= 1.8; e.size = Math.max(e.size, 1.6); }
+      if (s.boosted === 1) { e.hp *= 2; e.dmg *= 1.5; e.size = Math.max(e.size, 1.5); }
+      else if (s.boosted === 2) { e.hp *= 3.5; e.dmg *= 2.2; e.size = Math.max(e.size, 1.8); }
       e.bounty = Math.max(e.bounty, Math.round(e.hp * 0.12));
       e.maxHp = e.hp;
       e.ranged = e.range > 90;
@@ -539,24 +542,15 @@
           this._aiFired[ti] = true;
           const wave = Math.max(0, this.waveNow() - 1);
           if (ti === 1) {
-            // 25% threshold: spawn boosted champions in every row
+            // 25%: heavily boosted champions + warlord
             for (let rw = 0; rw < G.rows; rw++) {
-              this.schedule.push({ t: this.time + 0.2 + rw * 0.3, row: rw, role: 'champion', wave, boosted: true });
+              this.schedule.push({ t: this.time + 0.2 + rw * 0.3, row: rw, role: 'champion', wave, boosted: 2 });
             }
-            // Plus a warlord in the center
-            this.schedule.push({ t: this.time + 0.1, row: Math.floor(G.rows / 2), role: 'warlord', wave, boosted: true });
+            this.schedule.push({ t: this.time + 0.1, row: Math.floor(G.rows / 2), role: 'warlord', wave, boosted: 2 });
           } else {
-            // 50% threshold: spawn strongest per row
-            var bestPerRow = [];
+            // 50%: boosted champions in every row
             for (let rw = 0; rw < G.rows; rw++) {
-              var best = null, bestHp = 0;
-              for (const e of this.enemies) {
-                if (!e.dead && e.row === rw && e.maxHp > bestHp) { bestHp = e.maxHp; best = e.role; }
-              }
-              bestPerRow.push(best || 'sword');
-            }
-            for (let rw = 0; rw < G.rows; rw++) {
-              this.schedule.push({ t: this.time + 0.3 + rw * 0.4, row: rw, role: bestPerRow[rw], wave });
+              this.schedule.push({ t: this.time + 0.3 + rw * 0.4, row: rw, role: 'champion', wave, boosted: 1 });
             }
           }
           this.schedule.sort((a, b) => a.t - b.t);
