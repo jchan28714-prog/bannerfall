@@ -246,7 +246,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 @keyframes ripple-expand { to { transform: scale(4); opacity: 0; } }
 
 /* ---------- battle ---------- */
-#screen-battle { display: flex; flex-direction: column; }
+#screen-battle.active { display: flex; flex-direction: column; }
 #hud { display: flex; align-items: center; gap: clamp(6px, 2vw, 10px); padding: clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-right)) clamp(4px, 1vw, 8px) calc(clamp(8px, 2vw, 13px) + env(safe-area-inset-left)); flex: none; z-index: 5; background: rgba(15, 17, 23, .55); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .hud-gold { display: flex; align-items: center; gap: clamp(3px, 1vw, 6px); min-width: clamp(60px, 14vw, 90px); font-size: clamp(14px, 3.5vw, 20px); font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
 .hud-gold.deny { animation: shake .3s; color: var(--danger); }
