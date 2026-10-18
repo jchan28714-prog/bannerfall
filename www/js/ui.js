@@ -358,10 +358,20 @@
       '<div class="glory">✦ <span id="glory">' + c.glory + '</span></div>' +
       '<button class="icon-btn' + (save.sound ? ' on' : '') + '" id="snd" aria-label="Sound">♪</button>' +
       '</div>' +
-      '<div class="mapwrap"><svg id="mapsvg" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet"></svg></div>' +
+      '<div class="mapwrap"><svg id="mapsvg" preserveAspectRatio="xMidYMid meet"></svg></div>' +
       '<div class="mapbar"><button class="btn ghost" id="council">War Council</button><button class="btn ghost" id="barracks">★ Barracks</button><button class="btn ghost" id="stats">Stats</button></div>';
 
     const svg = $('#mapsvg');
+    var minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    terrs.forEach(function(t) {
+      var tx = t.mapX != null ? t.mapX : t.x, ty = t.mapY != null ? t.mapY : t.y;
+      if (tx < minX) minX = tx; if (tx > maxX) maxX = tx;
+      if (ty < minY) minY = ty; if (ty > maxY) maxY = ty;
+    });
+    var pad = 60;
+    var vbX = Math.floor(minX - pad), vbY = Math.floor(minY - pad);
+    var vbW = Math.ceil(maxX - minX + pad * 2), vbH = Math.ceil(maxY - minY + pad * 2);
+    svg.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
     const defs = svgEl('defs', {}, svg);
 
     // Land gradient
@@ -557,8 +567,8 @@
     // Pinch-to-zoom and pan on the map SVG
     (function() {
       const wrap = $('.mapwrap');
-      let vb = { x: 0, y: 0, w: 900, h: 520 };
-      const VB_BASE = { x: 0, y: 0, w: 900, h: 520 };
+      let vb = { x: vbX, y: vbY, w: vbW, h: vbH };
+      const VB_BASE = { x: vbX, y: vbY, w: vbW, h: vbH };
       const MIN_ZOOM = 1, MAX_ZOOM = 3;
       let zoom = 1;
       let pointers = {};
