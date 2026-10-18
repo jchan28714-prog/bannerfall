@@ -186,6 +186,7 @@
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
         });
       }
+      if (s.boosted) { e.hp *= 2; e.dmg *= 1.8; e.size = Math.max(e.size, 1.6); }
       e.bounty = Math.max(e.bounty, Math.round(e.hp * 0.12));
       e.maxHp = e.hp;
       e.ranged = e.range > 90;
@@ -537,16 +538,26 @@
         if (!this._aiFired[ti] && eRatio <= this._aiThresholds[ti]) {
           this._aiFired[ti] = true;
           const wave = Math.max(0, this.waveNow() - 1);
-          var bestPerRow = [];
-          for (let rw = 0; rw < G.rows; rw++) {
-            var best = null, bestHp = 0;
-            for (const e of this.enemies) {
-              if (!e.dead && e.row === rw && e.maxHp > bestHp) { bestHp = e.maxHp; best = e.role; }
+          if (ti === 1) {
+            // 25% threshold: spawn boosted champions in every row
+            for (let rw = 0; rw < G.rows; rw++) {
+              this.schedule.push({ t: this.time + 0.2 + rw * 0.3, row: rw, role: 'champion', wave, boosted: true });
             }
-            bestPerRow.push(best || 'sword');
-          }
-          for (let rw = 0; rw < G.rows; rw++) {
-            this.schedule.push({ t: this.time + 0.3 + rw * 0.4, row: rw, role: bestPerRow[rw], wave });
+            // Plus a warlord in the center
+            this.schedule.push({ t: this.time + 0.1, row: Math.floor(G.rows / 2), role: 'warlord', wave, boosted: true });
+          } else {
+            // 50% threshold: spawn strongest per row
+            var bestPerRow = [];
+            for (let rw = 0; rw < G.rows; rw++) {
+              var best = null, bestHp = 0;
+              for (const e of this.enemies) {
+                if (!e.dead && e.row === rw && e.maxHp > bestHp) { bestHp = e.maxHp; best = e.role; }
+              }
+              bestPerRow.push(best || 'sword');
+            }
+            for (let rw = 0; rw < G.rows; rw++) {
+              this.schedule.push({ t: this.time + 0.3 + rw * 0.4, row: rw, role: bestPerRow[rw], wave });
+            }
           }
           this.schedule.sort((a, b) => a.t - b.t);
           // Freeze all defenders and push back those near the castle by 8 cells
