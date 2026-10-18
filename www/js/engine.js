@@ -82,6 +82,7 @@
       this.enemyBaseHp = this.enemyBaseMax;
       this._aiThresholds = [0.50, 0.25];
       this._aiFired = [false, false];
+      this._goldTimer = 0;
     }
 
     // ---------- enemy wave plan ----------
@@ -111,7 +112,7 @@
     _buildSchedule() {
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const waveGap = 15;
+      const waveGap = 45;
       const hasBoss = idx >= 2;
       const mm = this.modeMult;
       // More units in easy mode, fewer in hard
@@ -141,7 +142,7 @@
         }
       }
       if (hasBoss) {
-        const bossT = (W - 1) * waveGap + 10;
+        const bossT = (W - 1) * waveGap + 35;
         const br = Math.floor(r() * G.rows);
         const n = 1 + Math.floor(idx / 3);
         for (let c = 0; c < n; c++) {
@@ -185,6 +186,7 @@
           bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
         });
       }
+      e.bounty = Math.max(e.bounty, Math.round(e.hp * 0.12));
       e.maxHp = e.hp;
       e.ranged = e.range > 90;
       this.enemies.push(e);
@@ -431,6 +433,13 @@
       }
       if (this.repairCd > 0) this.repairCd = Math.max(0, this.repairCd - dt);
       if (this.mercCd > 0) this.mercCd = Math.max(0, this.mercCd - dt);
+      this._goldTimer += dt;
+      if (this._goldTimer >= 10) {
+        this._goldTimer -= 10;
+        this.gold += 50;
+        this._float(G.cw * 0.5, G.sky + 20, '+50', '#e8c566');
+        this.events.push('coin');
+      }
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
@@ -541,12 +550,16 @@
         if (!this._aiFired[ti] && eRatio <= this._aiThresholds[ti]) {
           this._aiFired[ti] = true;
           const wave = Math.max(0, this.waveNow() - 1);
-          const count = 3 + ti * 2;
-          const eliteRoles = ['champion', 'champion', 'warlord'];
-          for (let k = 0; k < count; k++) {
-            const row = Math.floor(this.rand() * G.rows);
-            const role = eliteRoles[Math.min(ti, eliteRoles.length - 1)];
-            this.schedule.push({ t: this.time + 0.3 + k * 0.5, row, role, wave });
+          var bestPerRow = [];
+          for (let rw = 0; rw < G.rows; rw++) {
+            var best = null, bestHp = 0;
+            for (const e of this.enemies) {
+              if (!e.dead && e.row === rw && e.maxHp > bestHp) { bestHp = e.maxHp; best = e.role; }
+            }
+            bestPerRow.push(best || 'sword');
+          }
+          for (let rw = 0; rw < G.rows; rw++) {
+            this.schedule.push({ t: this.time + 0.3 + rw * 0.4, row: rw, role: bestPerRow[rw], wave });
           }
           this.schedule.sort((a, b) => a.t - b.t);
           // Freeze all defenders and push back those near the castle by 8 cells
@@ -584,11 +597,17 @@
       }
     }
 
-    // ---------- manual recruit: player-triggered — one spear per lane ----------
-    manualRecruit() {
+    manualRecruit(type) {
       if (this.autoRecruitCd > 0 || this.over) return false;
+      var role = type && this.faction.units[type] ? type : 'spear';
+      var cost = this.unitCost(role) * G.rows;
+      if (this.gold < cost) role = 'spear';
+      cost = this.unitCost(role) * G.rows;
+      if (this.gold < cost) { this._autoRecruit(); } else {
+        this.gold -= cost;
+        for (let row = 0; row < G.rows; row++) this._spawnFreeUnit(role, row);
+      }
       this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
-      this._autoRecruit();
       this.events.push('reinforce');
       return true;
     }

@@ -179,11 +179,16 @@
     u.cost = BF.costOf(u, BF.CITADEL_FACTION.mods.armor);
   }
 
+  var FACTION_DISCOUNT = {
+    men: 'sword', elves: 'archer', orcs: 'sword', goblins: 'spear', dwarves: 'spear'
+  };
   for (const f of BF.FACTIONS) {
+    f.discount = FACTION_DISCOUNT[f.id] || null;
     for (const role of BF.ROLES) {
       const u = f.units[role];
       u.role = role;
       u.cost = BF.costOf(u, f.mods.armor);
+      if (role === f.discount) u.cost = Math.max(10, Math.round(u.cost * 0.7));
     }
   }
 

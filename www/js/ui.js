@@ -902,7 +902,8 @@
 
     $('#btn-recruit').addEventListener('click', () => {
       if (!B || B.over) return;
-      if (B.manualRecruit()) { Sound.play('reinforce'); syncTray(); }
+      var type = uiS.selected && uiS.selected !== 'ability' && uiS.selected !== 'merc' ? uiS.selected : null;
+      if (B.manualRecruit(type)) { Sound.play('reinforce'); syncTray(); }
     });
     $('#btn-ability').addEventListener('click', () => {
       if (!B || B.over || B.abilityCd > 0) return;
