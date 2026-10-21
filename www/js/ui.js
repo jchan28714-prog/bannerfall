@@ -216,52 +216,15 @@
             '<h3>' + f.name + '</h3>' +
             (done ? '<span class="lcard-prog">' + done + '/' + totalTerritories + '</span>' : '') +
           '</div>' +
-          '<div class="lcard-expanded">' +
-            '<p class="lcard-tagline">' + f.tagline + '</p>' +
-            (f.lore ? '<p class="lcard-lore">' + f.lore.goal + '</p>' : '') +
-            '<details class="lcard-details">' +
-              '<summary>Legion Details</summary>' +
-              '<div class="lcard-detail-body">' +
-                (f.lore ? '<p class="lcard-crisis">' + f.lore.crisis + '</p>' : '') +
-                '<div class="lcard-perks">' +
-                  f.perks.map((p) => '<span class="lcard-perk">' + p + '</span>').join('') +
-                '</div>' +
-                '<h4 class="lcard-roster-title">Units</h4>' +
-                '<div class="lcard-roster">' +
-                  BF.ROLES.map((r) => {
-                    var u = f.units[r], m = mx[r];
-                    return '<div class="lcard-unit">' +
-                      '<canvas width="76" height="76"></canvas>' +
-                      '<div class="lcard-unit-info">' +
-                        '<b>' + u.name + '</b>' +
-                        '<span class="lcard-role">' + r + '</span>' +
-                        '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span><span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
-                      '</div>' +
-                    '</div>';
-                  }).join('') +
-                '</div>' +
-              '</div>' +
-            '</details>' +
+          '<p class="lcard-tagline">' + f.tagline + '</p>' +
+          '<div class="lcard-btns">' +
             '<button class="btn lcard-go" data-id="' + f.id + '">Lead the ' + f.short + '</button>' +
+            '<button class="btn ghost lcard-info" data-id="' + f.id + '">Details</button>' +
           '</div>' +
           '</div>'
         );
       }).join('') +
       '</div>';
-
-    function drawTokensFor(card) {
-      const fid = card.dataset.id;
-      const f = BF.factionById(fid);
-      card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
-        const c2 = cv.getContext('2d');
-        c2.setTransform(2, 0, 0, 2, 0, 0);
-        c2.clearRect(0, 0, 38, 38);
-        BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
-      });
-    }
-
-    // Draw tokens for the initially selected card
-    root.querySelectorAll('.lcard.sel').forEach(drawTokensFor);
 
     const scroll = $('#leg-scroll');
     const selIdx = BF.FACTIONS.findIndex((f) => f.id === pick);
@@ -271,49 +234,36 @@
     });
 
     let clickLock = false;
-    let swiping = false;
-    let lastScrollX = scroll.scrollLeft;
-    let scrollVel = 0;
 
     function selectCard(id, fromClick) {
       if (id === pick && !fromClick) return;
       if (fromClick) { clickLock = true; setTimeout(() => { clickLock = false; }, 600); }
       pick = id;
-      const cards = scroll.querySelectorAll('.lcard');
-      cards.forEach((x) => {
-        const isSel = x.dataset.id === pick;
-        x.classList.toggle('sel', isSel);
-        if (isSel) {
-          drawTokensFor(x);
-          if (fromClick) x.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
+      scroll.querySelectorAll('.lcard').forEach((x) => {
+        x.classList.toggle('sel', x.dataset.id === pick);
+        if (x.dataset.id === pick && fromClick) x.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       });
       Sound.play('ui');
     }
 
-    scroll.addEventListener('touchstart', () => { swiping = true; scrollVel = 0; lastScrollX = scroll.scrollLeft; }, { passive: true });
-    scroll.addEventListener('touchend', () => { setTimeout(() => { swiping = false; }, 80); }, { passive: true });
-
     scroll.querySelectorAll('.lcard').forEach((b) => {
       b.addEventListener('click', (e) => {
-        if (e.target.closest('.lcard-go') || e.target.closest('.lcard-details')) return;
+        if (e.target.closest('.lcard-go') || e.target.closest('.lcard-info')) return;
         selectCard(b.dataset.id, true);
       });
     });
 
     let scrollTimer;
     scroll.addEventListener('scroll', () => {
-      scrollVel = M.abs(scroll.scrollLeft - lastScrollX);
-      lastScrollX = scroll.scrollLeft;
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(() => {
         if (clickLock) return;
-        const cards = scroll.querySelectorAll('.lcard');
-        const cx = scroll.scrollLeft + scroll.clientWidth / 2;
-        let closest = null, bestD = 1e9;
+        var cards = scroll.querySelectorAll('.lcard');
+        var cx = scroll.scrollLeft + scroll.clientWidth / 2;
+        var closest = null, bestD = 1e9;
         cards.forEach((c) => {
-          const mid = c.offsetLeft + c.offsetWidth / 2;
-          const d = M.abs(mid - cx);
+          var mid = c.offsetLeft + c.offsetWidth / 2;
+          var d = M.abs(mid - cx);
           if (d < bestD) { bestD = d; closest = c; }
         });
         if (closest) {
@@ -331,8 +281,60 @@
       });
     });
 
+    scroll.querySelectorAll('.lcard-info').forEach((btn) => {
+      addRipple(btn);
+      btn.addEventListener('click', () => {
+        Sound.play('ui');
+        openLegionDetail(btn.dataset.id);
+      });
+    });
+
     addRipple($('#leg-back'));
     $('#leg-back').addEventListener('click', () => { Sound.play('ui'); show('home'); });
+  }
+
+  function openLegionDetail(fid) {
+    var f = BF.factionById(fid);
+    var mx = BF.TIER1_MATRIX;
+    var html =
+      '<div class="legion-detail-card">' +
+      '<div class="lcard-head">' +
+        '<img class="lcard-icon" src="img/icon-' + f.id + '.svg" alt="">' +
+        '<h3>' + f.name + '</h3>' +
+      '</div>' +
+      '<p class="lcard-tagline">' + f.tagline + '</p>' +
+      (f.lore ? '<p class="lcard-lore">' + f.lore.goal + '</p>' : '') +
+      '<div class="legion-detail-body">' +
+        (f.lore ? '<p class="lcard-crisis">' + f.lore.crisis + '</p>' : '') +
+        '<div class="lcard-perks">' +
+          f.perks.map((p) => '<span class="lcard-perk">' + p + '</span>').join('') +
+        '</div>' +
+        '<h4 style="font-size:clamp(12px,3vw,15px);color:var(--text);margin:0 0 6px">Units</h4>' +
+        '<div class="lcard-roster">' +
+          BF.ROLES.map((r) => {
+            var u = f.units[r], m = mx[r];
+            return '<div class="lcard-unit">' +
+              '<canvas width="76" height="76"></canvas>' +
+              '<div class="lcard-unit-info">' +
+                '<b>' + u.name + '</b>' +
+                '<span class="lcard-role">' + r + '</span>' +
+                '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span><span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
+              '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>' +
+      '<button class="btn" id="legion-detail-close" style="width:100%;margin-top:8px">Close</button>' +
+      '</div>';
+    var card = openModal(html);
+    card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
+      var c2 = cv.getContext('2d');
+      c2.setTransform(2, 0, 0, 2, 0, 0);
+      c2.clearRect(0, 0, 38, 38);
+      BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
+    });
+    addRipple($('#legion-detail-close'));
+    $('#legion-detail-close').addEventListener('click', closeModal);
   }
 
   /* ======================= 2. WORLD MAP (Risk-style) ======================= */
@@ -1239,8 +1241,13 @@
 
   /* ======================= start (splash → home) ======================= */
   (function runSplash() {
+    var splash = $('#screen-splash');
     var fill = $('#splash-fill');
     var label = $('#splash-label');
+    splash.classList.add('fade-in');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { splash.classList.add('fade-in-go'); });
+    });
     var pct = 0;
     var steps = [
       { at: 20, text: 'Forging blades…' },
@@ -1250,20 +1257,18 @@
     ];
     var si = 0;
     var iv = setInterval(function () {
-      pct = Math.min(100, pct + 4 + Math.random() * 6);
+      pct = Math.min(100, pct + 1.2 + Math.random() * 2);
       fill.style.width = Math.round(pct) + '%';
       while (si < steps.length && pct >= steps[si].at) { label.textContent = steps[si].text; si++; }
       if (pct >= 100) {
         clearInterval(iv);
         setTimeout(function () {
-          var splash = $('#screen-splash');
           splash.classList.add('fade-out');
           setTimeout(function () {
-            splash.classList.remove('active');
-            splash.classList.remove('fade-out');
+            splash.classList.remove('active', 'fade-out', 'fade-in', 'fade-in-go');
             renderHome(); show('home');
-          }, 500);
-        }, 400);
+          }, 1000);
+        }, 600);
       }
     }, 120);
   })();

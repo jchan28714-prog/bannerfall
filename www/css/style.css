@@ -90,7 +90,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 }
 @keyframes splash-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 #screen-splash { background: var(--bg); }
-#screen-splash.fade-out { opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+#screen-splash.fade-in { opacity: 0; }
+#screen-splash.fade-in.fade-in-go { opacity: 1; transition: opacity .8s ease; }
+#screen-splash.fade-out { opacity: 0; transition: opacity 1s ease; pointer-events: none; }
 
 /* ---------- home screen ---------- */
 .home { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0; padding: 0 24px; }
@@ -117,8 +119,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* Horizontal snap-scroll of cards */
 .leg-scroll {
-  flex: 1; min-height: 0; display: flex; gap: 14px;
-  padding: 0 calc(50% - 80px) 12px;
+  flex: 1; min-height: 0; display: flex; gap: clamp(10px, 2.5vw, 16px);
+  padding: 0 clamp(16px, 4vw, 32px) 12px;
   overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
@@ -126,61 +128,42 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 }
 .leg-scroll::-webkit-scrollbar { display: none; }
 
-/* --- Collapsed card (not selected): just icon + name --- */
+/* --- Card: uniform size, always shows icon + name + tagline + buttons --- */
 .lcard {
-  flex: none; width: 140px;
+  flex: none; width: clamp(130px, 28vw, 170px);
   border-radius: 16px; background: var(--panel); border: 2px solid var(--line);
   overflow: hidden;
   scroll-snap-align: center; position: relative;
   display: flex; flex-direction: column; align-items: center;
-  padding: 18px 10px;
-  transition: width .35s ease, border-color .25s, box-shadow .25s, opacity .25s, padding .35s ease, transform .3s ease;
+  padding: clamp(12px, 3vh, 18px) clamp(8px, 2vw, 14px) clamp(10px, 2.5vh, 14px);
+  transition: border-color .25s, box-shadow .25s, opacity .25s, transform .2s ease;
   cursor: pointer;
 }
 .lcard::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--c); border-radius: 14px 14px 0 0; }
-.lcard:not(.sel) { opacity: .4; transform: scale(.92); }
-
-/* --- Expanded card (selected): full content --- */
+.lcard:not(.sel) { opacity: .5; transform: scale(.95); }
 .lcard.sel {
-  width: 420px; max-width: 92vw;
   border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 4px 24px rgba(0,0,0,.5);
-  padding: 20px 20px 22px;
-  align-items: stretch;
-  overflow-y: auto;
+  transform: scale(1);
 }
 
 /* Card header: icon + name */
-.lcard-head { display: flex; align-items: center; gap: 12px; justify-content: center; }
-.lcard-icon { width: 56px; height: 56px; border-radius: 50%; flex: none; }
-.lcard-head h3 { font-size: clamp(16px, 4.5vw, 24px); color: var(--text); line-height: 1.15; margin: 0; }
-.lcard-prog { font-size: var(--t-sm); color: var(--gold); font-weight: 700; flex: none; padding: 3px 8px; border-radius: 8px; background: rgba(232,197,102,.12); }
+.lcard-head { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.5vh, 10px); text-align: center; }
+.lcard-icon { width: clamp(40px, 10vw, 56px); height: clamp(40px, 10vw, 56px); border-radius: 50%; flex: none; }
+.lcard-head h3 { font-size: clamp(11px, 2.8vw, 16px); color: var(--text); line-height: 1.15; margin: 0; }
+.lcard-prog { font-size: 9px; color: var(--gold); font-weight: 700; padding: 2px 6px; border-radius: 8px; background: rgba(232,197,102,.12); margin-top: 2px; }
 
-/* Collapsed: hide everything except head */
+/* Tagline shown on card */
+.lcard-tagline { font-size: clamp(8px, 2vw, 11px); color: var(--dim); line-height: 1.3; margin: clamp(4px, 1vh, 8px) 0 0; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Card buttons row */
+.lcard-btns { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: clamp(6px, 1.5vh, 10px); }
+.lcard-btns .btn { width: 100%; font-size: clamp(9px, 2.2vw, 12px); padding: clamp(6px, 1.5vh, 9px) 8px; }
+
+/* Hide elements that are now in the modal */
 .lcard-expanded { display: none; }
-.lcard.sel .lcard-expanded { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
 
-/* Collapsed: stack icon above name */
-.lcard:not(.sel) .lcard-head { flex-direction: column; gap: 8px; text-align: center; }
-.lcard:not(.sel) .lcard-head h3 { font-size: clamp(12px, 3vw, 16px); }
-.lcard:not(.sel) .lcard-icon { width: 48px; height: 48px; }
-.lcard:not(.sel) .lcard-prog { font-size: 9px; padding: 2px 6px; }
-
-/* Tagline */
-.lcard-tagline { font-size: clamp(13px, 3.5vw, 17px); color: var(--dim); line-height: 1.35; margin: 0; }
-
-/* Lore */
+/* ---------- legion details modal ---------- */
 .lcard-lore { font-size: clamp(12px, 3vw, 15px); color: var(--text); margin: 0; line-height: 1.4; font-style: italic; }
-
-/* Details dropdown */
-.lcard-details { border: 1px solid var(--line); border-radius: 10px; background: var(--panel2); }
-.lcard-details summary {
-  padding: 8px 12px; cursor: pointer; font-size: clamp(12px, 3vw, 15px); font-weight: 600;
-  color: var(--gold); list-style: none; display: flex; align-items: center; gap: 6px;
-}
-.lcard-details summary::before { content: "▸"; transition: transform .2s; }
-.lcard-details[open] summary::before { transform: rotate(90deg); }
-.lcard-details summary::-webkit-details-marker { display: none; }
-.lcard-detail-body { padding: 0 12px 12px; }
 
 .lcard-crisis { font-size: clamp(11px, 2.8vw, 14px); color: var(--danger); margin: 0 0 8px; line-height: 1.4; opacity: 0.85; }
 .lcard-crisis::before { content: "\26A0  "; }
@@ -189,9 +172,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .lcard-perks { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
 .lcard-perk { font-size: clamp(11px, 2.8vw, 14px); color: var(--dim); padding: 5px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
 .lcard-perk::before { content: "✦ "; color: var(--gold); }
-
-/* Roster title */
-.lcard-roster-title { font-size: clamp(12px, 3vw, 15px); color: var(--text); margin: 0 0 6px; }
 
 /* Unit roster */
 .lcard-roster { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -204,16 +184,19 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .lcard-matchup .ok { color: var(--ok); text-transform: capitalize; }
 .lcard-matchup .bad { color: var(--danger); text-transform: capitalize; }
 
-/* CTA button inside each card */
-.lcard-go { width: 100%; margin-top: 4px; flex: none; }
+/* Legion detail modal — wider than default card for landscape */
+.legion-detail-card { max-width: min(520px, 92vw); width: calc(100% - 32px); }
+.legion-detail-card .lcard-head { flex-direction: row; gap: 12px; justify-content: center; margin-bottom: 6px; }
+.legion-detail-card .lcard-icon { width: 48px; height: 48px; }
+.legion-detail-card .lcard-head h3 { font-size: clamp(16px, 4vw, 22px); }
+.legion-detail-card .lcard-tagline { display: block; -webkit-line-clamp: unset; text-align: center; margin: 0 0 6px; font-size: clamp(11px, 2.8vw, 14px); }
+.legion-detail-body { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 
-/* Landscape-friendly details layout */
 @media (orientation: landscape) {
-  .lcard.sel { width: min(520px, 92vw); max-height: 90vh; }
-  .lcard-detail-body { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+  .legion-detail-body { flex-direction: row; flex-wrap: wrap; gap: 8px 14px; }
   .lcard-crisis { width: 100%; margin: 0; }
   .lcard-perks { width: auto; flex: 1; min-width: 140px; margin: 0; align-self: flex-start; }
-  .lcard-roster-title { width: 100%; margin: 0; font-size: 11px; }
+  .legion-detail-body h4 { width: 100%; margin: 0; font-size: 11px; }
   .lcard-roster { flex: 2; min-width: 200px; grid-template-columns: repeat(4, 1fr); gap: 4px; }
   .lcard-unit canvas { width: 28px; height: 28px; }
   .lcard-unit-info b { font-size: 10px; max-width: 60px; }
@@ -487,7 +470,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- landscape: tighter HUD, tray stays readable ---------- */
 @media (orientation: landscape) {
-  #hud { padding: 2px 10px; }
+  #hud { padding: 2px calc(12px + env(safe-area-inset-right)) 2px calc(12px + env(safe-area-inset-left)); padding-top: calc(2px + env(safe-area-inset-top)); }
   .hud-gold { font-size: clamp(12px, 2.8vh, 16px); min-width: 60px; }
   .hud-wave  { font-size: clamp(9px, 2vh, 11px); }
   .hud-wave-bar { margin: 1px 4px 0; height: 2px; }
@@ -539,7 +522,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- mobile landscape (short screens ≤ 440px height) ---------- */
 @media (max-height: 440px) and (orientation: landscape) {
-  #hud { padding: 2px 8px; }
+  #hud { padding: 2px calc(10px + env(safe-area-inset-right)) 2px calc(10px + env(safe-area-inset-left)); padding-top: calc(2px + env(safe-area-inset-top)); }
   .hud-gold { font-size: 13px; min-width: 60px; gap: 3px; }
   .hud-gold .coin { width: 12px; height: 12px; }
   .hud-wave { font-size: 9px; }
