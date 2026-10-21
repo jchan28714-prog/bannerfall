@@ -12,8 +12,21 @@
 <body>
   <div id="app">
 
+    <!-- Splash / loading screen -->
+    <section id="screen-splash" class="screen active">
+      <div class="splash">
+        <div class="splash-logos">
+          <img class="splash-logo splash-logo-jls" src="img/jlokstudios.jpg" alt="JLokStudios" width="120" height="120">
+          <span class="splash-x">×</span>
+          <img class="splash-logo splash-logo-bf" src="img/logo.svg" alt="Bannerfall" width="120" height="120">
+        </div>
+        <div class="splash-bar"><div class="splash-bar-fill" id="splash-fill"></div></div>
+        <p class="splash-label" id="splash-label">Loading…</p>
+      </div>
+    </section>
+
     <!-- 0. Home / title screen -->
-    <section id="screen-home" class="screen active"></section>
+    <section id="screen-home" class="screen"></section>
 
     <!-- 1. Choose your legion -->
     <section id="screen-legion" class="screen"></section>

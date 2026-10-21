@@ -142,6 +142,7 @@
     const hasSave = save.last && BF.factionById(save.last);
     root.innerHTML =
       '<div class="home">' +
+      '<img class="home-logo" src="img/logo.svg" alt="Bannerfall" width="180" height="180">' +
       '<h1>BANNERFALL</h1>' +
       '<p class="subtitle">A Medieval Strategy</p>' +
       '<div class="home-menu">' +
@@ -234,7 +235,7 @@
                       '<div class="lcard-unit-info">' +
                         '<b>' + u.name + '</b>' +
                         '<span class="lcard-role">' + r + '</span>' +
-                        '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span> <span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
+                        '<span class="lcard-matchup"><span class="ok">▲ ' + m.strong.join(', ') + '</span><span class="bad">▼ ' + m.weak.join(', ') + '</span></span>' +
                       '</div>' +
                     '</div>';
                   }).join('') +
@@ -253,7 +254,8 @@
       const f = BF.factionById(fid);
       card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
         const c2 = cv.getContext('2d');
-        c2.scale(2, 2);
+        c2.setTransform(2, 0, 0, 2, 0, 0);
+        c2.clearRect(0, 0, 38, 38);
         BF.drawToken(c2, 19, 19, 16, f, BF.ROLES[i], false, 0);
       });
     }
@@ -1002,9 +1004,13 @@
     raf = requestAnimationFrame(frame);
   }
 
+  let _lastSpawnT = 0;
   cv.addEventListener('pointerdown', (e) => {
     if (!B || B.over || paused) return;
     e.preventDefault();
+    var now = performance.now();
+    if (now - _lastSpawnT < 120) return;
+    _lastSpawnT = now;
     const r = cv.getBoundingClientRect();
     const cx = ((e.clientX - r.left) / r.width) * G.cw;
     const cy = ((e.clientY - r.top) / r.height) * G.ch;
@@ -1231,7 +1237,35 @@
     }
   }
 
-  /* ======================= start ======================= */
-  renderHome(); show('home');
+  /* ======================= start (splash → home) ======================= */
+  (function runSplash() {
+    var fill = $('#splash-fill');
+    var label = $('#splash-label');
+    var pct = 0;
+    var steps = [
+      { at: 20, text: 'Forging blades…' },
+      { at: 50, text: 'Raising banners…' },
+      { at: 80, text: 'Marshalling legions…' },
+      { at: 100, text: 'Ready' },
+    ];
+    var si = 0;
+    var iv = setInterval(function () {
+      pct = Math.min(100, pct + 4 + Math.random() * 6);
+      fill.style.width = Math.round(pct) + '%';
+      while (si < steps.length && pct >= steps[si].at) { label.textContent = steps[si].text; si++; }
+      if (pct >= 100) {
+        clearInterval(iv);
+        setTimeout(function () {
+          var splash = $('#screen-splash');
+          splash.classList.add('fade-out');
+          setTimeout(function () {
+            splash.classList.remove('active');
+            splash.classList.remove('fade-out');
+            renderHome(); show('home');
+          }, 500);
+        }, 400);
+      }
+    }, 120);
+  })();
   BF.app = { get save() { return save; }, startBattle, renderMap, renderLegions, renderHome, get battle() { return B; } };
 })();
