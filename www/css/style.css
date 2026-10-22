@@ -361,9 +361,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   position: relative; gap: 0; background: none; border: none; padding: 0;
   transition: opacity .2s; flex: none;
 }
-.footer-btn .footer-icon-svg { position: absolute; top: 0; left: 0; right: 0; height: clamp(39px, 9.75vw, 52px); display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.footer-btn .footer-icon-svg svg { width: clamp(16px, 4vw, 21px); height: clamp(16px, 4vw, 21px); color: var(--dim); transition: color .2s; }
-.footer-btn .footer-label { font-size: clamp(7px, 2vw, 11px); font-weight: 600; color: var(--dim); white-space: nowrap; }
+.footer-btn .footer-icon-svg { position: absolute; top: 0; left: 0; right: 0; height: var(--ring-sz, clamp(39px, 9.75vw, 52px)); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.footer-btn .footer-icon-svg svg { width: clamp(22px, 5.5vw, 32px); height: clamp(22px, 5.5vw, 32px); color: var(--dim); transition: color .2s; }
+.footer-btn .footer-label { font-size: clamp(8px, 2.2vw, 12px); font-weight: 600; color: var(--dim); white-space: nowrap; }
 .footer-btn.ready .footer-icon-svg svg { color: var(--ok); }
 .footer-btn.ready .footer-label { color: var(--text); }
 .footer-btn.sel .footer-icon-svg svg { color: var(--gold); }
@@ -371,7 +371,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .footer-btn[disabled] { opacity: .35; pointer-events: none; }
 .footer-btn:active { transform: scale(.95); }
 .footer-ring {
-  --ring-sz: clamp(39px, 9.75vw, 52px);
+  --ring-sz: clamp(42px, 10.5vw, 56px);
   width: var(--ring-sz); height: var(--ring-sz);
   transform: rotate(-90deg); display: block;
 }
@@ -426,9 +426,9 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .act-btn.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 0 12px rgba(232, 197, 102, .25); }
 .act-icon { margin-right: 3px; }
 @media (orientation: landscape) {
-  .footer-ring { --ring-sz: clamp(34px, 8vh, 47px); }
-  .footer-btn .footer-label { font-size: clamp(7px, 1.6vh, 10px); }
-  .footer-btn .footer-icon-svg svg { width: clamp(13px, 3.3vh, 18px); height: clamp(13px, 3.3vh, 18px); }
+  .footer-ring { --ring-sz: clamp(38px, 10vh, 52px); }
+  .footer-btn .footer-label { font-size: clamp(8px, 2vh, 11px); }
+  .footer-btn .footer-icon-svg svg { width: clamp(20px, 5.5vh, 30px); height: clamp(20px, 5.5vh, 30px); }
 }
 
 /* ---------- compact portrait (very small screens) ---------- */
@@ -479,11 +479,11 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .fc-pip { font-size: 8px; }
   .icon-btn  { min-width: clamp(26px, 6vh, 34px); height: clamp(26px, 6vh, 34px); font-size: clamp(8px, 2vh, 11px); }
   #tray { padding: 1px calc(4px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 1px; }
-  .ucard { padding: 2px 1px 2px; border-radius: 7px; gap: 0; }
-  .ucard canvas { width: clamp(18px, 4.5vh, 24px); height: clamp(18px, 4.5vh, 24px); }
-  .ucard .nm { font-size: clamp(6px, 1.4vh, 8px); }
-  .ucard .cs { font-size: clamp(8px, 2vh, 10px); gap: 1px; }
-  .ucard .cs .coin { width: 7px; height: 7px; }
+  .ucard { padding: 3px 2px; border-radius: 7px; gap: 1px; }
+  .ucard canvas { width: clamp(22px, 6vh, 30px); height: clamp(22px, 6vh, 30px); }
+  .ucard .nm { font-size: clamp(7px, 1.8vh, 9px); }
+  .ucard .cs { font-size: clamp(9px, 2.4vh, 12px); gap: 1px; }
+  .ucard .cs .coin { width: 8px; height: 8px; }
   .ability-btn { padding: 2px 4px; border-radius: 7px; gap: 0; }
   .ability-btn #ability-name { font-size: clamp(7px, 1.8vh, 10px); }
   .ability-desc-text { display: none; }
@@ -530,14 +530,13 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .wave-forecast { min-height: 10px; }
   .icon-btn { min-width: 28px; height: 28px; font-size: 9px; border-radius: 8px; }
   #tray { padding: 1px calc(4px + env(safe-area-inset-right)) calc(1px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left)); gap: 1px; }
-  .ucard { padding: 2px 1px 2px; border-radius: 6px; }
-  .ucard canvas { width: 18px; height: 18px; }
-  .ucard .nm { font-size: 6px; }
-  .ucard .cs { font-size: 8px; gap: 1px; }
-  .footer-btn { padding: 2px 1px; border-radius: 5px; }
-  .footer-btn .footer-icon { font-size: 10px; }
-  .footer-btn .footer-label { font-size: 6px; }
-  .tray-footer { gap: 2px; }
+  .ucard { padding: 3px 2px; border-radius: 6px; gap: 1px; }
+  .ucard canvas { width: clamp(20px, 5.5vh, 26px); height: clamp(20px, 5.5vh, 26px); }
+  .ucard .nm { font-size: clamp(6px, 1.6vh, 9px); }
+  .ucard .cs { font-size: clamp(8px, 2.2vh, 11px); gap: 1px; }
+  .footer-ring { --ring-sz: clamp(36px, 9vh, 48px); }
+  .footer-btn .footer-icon-svg svg { width: clamp(18px, 5vh, 26px); height: clamp(18px, 5vh, 26px); }
+  .footer-btn .footer-label { font-size: clamp(7px, 1.8vh, 10px); }
   .card { padding: 10px 10px; border-radius: 14px; }
   .card h2 { font-size: 14px; margin-bottom: 2px; }
   .card .modal-icon { font-size: 20px; margin-bottom: 3px; }

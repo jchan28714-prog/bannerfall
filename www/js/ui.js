@@ -837,7 +837,7 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = bw + 'px'; cv.style.height = bh + 'px';
     cv.width = Math.round(bw * dpr); cv.height = Math.round(bh * dpr);
-    drawScale = cv.width / G.cw;
+    drawScale = Math.min(cv.width / G.cw, cv.height / G.ch);
   }
   window.addEventListener('resize', () => { if ($('#screen-battle').classList.contains('active')) fit(); });
 
