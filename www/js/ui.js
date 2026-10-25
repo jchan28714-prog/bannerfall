@@ -137,6 +137,21 @@
   ];
   if (!save.mode) save.mode = 'veteran';
 
+  function applyTheme(theme) {
+    if (theme === 'auto') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      var isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      meta.setAttribute('content', isDark ? '#0f1117' : '#f0ebe0');
+    }
+  }
+  if (!save.theme) save.theme = 'auto';
+  applyTheme(save.theme);
+
   function renderHome() {
     const root = $('#screen-home');
     const hasSave = save.last && BF.factionById(save.last);
@@ -178,11 +193,18 @@
         '<div class="modal-icon">⚙️</div>' +
         '<h2 class="center-t">Options</h2>' +
         '<div class="kv"><span>Sound effects</span><button class="btn small ghost" id="opt-sound">' + (save.sound ? 'On' : 'Off') + '</button></div>' +
+        '<div class="kv"><span>Theme</span><button class="btn small ghost" id="opt-theme">' + (save.theme === 'auto' ? 'Auto' : save.theme === 'light' ? 'Light' : 'Dark') + '</button></div>' +
         '<div class="row"><button class="btn" id="opt-close">Done</button></div>'
       );
       $('#opt-sound', card).addEventListener('click', function () {
         save.sound = !save.sound; persist();
         this.textContent = save.sound ? 'On' : 'Off';
+      });
+      var themeOrder = ['auto', 'light', 'dark'];
+      $('#opt-theme', card).addEventListener('click', function () {
+        var i = (themeOrder.indexOf(save.theme) + 1) % themeOrder.length;
+        save.theme = themeOrder[i]; persist(); applyTheme(save.theme);
+        this.textContent = save.theme === 'auto' ? 'Auto' : save.theme === 'light' ? 'Light' : 'Dark';
       });
       $('#opt-close', card).addEventListener('click', closeModal);
     });
@@ -201,16 +223,17 @@
 
   function renderLegions() {
     const root = $('#screen-legion');
-    const mx = BF.TIER1_MATRIX;
+    const N = BF.FACTIONS.length;
+    const STEP = 360 / N;
+    const PERSPECTIVE = 500;
     root.innerHTML =
       '<div class="leg-header"><button class="icon-btn" id="leg-back">←</button><div><h1>BANNERFALL</h1><p>Choose your legion</p></div><div style="min-width:36px"></div></div>' +
-      '<div class="leg-scroll" id="leg-scroll">' +
-      BF.FACTIONS.map((f) => {
-        const c = save.camps[f.id];
-        const done = c ? conqueredCount(c) : 0;
-        const isSel = f.id === pick;
+      '<div class="leg-carousel-wrap" id="leg-carousel-wrap">' +
+      BF.FACTIONS.map(function (f, i) {
+        var c = save.camps[f.id];
+        var done = c ? conqueredCount(c) : 0;
         return (
-          '<div class="lcard' + (isSel ? ' sel' : '') + '" data-id="' + f.id + '" style="--c:' + f.color + '">' +
+          '<div class="lcard" data-id="' + f.id + '" data-idx="' + i + '" style="--c:' + f.color + '">' +
           '<div class="lcard-head">' +
             '<img class="lcard-icon" src="img/icon-' + f.id + '.svg" alt="">' +
             '<h3>' + f.name + '</h3>' +
@@ -226,71 +249,141 @@
       }).join('') +
       '</div>';
 
-    const scroll = $('#leg-scroll');
-    const selIdx = BF.FACTIONS.findIndex((f) => f.id === pick);
-    requestAnimationFrame(() => {
-      const cards = scroll.querySelectorAll('.lcard');
-      if (cards[selIdx]) cards[selIdx].scrollIntoView({ inline: 'center', block: 'nearest' });
-    });
+    var wrap = $('#leg-carousel-wrap');
+    var cards = wrap.querySelectorAll('.lcard');
+    var selIdx = BF.FACTIONS.findIndex(function (f) { return f.id === pick; });
+    if (selIdx < 0) selIdx = 0;
 
-    let clickLock = false;
+    var radius = M.max(130, M.min(wrap.clientWidth * 0.35, 320));
+    var angle = -selIdx * STEP;
+    var targetAngle = angle;
+    var velocity = 0;
+    var animId = 0;
+    var dragStartX = null, dragStartAngle = 0, lastX = 0, lastTime = 0, totalDrag = 0;
 
-    function selectCard(id, fromClick) {
-      if (id === pick && !fromClick) return;
-      if (fromClick) { clickLock = true; setTimeout(() => { clickLock = false; }, 600); }
-      pick = id;
-      scroll.querySelectorAll('.lcard').forEach((x) => {
-        x.classList.toggle('sel', x.dataset.id === pick);
-        if (x.dataset.id === pick && fromClick) x.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    function layout() {
+      cards.forEach(function (card, i) {
+        var deg = angle + i * STEP;
+        var rad = deg * M.PI / 180;
+        var x = M.sin(rad) * radius;
+        var z = M.cos(rad) * radius;
+        var zDepth = radius - z;
+        var sc = PERSPECTIVE / (PERSPECTIVE + zDepth);
+        var projX = x * sc;
+        card.style.transform = 'translate(-50%,-50%) translateX(' + projX.toFixed(1) + 'px) scale(' + sc.toFixed(3) + ')';
+        var opac = M.max(0.15, (z + radius) / (2 * radius));
+        card.style.opacity = opac.toFixed(2);
+        card.style.zIndex = M.round(100 + z);
       });
-      Sound.play('ui');
+      var frontIdx = (((- M.round(angle / STEP)) % N) + N) % N;
+      cards.forEach(function (card, i) {
+        card.classList.toggle('sel', i === frontIdx);
+      });
+      if (BF.FACTIONS[frontIdx] && BF.FACTIONS[frontIdx].id !== pick) {
+        pick = BF.FACTIONS[frontIdx].id;
+      }
     }
 
-    scroll.querySelectorAll('.lcard').forEach((b) => {
-      b.addEventListener('click', (e) => {
+    function animateTo(tgt) {
+      targetAngle = tgt;
+      cancelAnimationFrame(animId);
+      (function tick() {
+        var diff = targetAngle - angle;
+        if (M.abs(diff) < 0.3) {
+          angle = targetAngle;
+          layout();
+          Sound.play('ui');
+          return;
+        }
+        angle += diff * 0.14;
+        layout();
+        animId = requestAnimationFrame(tick);
+      })();
+    }
+
+    function snapNearest() {
+      var snap = M.round(angle / STEP) * STEP;
+      animateTo(snap);
+    }
+
+    layout();
+
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('.lcard-go') || e.target.closest('.lcard-info')) return;
+      cancelAnimationFrame(animId);
+      dragStartX = e.clientX;
+      dragStartAngle = angle;
+      lastX = e.clientX;
+      lastTime = Date.now();
+      velocity = 0;
+      totalDrag = 0;
+      try { wrap.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    wrap.addEventListener('pointermove', function (e) {
+      if (dragStartX == null) return;
+      var dx = e.clientX - dragStartX;
+      totalDrag = M.max(totalDrag, M.abs(dx));
+      var sensitivity = STEP / (radius * 1.2);
+      angle = dragStartAngle + dx * sensitivity;
+      layout();
+      var now = Date.now();
+      var dt = now - lastTime;
+      if (dt > 0) { velocity = (e.clientX - lastX) / dt; }
+      lastX = e.clientX;
+      lastTime = now;
+    });
+
+    function endDrag(e) {
+      if (dragStartX == null) return;
+      dragStartX = null;
+      var sensitivity = STEP / (radius * 1.2);
+      if (M.abs(velocity) > 0.3) {
+        angle += velocity * 180 * sensitivity;
+      }
+      snapNearest();
+    }
+    wrap.addEventListener('pointerup', endDrag);
+    wrap.addEventListener('pointercancel', endDrag);
+
+    cards.forEach(function (card) {
+      card.addEventListener('click', function (e) {
+        if (totalDrag > 8) return;
         if (e.target.closest('.lcard-go') || e.target.closest('.lcard-info')) return;
-        selectCard(b.dataset.id, true);
+        var idx = parseInt(card.dataset.idx, 10);
+        animateTo(-idx * STEP);
       });
     });
 
-    let scrollTimer;
-    scroll.addEventListener('scroll', () => {
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(() => {
-        if (clickLock) return;
-        var cards = scroll.querySelectorAll('.lcard');
-        var cx = scroll.scrollLeft + scroll.clientWidth / 2;
-        var closest = null, bestD = 1e9;
-        cards.forEach((c) => {
-          var mid = c.offsetLeft + c.offsetWidth / 2;
-          var d = M.abs(mid - cx);
-          if (d < bestD) { bestD = d; closest = c; }
-        });
-        if (closest) {
-          selectCard(closest.dataset.id);
-          closest.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
-      }, 250);
-    }, { passive: true });
-
-    scroll.querySelectorAll('.lcard-go').forEach((btn) => {
+    wrap.querySelectorAll('.lcard-go').forEach(function (btn) {
       addRipple(btn);
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', function (e) {
+        if (totalDrag > 8) { e.stopPropagation(); return; }
         pick = btn.dataset.id; save.last = pick; persist();
         Sound.play('ui'); renderMap(); show('map');
       });
     });
 
-    scroll.querySelectorAll('.lcard-info').forEach((btn) => {
+    wrap.querySelectorAll('.lcard-info').forEach(function (btn) {
       addRipple(btn);
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', function (e) {
+        if (totalDrag > 8) { e.stopPropagation(); return; }
         Sound.play('ui');
         openLegionDetail(btn.dataset.id);
       });
     });
 
+    window.addEventListener('resize', function onResize() {
+      if (!$('#screen-legion').classList.contains('active')) {
+        window.removeEventListener('resize', onResize);
+        return;
+      }
+      radius = M.max(100, M.min(wrap.clientWidth * 0.30, 260));
+      layout();
+    });
+
     addRipple($('#leg-back'));
-    $('#leg-back').addEventListener('click', () => { Sound.play('ui'); show('home'); });
+    $('#leg-back').addEventListener('click', function () { Sound.play('ui'); show('home'); });
   }
 
   function openLegionDetail(fid) {
@@ -327,6 +420,8 @@
       '<button class="btn" id="legion-detail-close" style="width:100%;margin-top:8px">Close</button>' +
       '</div>';
     var card = openModal(html);
+    card.classList.add('slow-pop');
+    modalEl.classList.add('slow-bg');
     card.querySelectorAll('.lcard-unit canvas').forEach((cv, i) => {
       var c2 = cv.getContext('2d');
       c2.setTransform(2, 0, 0, 2, 0, 0);
@@ -982,9 +1077,8 @@
   function lockLandscape() {
     try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){}); } catch(e) {}
   }
-  function unlockOrientation() {
-    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch(e) {}
-  }
+  lockLandscape();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) lockLandscape(); });
 
   function startBattle(t) {
     const f = BF.factionById(save.last), c = camp(f.id);
@@ -1014,8 +1108,9 @@
     if (now - _lastSpawnT < 120) return;
     _lastSpawnT = now;
     const r = cv.getBoundingClientRect();
-    const cx = ((e.clientX - r.left) / r.width) * G.cw;
-    const cy = ((e.clientY - r.top) / r.height) * G.ch;
+    const dpr = cv.width / r.width;
+    const cx = ((e.clientX - r.left) * dpr - BF.drawOffset.x) / drawScale;
+    const cy = ((e.clientY - r.top) * dpr - BF.drawOffset.y) / drawScale;
     const row = Math.floor((cy - G.sky) / G.cell);
     if (row < 0 || row >= G.rows) return;
 
@@ -1192,7 +1287,7 @@
     $('#retreat', card).onclick = leaveBattle;
   }
 
-  function leaveBattle() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); unlockOrientation(); renderMap(); show('map'); }
+  function leaveBattle() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); renderMap(); show('map'); }
 
   function showResult() {
     if (!B) return;

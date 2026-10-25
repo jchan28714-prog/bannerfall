@@ -2,20 +2,32 @@
   "name": "bannerfall",
   "version": "0.1.0",
   "private": true,
-  "description": "Offline medieval defence game. Wrap with Capacitor for iOS.",
+  "description": "Offline medieval defence game. Capacitor (iOS/Android), Electron (macOS).",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "npx http-server www -p 8080 -c-1 --cors -o",
     "serve": "npx http-server www -p 8080 -c-1",
     "balance": "node tools/balance-check.js",
-    "sync": "npx cap sync ios",
-    "ios": "npx cap open ios"
+    "sync": "npx cap sync",
+    "sync:ios": "npx cap sync ios",
+    "sync:android": "npx cap sync android",
+    "ios": "npx cap open ios",
+    "android": "npx cap open android",
+    "electron": "unset ELECTRON_RUN_AS_NODE && npx electron .",
+    "electron:build": "npx electron-builder --mac"
   },
   "devDependencies": {
+    "electron": "^33.3.1",
+    "electron-builder": "^25.1.8",
     "http-server": "^14.1.1"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3"
+  },
+  "allowScripts": {
+    "electron@33.4.11": true
   }
 }

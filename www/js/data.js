@@ -22,7 +22,7 @@
   BF.reflow = function (containerW, containerH) {
     if (containerW <= 0 || containerH <= 0) return;
     var G = BF.GRID;
-    var aspect = Math.max(1.0, Math.min(2.5, containerW / containerH));
+    var aspect = Math.max(1.0, containerW / containerH);
     var ch = 376;
     var sky = Math.round(ch * 0.10);
     var btm = 8;

@@ -11,6 +11,14 @@
   const TAU = Math.PI * 2;
   const M = Math;
 
+  function isLightTheme() {
+    var el = document.documentElement;
+    if (el.getAttribute('data-theme') === 'light') return true;
+    if (el.getAttribute('data-theme') === 'dark') return false;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+  }
+  function letterboxColor() { return isLightTheme() ? '#ddd8c8' : '#0f1117'; }
+
   // ── faction skin palettes ──────────────────────────────────────────────────
   const SKIN = {
     men:     '#d4906a',
@@ -726,7 +734,16 @@
      RENDER BATTLE – full frame
   ========================================================================== */
   BF.renderBattle = function (ctx, b, ui, scale) {
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    var offsetX = (ctx.canvas.width - G.cw * scale) / 2;
+    var offsetY = (ctx.canvas.height - G.ch * scale) / 2;
+    if (offsetX > 0.5 || offsetY > 0.5) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = letterboxColor();
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    }
+    var ox = M.max(0, offsetX), oy = M.max(0, offsetY);
+    BF.drawOffset.x = ox; BF.drawOffset.y = oy;
+    ctx.setTransform(scale, 0, 0, scale, ox, oy);
     ctx.clearRect(0, 0, G.cw, G.ch);
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
@@ -807,8 +824,11 @@
     }
 
     // ── ENEMIES (sorted rightmost first so frontrunners draw on top) ───
+    // Clip enemies inside the enemy fortress so they don't show through
+    const fortressEdge = G.cw - BF.CASTLE_W;
     const foes = b.enemies.slice().sort((a, c) => c.x - a.x);
     for (const e of foes) {
+      if (e.x > fortressEdge + 8) continue;
       const r = ER * e.size;
       const ap = e.atk / 0.18;
       const wp = T * 4.2;
@@ -883,8 +903,9 @@
     ctx.restore();
 
     // Bottom decorative strip
-    ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
-    ctx.fillStyle = '#1a1e2c';
+    var lt = isLightTheme();
+    ctx.fillStyle = lt ? '#c8c0a8' : '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
+    ctx.fillStyle = lt ? '#b8b098' : '#1a1e2c';
     for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.sky + G.h, 14, 6);
 
     // ── FLOATING DAMAGE / GOLD NUMBERS ────────────────────────────────
@@ -901,8 +922,8 @@
     // ── WAVE BANNER ────────────────────────────────────────────────────
     if (ui.banner && ui.banner.t > 0) {
       ctx.globalAlpha = M.max(0, M.min(1, ui.banner.t / 0.6));
-      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
-      ctx.fillStyle = '#e8c566';
+      ctx.fillStyle = isLightTheme() ? 'rgba(240,235,224,.7)' : 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
+      ctx.fillStyle = isLightTheme() ? '#7a5810' : '#e8c566';
       ctx.font = '600 24px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
       ctx.fillText(ui.banner.text, G.cw / 2, G.sky + G.h / 2 + 8);
       ctx.globalAlpha = 1;
@@ -914,4 +935,5 @@
     return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
   BF.hexA = hexA;
+  BF.drawOffset = { x: 0, y: 0 };
 })();
