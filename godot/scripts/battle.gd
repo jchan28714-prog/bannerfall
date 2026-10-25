@@ -436,11 +436,6 @@ func step(dt: float) -> void:
 		base_hp = 0
 		over = "lose"
 		battle_over.emit("lose", 0)
-	elif next_spawn >= schedule.size() and enemies.size() == 0:
-		var f := float(base_hp) / float(base_max)
-		stars = 3 if f >= 0.8 else (2 if f >= 0.4 else 1)
-		over = "win"
-		battle_over.emit("win", stars)
 
 # ---- Combat helpers ----
 func _def_attack(d: Dictionary, tgt: Dictionary) -> void:

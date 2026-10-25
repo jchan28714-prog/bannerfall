@@ -582,10 +582,6 @@
         this.over = 'win'; this.events.push('win');
       } else if (this.baseHp <= 0) {
         this.baseHp = 0; this.over = 'lose'; this.events.push('lose');
-      } else if (this.next >= this.schedule.length && this.enemies.length === 0) {
-        const f = this.baseHp / this.baseMax;
-        this.stars = f >= 0.8 ? 3 : f >= 0.4 ? 2 : 1;
-        this.over = 'win'; this.events.push('win');
       }
     }
 
