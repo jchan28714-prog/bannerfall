@@ -137,21 +137,6 @@
   ];
   if (!save.mode) save.mode = 'veteran';
 
-  function applyTheme(theme) {
-    if (theme === 'auto') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
-    }
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      var isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      meta.setAttribute('content', isDark ? '#0f1117' : '#f0ebe0');
-    }
-  }
-  if (!save.theme) save.theme = 'auto';
-  applyTheme(save.theme);
-
   function renderHome() {
     const root = $('#screen-home');
     const hasSave = save.last && BF.factionById(save.last);
@@ -193,18 +178,11 @@
         '<div class="modal-icon">⚙️</div>' +
         '<h2 class="center-t">Options</h2>' +
         '<div class="kv"><span>Sound effects</span><button class="btn small ghost" id="opt-sound">' + (save.sound ? 'On' : 'Off') + '</button></div>' +
-        '<div class="kv"><span>Theme</span><button class="btn small ghost" id="opt-theme">' + (save.theme === 'auto' ? 'Auto' : save.theme === 'light' ? 'Light' : 'Dark') + '</button></div>' +
         '<div class="row"><button class="btn" id="opt-close">Done</button></div>'
       );
       $('#opt-sound', card).addEventListener('click', function () {
         save.sound = !save.sound; persist();
         this.textContent = save.sound ? 'On' : 'Off';
-      });
-      var themeOrder = ['auto', 'light', 'dark'];
-      $('#opt-theme', card).addEventListener('click', function () {
-        var i = (themeOrder.indexOf(save.theme) + 1) % themeOrder.length;
-        save.theme = themeOrder[i]; persist(); applyTheme(save.theme);
-        this.textContent = save.theme === 'auto' ? 'Auto' : save.theme === 'light' ? 'Light' : 'Dark';
       });
       $('#opt-close', card).addEventListener('click', closeModal);
     });

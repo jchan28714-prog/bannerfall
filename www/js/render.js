@@ -11,13 +11,6 @@
   const TAU = Math.PI * 2;
   const M = Math;
 
-  function isLightTheme() {
-    var el = document.documentElement;
-    if (el.getAttribute('data-theme') === 'light') return true;
-    if (el.getAttribute('data-theme') === 'dark') return false;
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-  }
-  function letterboxColor() { return isLightTheme() ? '#ddd8c8' : '#0f1117'; }
 
   // ── faction skin palettes ──────────────────────────────────────────────────
   const SKIN = {
@@ -738,7 +731,7 @@
     var offsetY = (ctx.canvas.height - G.ch * scale) / 2;
     if (offsetX > 0.5 || offsetY > 0.5) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = letterboxColor();
+      ctx.fillStyle = '#0f1117';
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
     var ox = M.max(0, offsetX), oy = M.max(0, offsetY);
@@ -903,9 +896,8 @@
     ctx.restore();
 
     // Bottom decorative strip
-    var lt = isLightTheme();
-    ctx.fillStyle = lt ? '#c8c0a8' : '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
-    ctx.fillStyle = lt ? '#b8b098' : '#1a1e2c';
+    ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
+    ctx.fillStyle = '#1a1e2c';
     for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.sky + G.h, 14, 6);
 
     // ── FLOATING DAMAGE / GOLD NUMBERS ────────────────────────────────
@@ -922,8 +914,8 @@
     // ── WAVE BANNER ────────────────────────────────────────────────────
     if (ui.banner && ui.banner.t > 0) {
       ctx.globalAlpha = M.max(0, M.min(1, ui.banner.t / 0.6));
-      ctx.fillStyle = isLightTheme() ? 'rgba(240,235,224,.7)' : 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
-      ctx.fillStyle = isLightTheme() ? '#7a5810' : '#e8c566';
+      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
+      ctx.fillStyle = '#e8c566';
       ctx.font = '600 24px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
       ctx.fillText(ui.banner.text, G.cw / 2, G.sky + G.h / 2 + 8);
       ctx.globalAlpha = 1;

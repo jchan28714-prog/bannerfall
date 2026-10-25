@@ -21,46 +21,6 @@
   --t-2xl: clamp(22px, 5.8vw, 34px);
 }
 
-/* ---- Light theme ---- */
-:root[data-theme="light"] {
-  --bg: #f0ebe0;
-  --panel: #faf6ee;
-  --panel2: #e8e2d4;
-  --line: rgba(60, 50, 30, .15);
-  --text: #1a1710;
-  --dim: #6b6456;
-  --gold: #a07820;
-  --danger: #c43a34;
-  --ok: #3a8a42;
-}
-
-/* Auto light when OS says so (unless explicitly overridden) */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f0ebe0;
-    --panel: #faf6ee;
-    --panel2: #e8e2d4;
-    --line: rgba(60, 50, 30, .15);
-    --text: #1a1710;
-    --dim: #6b6456;
-    --gold: #a07820;
-    --danger: #c43a34;
-    --ok: #3a8a42;
-  }
-}
-
-/* Explicit dark theme (overrides OS preference) */
-:root[data-theme="dark"] {
-  --bg: #0f1117;
-  --panel: #171b24;
-  --panel2: #1d2230;
-  --line: rgba(232, 220, 192, .12);
-  --text: #ece4d0;
-  --dim: #9aa0ad;
-  --gold: #e8c566;
-  --danger: #e0605a;
-  --ok: #7fcf86;
-}
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: var(--t-md); overscroll-behavior: none; overflow: hidden; }
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
@@ -131,8 +91,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 }
 @keyframes splash-pulse { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 #screen-splash { background: var(--bg); }
-:root[data-theme="light"] #screen-splash,
-:root:not([data-theme="dark"]) #screen-splash { background: var(--bg); }
 #screen-splash.fade-in { opacity: 0; }
 #screen-splash.fade-in.fade-in-go { opacity: 1; transition: opacity .8s ease; }
 #screen-splash.fade-out { opacity: 0; transition: opacity 1s ease; pointer-events: none; }
@@ -589,64 +547,6 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   .splash-logo { width: clamp(56px, 14vh, 90px); }
   .splash-logos { gap: clamp(10px, 3vw, 20px); }
   .splash-x { font-size: clamp(14px, 3vh, 20px); }
-}
-
-/* ---------- light theme overrides for hardcoded colors ---------- */
-:root[data-theme="light"] .screen,
-:root:not([data-theme="dark"]) .screen {
-  background: radial-gradient(120% 80% at 50% 0%, #e6e0d2 0%, var(--bg) 60%);
-}
-:root[data-theme="light"] #cv,
-:root:not([data-theme="dark"]) #cv {
-  background: #ddd8c8;
-}
-:root[data-theme="light"] #hud,
-:root:not([data-theme="dark"]) #hud {
-  background: rgba(240, 235, 224, .75);
-}
-:root[data-theme="light"] #tray,
-:root:not([data-theme="dark"]) #tray {
-  background: rgba(240, 235, 224, .8);
-}
-:root[data-theme="light"] .modal,
-:root:not([data-theme="dark"]) .modal {
-  animation: modal-bg-light .25s ease forwards;
-}
-@keyframes modal-bg-light { to { background: rgba(200, 195, 180, .55); } }
-:root[data-theme="light"] .hint,
-:root:not([data-theme="dark"]) .hint {
-  background: rgba(250, 246, 238, .92);
-}
-:root[data-theme="light"] .ability-btn,
-:root:not([data-theme="dark"]) .ability-btn {
-  background: linear-gradient(160deg, #e8e2d4, #ddd8c8);
-}
-:root[data-theme="light"] .ability-btn.sel,
-:root:not([data-theme="dark"]) .ability-btn.sel {
-  background: linear-gradient(160deg, #d8d0b8, #cac2a8);
-}
-:root[data-theme="light"] #mapsvg,
-:root:not([data-theme="dark"]) #mapsvg {
-  background: #e6e0d2;
-}
-:root[data-theme="light"] .btn,
-:root:not([data-theme="dark"]) .btn {
-  background: linear-gradient(180deg, #c9a45c, #a88030);
-  box-shadow: 0 4px 12px rgba(160, 120, 32, .2), inset 0 1px 0 rgba(255, 255, 255, .4);
-}
-:root[data-theme="light"] .btn.ghost,
-:root:not([data-theme="dark"]) .btn.ghost {
-  background: transparent;
-  color: var(--text);
-  box-shadow: none;
-}
-:root[data-theme="light"] .coin,
-:root:not([data-theme="dark"]) .coin {
-  background: radial-gradient(circle at 35% 30%, #f0d27a, #a88030 60%, #6a5010);
-}
-:root[data-theme="light"] .recruit-circ,
-:root:not([data-theme="dark"]) .recruit-circ {
-  background: linear-gradient(160deg, #e8e2d4, #ddd8c8);
 }
 
 /* ---------- reduced motion ---------- */
