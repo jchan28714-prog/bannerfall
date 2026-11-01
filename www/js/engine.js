@@ -77,8 +77,11 @@
       this.mercCd = 20;     // 20s initial charge before first use
       this.starUpg = opts.starUpg || {};
       this._starLv = (type, attr) => this.starUpg[type + ':' + attr] || 0;
+      this.zombie = !!opts.zombie;
+      this.zombieWave = 0;
+      this.zombieKills = 0;
       const tidx = this.terr.index || 0;
-      this.enemyBaseMax = Math.round(600 + 200 * tidx);
+      this.enemyBaseMax = this.zombie ? 1e9 : Math.round(600 + 200 * tidx);
       this.enemyBaseHp = this.enemyBaseMax;
       this._aiThresholds = [0.50, 0.25];
       this._aiFired = [false, false];
@@ -161,6 +164,30 @@
       return this.schedule[this.next - 1].wave + 1;
     }
 
+    _appendZombieWave() {
+      const w = this.zombieWave++;
+      const count = Math.min(40, 6 + Math.floor(w * 1.5));
+      const gap = Math.max(0.25, 1.2 - 0.025 * w);
+      let t = this.time + 6;
+      const r = this.rand;
+      const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
+      for (let k = 0; k < count; k++) {
+        const row = r() < 0.5 ? focus[Math.floor(r() * 2)] : Math.floor(r() * G.rows);
+        this.schedule.push({ t, row, role: this._pickRole(w), wave: w });
+        t += gap * (0.7 + 0.6 * r());
+      }
+      if (w > 0 && w % 5 === 0) {
+        const n = Math.floor(w / 5);
+        for (let c = 0; c < n; c++) {
+          this.schedule.push({ t: t + 1 + c * 1.5, row: Math.floor(r() * G.rows), role: 'champion', wave: w });
+        }
+      }
+      if (w > 0 && w % 10 === 0) {
+        this.schedule.push({ t: t + 2, row: Math.floor(G.rows / 2), role: 'warlord', wave: w });
+      }
+      this.schedule.sort((a, b) => a.t - b.t);
+    }
+
     _spawn(s) {
       const T = this.terr;
       const big = s.role === 'champion' || s.role === 'warlord';
@@ -195,6 +222,11 @@
           isHealer: s.role === 'healer',
           healPower: s.role === 'healer' ? u.dmg * norm * T.dmgScale * mm * 0.6 : 0,
         });
+      }
+      if (this.zombie) {
+        const zw = s.wave || 0;
+        const zScale = 1 + 0.12 * zw;
+        e.hp *= zScale; e.dmg *= zScale;
       }
       if (s.boosted === 1) { e.hp *= 2; e.dmg *= 1.5; e.size = Math.max(e.size, 1.5); }
       else if (s.boosted === 2) { e.hp *= 3.5; e.dmg *= 2.2; e.size = Math.max(e.size, 1.8); }
@@ -311,7 +343,7 @@
             this._ring(e.x, e.y, 30, '#60c040');
           }
         }
-        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.42, '#60c040');
+        this._ring((G.viewW || G.cw) * 0.5, G.sky + G.h * 0.5, (G.viewW || G.cw) * 0.42, '#60c040');
       } else if (fid === 'orcs') {
         // Eruption: targeted damage — scorches all enemies
         for (const e of this.enemies) {
@@ -336,7 +368,7 @@
             this._ring(e.x, e.y, 36, '#c89020');
           }
         }
-        this._ring(G.cw * 0.5, G.sky + G.h * 0.5, G.cw * 0.38, '#d0a030');
+        this._ring((G.viewW || G.cw) * 0.5, G.sky + G.h * 0.5, (G.viewW || G.cw) * 0.38, '#d0a030');
       }
 
       this.events.push('ability');
@@ -368,6 +400,7 @@
       if (e.hp <= 0) {
         e.dead = true;
         this.kills++;
+        if (this.zombie) this.zombieKills++;
         const g = Math.round(e.bounty * this.bountyMult);
         this.gold += g;
         this._float(e.x, Math.max(10, e.y - 16), '+' + g, '#e8c566');
@@ -451,12 +484,15 @@
       if (this._goldTimer >= 10) {
         this._goldTimer -= 10;
         this.gold += 50;
-        this._float(G.cw * 0.5, G.sky + 20, '+50', '#e8c566');
+        this._float((G.viewW || G.cw) * 0.5, G.sky + 20, '+50', '#e8c566');
         this.events.push('coin');
       }
 
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
+      }
+      if (this.zombie && this.next >= this.schedule.length && this.enemies.length === 0) {
+        this._appendZombieWave();
       }
 
       // Defenders: march right toward enemies; stop and fight when in range
@@ -491,10 +527,10 @@
             this._defAttack(d, tgt);
           }
         } else {
-          const castleWall = G.cw - BF.CASTLE_W;
+          const castleWall = this.zombie ? G.cw - 30 : G.cw - BF.CASTLE_W;
           const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
           if (!d.shielded) d.x = Math.min(siegeThresh, d.x + d.marchSpeed * dt);
-          if (d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
+          if (!this.zombie && d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
             d.cd = 1 / d.rate;
             const dmg = Math.round(d.dmg);
             this.enemyBaseHp = Math.max(0, this.enemyBaseHp - dmg);
@@ -584,6 +620,7 @@
         this.rings  = this.rings.filter((o) => o.t < o.dur);
       }
 
+      if (!this.zombie) {
       // AI reinforcements at health thresholds — spawn elite units + freeze player
       const eRatio = this.enemyBaseHp / this.enemyBaseMax;
       for (let ti = 0; ti < this._aiThresholds.length; ti++) {
@@ -621,8 +658,9 @@
           this.events.push('aiReinforce');
         }
       }
+      } // end if (!this.zombie)
 
-      if (this.enemyBaseHp <= 0 && !this.over) {
+      if (this.enemyBaseHp <= 0 && !this.over && !this.zombie) {
         this.enemyBaseHp = 0;
         for (const e of this.enemies) if (!e.dead) { e.dead = true; this.enemyPool.release(e); }
         this.enemies = [];
@@ -658,7 +696,7 @@
       const reward = Math.max(10, Math.round(12 * skipped * (1 + 0.08 * (this.terr.index || 0))));
       this.gold += reward;
       this.time = nextT - 0.05;
-      this._float(G.cw * 0.5, G.sky + G.h * 0.4, '+' + reward, '#e8c566');
+      this._float((G.viewW || G.cw) * 0.5, G.sky + G.h * 0.4, '+' + reward, '#e8c566');
       this.events.push('skip');
       return reward;
     }

@@ -13,7 +13,7 @@
 
   // ---- Board geometry (logical units; the canvas scales this to any screen) ----
   // 10/90 Horizon Rule: sky=10% of canvas height, battlefield=90%
-  BF.GRID = { rows: 6, cell: 42, sky: 38, w: 504, h: 288, cw: 504, ch: 376 };
+  BF.GRID = { rows: 6, cell: 42, sky: 38, w: 504, h: 288, cw: 504, ch: 376, viewW: 504 };
   BF.CASTLE_W  = 54;   // pixel width of the castle gate drawing
   BF.SPAWN_X   = 66;   // x where new defenders appear (emerge from the castle)
   BF.MARCH_SPD = 13;   // px/s base march speed for defenders (slower for epic scale)
@@ -33,7 +33,8 @@
     G.sky = ch - h - btm;
     G.h = h;
     G.cell = cell;
-    G.cw = Math.round(ch * aspect);
+    G.viewW = Math.round(ch * aspect);
+    G.cw = Math.round(G.viewW * 1.5);
     G.w = G.cw;
   };
   BF.ROLES = ['spear', 'sword', 'archer', 'mage', 'warlock'];

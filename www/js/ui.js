@@ -148,6 +148,7 @@
       '<div class="home-menu">' +
       (hasSave ? '<button class="btn" id="home-continue">Continue</button>' : '') +
       '<button class="btn' + (hasSave ? ' ghost' : '') + '" id="home-new">New Game</button>' +
+      '<button class="btn ghost" id="home-zombie">Zombie Mode</button>' +
       '<button class="btn ghost" id="home-options">Options</button>' +
       '</div>' +
       '<div class="home-mode">' +
@@ -168,7 +169,12 @@
 
     addRipple($('#home-new'));
     $('#home-new').addEventListener('click', function () {
-      Sound.play('ui'); renderLegions(); show('legion');
+      Sound.play('ui'); zombieMode = false; renderLegions(); show('legion');
+    });
+
+    addRipple($('#home-zombie'));
+    $('#home-zombie').addEventListener('click', function () {
+      Sound.play('ui'); zombieMode = true; renderLegions(); show('legion');
     });
 
     addRipple($('#home-options'));
@@ -197,6 +203,7 @@
 
   /* ======================= 1. LEGION SELECT ======================= */
   let pick = save.last || 'men';
+  let zombieMode = false;
 
 
   function renderLegions() {
@@ -339,7 +346,12 @@
       btn.addEventListener('click', function (e) {
         if (totalDrag > 8) { e.stopPropagation(); return; }
         pick = btn.dataset.id; save.last = pick; persist();
-        Sound.play('ui'); renderMap(); show('map');
+        Sound.play('ui');
+        if (zombieMode) {
+          startZombieBattle();
+        } else {
+          renderMap(); show('map');
+        }
       });
     });
 
@@ -1018,7 +1030,7 @@
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = bw + 'px'; cv.style.height = bh + 'px';
     cv.width = Math.round(bw * dpr); cv.height = Math.round(bh * dpr);
-    drawScale = Math.min(cv.width / G.cw, cv.height / G.ch);
+    drawScale = Math.min(cv.width / (G.viewW || G.cw), cv.height / G.ch);
   }
   window.addEventListener('resize', () => { if ($('#screen-battle').classList.contains('active')) fit(); });
 
@@ -1048,8 +1060,9 @@
     var hammerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l4-4"/><path d="M15 5l-3 3 4 4 3-3z"/><path d="M2 22l5-5"/></svg>';
     var boltIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>';
 
-    // Unit cards (icon + cost only, no name)
-    BF.ROLES.forEach((r) => {
+    // Unit cards sorted by ascending cost
+    var sortedRoles = BF.ROLES.slice().sort((a, b) => B.unitCost(a) - B.unitCost(b));
+    sortedRoles.forEach((r) => {
       const u = f.units[r];
       const cost = B.unitCost(r);
       const b = document.createElement('button');
@@ -1211,7 +1224,7 @@
     terr = t;
     var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
     B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm });
-    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0 };
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: B.zombie ? 'Survive!' : 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0, manualUntil: 0 } };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     buildTray();
     // Wire skip button in overlay
@@ -1232,9 +1245,33 @@
   }
 
   let _lastSpawnT = 0;
+  let _panState = { active: false, startX: 0, startCamX: 0, totalDrag: 0 };
   cv.addEventListener('pointerdown', (e) => {
-    if (!B || B.over || paused) return;
+    if (!B || paused) return;
     e.preventDefault();
+    _panState.active = true;
+    _panState.startX = e.clientX;
+    _panState.startCamX = uiS ? uiS.cam.x : 0;
+    _panState.totalDrag = 0;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  cv.addEventListener('pointermove', (e) => {
+    if (!_panState.active || !B || !uiS) return;
+    const dx = e.clientX - _panState.startX;
+    _panState.totalDrag = Math.max(_panState.totalDrag, Math.abs(dx));
+    if (_panState.totalDrag > 8) {
+      const r = cv.getBoundingClientRect();
+      const worldDx = dx / r.width * (G.viewW || G.cw);
+      uiS.cam.x = Math.max(0, Math.min(G.cw - (G.viewW || G.cw), _panState.startCamX - worldDx));
+      uiS.cam.target = uiS.cam.x;
+      uiS.cam.manualUntil = B.time + 4;
+    }
+  });
+  cv.addEventListener('pointerup', (e) => {
+    if (!_panState.active) return;
+    const wasDrag = _panState.totalDrag > 8;
+    _panState.active = false;
+    if (wasDrag || !B || B.over || paused) return;
     var now = performance.now();
     if (now - _lastSpawnT < 120) return;
     _lastSpawnT = now;
@@ -1284,13 +1321,14 @@
       }
     }
   });
+  cv.addEventListener('pointercancel', () => { _panState.active = false; });
 
   function updateHud() {
     var goldEl = $('#hud-gold');
     if (goldEl) goldEl.textContent = Math.floor(B.gold);
     const w = Math.max(1, B.waveNow());
     var waveTextEl = $('#hud-wave-text');
-    if (waveTextEl) waveTextEl.textContent = w + '/' + terr.waves;
+    if (waveTextEl) waveTextEl.textContent = B.zombie ? 'W' + w : w + '/' + terr.waves;
     var waveFillEl = $('#hud-wave-fill');
     if (waveFillEl) waveFillEl.style.width = Math.round((B.next / B.schedule.length) * 100) + '%';
     // Wave countdown between waves
@@ -1374,16 +1412,28 @@
       }
       B.events.length = 0;
       const w = B.waveNow();
-      if (w !== lastWave && w > 0) { lastWave = w; uiS.banner = { text: w === terr.waves ? 'Final wave' : 'Wave ' + w, t: 1.8 }; }
+      if (w !== lastWave && w > 0) { lastWave = w; uiS.banner = { text: B.zombie ? 'Wave ' + w : (w === terr.waves ? 'Final wave' : 'Wave ' + w), t: 1.8 }; }
       if (uiS.banner.t > 0) uiS.banner.t -= dt;
       if (uiS.gateFlash > 0) uiS.gateFlash -= dt;
       if (uiS.siegeFlash > 0) uiS.siegeFlash -= dt;
       if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
+      // Camera auto-follow: focus on the frontline where defenders meet enemies
+      if (B.time > uiS.cam.manualUntil) {
+        var maxDefX = BF.SPAWN_X;
+        var minEnemyX = G.cw;
+        for (var di = 0; di < B.defenders.length; di++) { var dd = B.defenders[di]; if (!dd.dead && dd.x > maxDefX) maxDefX = dd.x; }
+        for (var ei = 0; ei < B.enemies.length; ei++) { var ee = B.enemies[ei]; if (!ee.dead && ee.x < minEnemyX) minEnemyX = ee.x; }
+        var vw = G.viewW || G.cw;
+        // Bias toward showing the player's units — weight 70% toward defenders
+        var focusX = maxDefX * 0.7 + Math.min(minEnemyX, maxDefX + vw * 0.8) * 0.3;
+        uiS.cam.target = Math.max(0, Math.min(G.cw - vw, focusX - vw * 0.35));
+      }
+      uiS.cam.x += (uiS.cam.target - uiS.cam.x) * 0.06;
     }
-    BF.renderBattle(ctx, B, uiS, drawScale);
+    BF.renderBattle(ctx, B, uiS, drawScale, uiS.cam.x);
     updateHud();
-    if (B.over && !resultShown) { resultShown = true; setTimeout(showResult, 700); }
+    if (B.over && !resultShown) { resultShown = true; setTimeout(B.zombie ? showZombieResult : showResult, 700); }
   }
 
   document.addEventListener('visibilitychange', () => { if (document.hidden && B && !B.over && !paused && $('#screen-battle').classList.contains('active')) openPause(); });
@@ -1399,8 +1449,8 @@
       { dismiss: false }
     );
     $('#resume', card).onclick = () => { closeModal(); paused = false; last = performance.now(); };
-    $('#restart', card).onclick = () => { closeModal(); startBattle(terr); };
-    $('#retreat', card).onclick = leaveBattle;
+    $('#restart', card).onclick = () => { closeModal(); if (B && B.zombie) startZombieBattle(); else startBattle(terr); };
+    $('#retreat', card).onclick = () => { if (B && B.zombie) { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); renderHome(); show('home'); } else leaveBattle(); };
   }
 
   function leaveBattle() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); renderMap(); show('map'); }
@@ -1450,6 +1500,63 @@
     }
   }
 
+  /* ======================= ZOMBIE MODE ======================= */
+  function startZombieBattle() {
+    const f = BF.factionById(save.last), c = camp(f.id);
+    const zombieTerr = {
+      id: 'zombie', name: 'The Endless Horde', owner: 'citadel',
+      waves: 10, final: false, index: 2,
+      hpScale: 1.0, dmgScale: 1.0, countScale: 1.0,
+    };
+    terr = zombieTerr;
+    var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
+    B = new BF.Battle({ factionId: f.id, territory: zombieTerr, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm, zombie: true });
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Survive!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0, manualUntil: 0 } };
+    speed = 1; paused = false; resultShown = false; lastWave = 0;
+    buildTray();
+    var skipBtn = $('#btn-skip');
+    if (skipBtn) skipBtn.onclick = function() {
+      if (!B || B.over) return;
+      var reward = B.skipWave();
+      if (reward) { Sound.play('coin'); syncTray(); }
+    };
+    show('battle');
+    lockLandscape();
+    fit();
+    $('#hint').classList.add('hidden');
+    cancelAnimationFrame(raf);
+    last = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+
+  function showZombieResult() {
+    if (!B) return;
+    const f = BF.factionById(save.last), c = camp(f.id);
+    if (!c.zombieBest) c.zombieBest = { wave: 0, kills: 0 };
+    const waveReached = Math.max(1, B.waveNow());
+    const kills = B.zombieKills;
+    const isNewBest = waveReached > c.zombieBest.wave || (waveReached === c.zombieBest.wave && kills > c.zombieBest.kills);
+    if (isNewBest) {
+      c.zombieBest.wave = waveReached;
+      c.zombieBest.kills = kills;
+    }
+    persist();
+    const card = openModal(
+      '<div class="modal-icon">💀</div>' +
+      '<h2 class="center-t" style="color:var(--danger)">Overrun!</h2>' +
+      '<div class="center-t dim" style="margin-top:6px">Zombie Mode — ' + f.short + '</div>' +
+      (isNewBest ? '<div class="center-t gold" style="margin:8px 0">★ New Personal Best! ★</div>' : '') +
+      '<div class="kv" style="margin-top:12px"><span class="dim">Waves survived</span><b>' + waveReached + '</b></div>' +
+      '<div class="kv"><span class="dim">Enemies defeated</span><b>' + kills + '</b></div>' +
+      '<div class="kv"><span class="dim">Best wave</span><b class="gold">' + c.zombieBest.wave + '</b></div>' +
+      '<div class="kv"><span class="dim">Best kills</span><b class="gold">' + c.zombieBest.kills + '</b></div>' +
+      '<div class="row"><button class="btn ghost" id="z-home">Home</button><button class="btn" id="z-retry">Try Again</button></div>',
+      { center: true, dismiss: false }
+    );
+    $('#z-home', card).onclick = function() { closeModal(); paused = false; B = null; cancelAnimationFrame(raf); renderHome(); show('home'); };
+    $('#z-retry', card).onclick = function() { closeModal(); startZombieBattle(); };
+  }
+
   /* ======================= start (splash → home) ======================= */
   (function runSplash() {
     var splash = $('#screen-splash');
@@ -1483,5 +1590,5 @@
       }
     }, 120);
   })();
-  BF.app = { get save() { return save; }, startBattle, renderMap, renderLegions, renderHome, get battle() { return B; } };
+  BF.app = { get save() { return save; }, startBattle, startZombieBattle, renderMap, renderLegions, renderHome, get battle() { return B; } };
 })();

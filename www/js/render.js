@@ -816,18 +816,19 @@
   /* ==========================================================================
      RENDER BATTLE – full frame
   ========================================================================== */
-  BF.renderBattle = function (ctx, b, ui, scale) {
-    var offsetX = (ctx.canvas.width - G.cw * scale) / 2;
+  BF.renderBattle = function (ctx, b, ui, scale, camX) {
+    camX = camX || 0;
+    var vw = G.viewW || G.cw;
+    var offsetX = (ctx.canvas.width - vw * scale) / 2;
     var offsetY = (ctx.canvas.height - G.ch * scale) / 2;
-    if (offsetX > 0.5 || offsetY > 0.5) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.fillStyle = '#0f1117';
-      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#0f1117';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     var ox = M.max(0, offsetX), oy = M.max(0, offsetY);
-    BF.drawOffset.x = ox; BF.drawOffset.y = oy;
-    ctx.setTransform(scale, 0, 0, scale, ox, oy);
-    ctx.clearRect(0, 0, G.cw, G.ch);
+    var camOff = -camX * scale;
+    BF.drawOffset.x = ox + camOff; BF.drawOffset.y = oy;
+    ctx.setTransform(scale, 0, 0, scale, ox + camOff, oy);
+    ctx.clearRect(camX, 0, vw, G.ch);
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
 
@@ -979,11 +980,13 @@
     ctx.restore();
 
     // ── ENEMY FORTRESS (right side, mirrored castle) ─────────────────
-    ctx.save();
-    ctx.translate(G.cw, G.sky);
-    ctx.scale(-1, 1);
-    drawCastle(ctx, G.h, b.enemyBaseHp, b.enemyBaseMax, ui.siegeFlash || 0, foe.color, T, foe.id);
-    ctx.restore();
+    if (!b.zombie) {
+      ctx.save();
+      ctx.translate(G.cw, G.sky);
+      ctx.scale(-1, 1);
+      drawCastle(ctx, G.h, b.enemyBaseHp, b.enemyBaseMax, ui.siegeFlash || 0, foe.color, T, foe.id);
+      ctx.restore();
+    }
 
     // Bottom decorative strip
     ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
@@ -1003,11 +1006,12 @@
 
     // ── WAVE BANNER ────────────────────────────────────────────────────
     if (ui.banner && ui.banner.t > 0) {
+      var bannerCX = camX + vw / 2;
       ctx.globalAlpha = M.max(0, M.min(1, ui.banner.t / 0.6));
-      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(0, G.sky + G.h / 2 - 28, G.cw, 56);
+      ctx.fillStyle = 'rgba(10,12,18,.65)'; ctx.fillRect(camX, G.sky + G.h / 2 - 28, vw, 56);
       ctx.fillStyle = '#e8c566';
       ctx.font = '600 24px "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif';
-      ctx.fillText(ui.banner.text, G.cw / 2, G.sky + G.h / 2 + 8);
+      ctx.fillText(ui.banner.text, bannerCX, G.sky + G.h / 2 + 8);
       ctx.globalAlpha = 1;
     }
   };
