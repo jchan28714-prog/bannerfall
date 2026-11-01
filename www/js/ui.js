@@ -287,6 +287,7 @@
     layout();
 
     wrap.addEventListener('pointerdown', function (e) {
+      totalDrag = 0;
       if (e.target.closest('.lcard-go') || e.target.closest('.lcard-info')) return;
       cancelAnimationFrame(animId);
       dragStartX = e.clientX;
@@ -383,7 +384,8 @@
         '<h4 style="font-size:clamp(12px,3vw,15px);color:var(--text);margin:0 0 6px">Units</h4>' +
         '<div class="lcard-roster">' +
           BF.ROLES.map((r) => {
-            var u = f.units[r], m = mx[r];
+            var u = f.units[r]; if (!u) return '';
+            var m = mx[r] || { strong: [], weak: [] };
             return '<div class="lcard-unit">' +
               '<canvas width="76" height="76"></canvas>' +
               '<div class="lcard-unit-info">' +
@@ -451,44 +453,156 @@
     svg.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
     const defs = svgEl('defs', {}, svg);
 
-    // Land gradient
-    const landGrad = svgEl('radialGradient', { id: 'land', cx: '50%', cy: '45%', r: '65%' }, defs);
-    svgEl('stop', { offset: '0', 'stop-color': '#1c2535' }, landGrad);
-    svgEl('stop', { offset: '1', 'stop-color': '#0f1420' }, landGrad);
+    // Biome gradients
+    const elfGrad = svgEl('radialGradient', { id: 'bg-elf', cx: '50%', cy: '50%', r: '60%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#1a3a20' }, elfGrad);
+    svgEl('stop', { offset: '0.7', 'stop-color': '#122818' }, elfGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#0a1810', 'stop-opacity': '0' }, elfGrad);
 
-    // Continent silhouette (landscape 900×520 viewBox)
+    const orcGrad = svgEl('radialGradient', { id: 'bg-orc', cx: '50%', cy: '50%', r: '55%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#3a1808' }, orcGrad);
+    svgEl('stop', { offset: '0.7', 'stop-color': '#281008' }, orcGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#180808', 'stop-opacity': '0' }, orcGrad);
+
+    const dwarfGrad = svgEl('radialGradient', { id: 'bg-dwarf', cx: '50%', cy: '50%', r: '55%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#1a2438' }, dwarfGrad);
+    svgEl('stop', { offset: '0.6', 'stop-color': '#141c2c' }, dwarfGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#0e1420', 'stop-opacity': '0' }, dwarfGrad);
+
+    const menGrad = svgEl('radialGradient', { id: 'bg-men', cx: '50%', cy: '50%', r: '55%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#2a2818' }, menGrad);
+    svgEl('stop', { offset: '0.7', 'stop-color': '#1c1c10' }, menGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#121410', 'stop-opacity': '0' }, menGrad);
+
+    const gobGrad = svgEl('radialGradient', { id: 'bg-gob', cx: '50%', cy: '50%', r: '55%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#142818' }, gobGrad);
+    svgEl('stop', { offset: '0.6', 'stop-color': '#0c1c0c' }, gobGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#081408', 'stop-opacity': '0' }, gobGrad);
+
+    const citGrad = svgEl('radialGradient', { id: 'bg-cit', cx: '50%', cy: '50%', r: '50%' }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': '#201438' }, citGrad);
+    svgEl('stop', { offset: '0.7', 'stop-color': '#140c28' }, citGrad);
+    svgEl('stop', { offset: '1', 'stop-color': '#0c0818', 'stop-opacity': '0' }, citGrad);
+
+    // Ocean/water background
+    svgEl('rect', { x: vbX, y: vbY, width: vbW, height: vbH, fill: '#0a1220' }, svg);
+
+    // Continent base fill — warm landmass
     svgEl('path', {
       d: 'M54 58 L22 144 L36 246 L22 332 L72 433 L180 491 L360 513 L576 506 L774 477 L855 390 L864 289 L873 188 L846 101 L756 43 L558 22 L324 18 L144 33 Z',
-      fill: 'url(#land)', stroke: 'rgba(232,220,192,.10)', 'stroke-width': 2,
+      fill: '#141c14', stroke: 'rgba(232,220,192,.08)', 'stroke-width': 2,
     }, svg);
 
-    // Biome region fills — colored terrain areas per faction
-    const biomeLayer = svgEl('g', { opacity: '0.12' }, svg);
-    svgEl('ellipse', { cx: 396, cy: 72, rx: 396, ry: 79, fill: '#40c070' }, biomeLayer);
-    svgEl('ellipse', { cx: 171, cy: 217, rx: 198, ry: 94, fill: '#c03020' }, biomeLayer);
-    svgEl('ellipse', { cx: 468, cy: 274, rx: 288, ry: 72, fill: '#6090c0' }, biomeLayer);
-    svgEl('ellipse', { cx: 792, cy: 274, rx: 180, ry: 144, fill: '#d0a040' }, biomeLayer);
-    svgEl('ellipse', { cx: 396, cy: 419, rx: 360, ry: 72, fill: '#408030' }, biomeLayer);
-    svgEl('ellipse', { cx: 432, cy: 498, rx: 144, ry: 36, fill: '#6020a0' }, biomeLayer);
+    // Biome region fills — color-coded terrain areas (much more prominent)
+    svgEl('ellipse', { cx: 396, cy: 72, rx: 400, ry: 85, fill: 'url(#bg-elf)' }, svg);
+    svgEl('ellipse', { cx: 160, cy: 220, rx: 200, ry: 100, fill: 'url(#bg-orc)' }, svg);
+    svgEl('ellipse', { cx: 470, cy: 280, rx: 280, ry: 80, fill: 'url(#bg-dwarf)' }, svg);
+    svgEl('ellipse', { cx: 790, cy: 280, rx: 180, ry: 150, fill: 'url(#bg-men)' }, svg);
+    svgEl('ellipse', { cx: 390, cy: 420, rx: 360, ry: 80, fill: 'url(#bg-gob)' }, svg);
+    svgEl('ellipse', { cx: 450, cy: 260, rx: 80, ry: 60, fill: 'url(#bg-cit)' }, svg);
 
-    // Mountain ridges (dwarf region)
-    const mtnG = svgEl('g', { opacity: '0.2' }, svg);
-    svgEl('path', { d: 'M252 246 L306 217 L360 238 L414 209 L468 231 L522 206 L576 228 L630 213 L684 238',
-      fill: 'none', stroke: '#8098b0', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, mtnG);
-    svgEl('path', { d: 'M180 289 L234 267 L279 285 L333 260 L378 278',
-      fill: 'none', stroke: '#8098b0', 'stroke-width': 2, 'stroke-linejoin': 'round' }, mtnG);
+    // ── Elf forest: dense canopy clusters ──
+    const forestG = svgEl('g', { opacity: '0.45' }, svg);
+    [[180,45,16],[252,33,18],[340,28,14],[430,38,20],[540,35,16],[630,50,18],[720,62,14],
+     [150,80,22],[280,68,18],[400,55,24],[520,60,16],[660,75,14],[200,95,15],[350,85,12],
+     [500,78,18],[600,90,13],[460,48,15],[310,55,20]].forEach(([fx,fy,r]) => {
+      svgEl('circle', { cx: fx, cy: fy, r, fill: '#1c4828' }, forestG);
+      svgEl('circle', { cx: fx - r*0.3, cy: fy - r*0.2, r: r*0.6, fill: '#28603a' }, forestG);
+    });
+    // Forest floor texture
+    svgEl('path', { d: 'M100 100 Q200 85, 300 95 T500 88 T700 98 T850 90',
+      fill: 'none', stroke: '#1a3820', 'stroke-width': 8, opacity: '0.3' }, svg);
 
-    // Forest canopy dots (elf region)
-    const forestG = svgEl('g', { opacity: '0.18', fill: '#308050' }, svg);
-    [[216,43],[324,33],[504,40],[612,58],[288,79],[180,94],[540,72],[720,69],[450,51]].forEach(([fx,fy]) => {
-      svgEl('circle', { cx: fx, cy: fy, r: 12 + (fx % 7) }, forestG);
+    // ── Orc volcanic terrain: lava cracks, scorched earth ──
+    const volcG = svgEl('g', { opacity: '0.5' }, svg);
+    // Lava flows
+    svgEl('path', { d: 'M80 170 Q100 200, 90 240 T110 290',
+      fill: 'none', stroke: '#c03010', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.6' }, volcG);
+    svgEl('path', { d: 'M140 150 Q160 190, 130 220 T170 270',
+      fill: 'none', stroke: '#e05020', 'stroke-width': 2, 'stroke-linecap': 'round', opacity: '0.4' }, volcG);
+    svgEl('path', { d: 'M200 180 Q220 210, 190 240',
+      fill: 'none', stroke: '#d04018', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: '0.5' }, volcG);
+    // Volcanic crater
+    svgEl('circle', { cx: 90, cy: 195, r: 18, fill: '#301008', stroke: '#c03010', 'stroke-width': 2 }, volcG);
+    svgEl('circle', { cx: 90, cy: 195, r: 8, fill: '#e05020', opacity: '0.6' }, volcG);
+    // Ash patches
+    [[70,230,12],[130,260,10],[180,210,14],[230,235,9]].forEach(([x,y,r]) => {
+      svgEl('circle', { cx: x, cy: y, r, fill: '#1a0c08', opacity: '0.4' }, volcG);
     });
 
-    // River paths
-    svgEl('path', { d: 'M450 116 C432 159, 360 202, 324 253 S252 318, 234 368',
-      fill: 'none', stroke: 'rgba(80,160,220,.18)', 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
-    svgEl('path', { d: 'M684 123 C720 166, 738 224, 711 289',
-      fill: 'none', stroke: 'rgba(80,160,220,.14)', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, svg);
+    // ── Dwarf mountains: snow peaks, rocky ridges ──
+    const mtnG = svgEl('g', { opacity: '0.55' }, svg);
+    // Mountain silhouettes (filled triangles)
+    [[300,240,35],[370,225,40],[450,220,45],[530,228,38],[610,232,42],[680,238,35]].forEach(([cx,base,h]) => {
+      svgEl('path', { d: 'M'+(cx-h*0.8)+' '+base+' L'+cx+' '+(base-h)+' L'+(cx+h*0.8)+' '+base+' Z',
+        fill: '#2a3448' }, mtnG);
+      // Snow cap
+      svgEl('path', { d: 'M'+(cx-h*0.25)+' '+(base-h*0.65)+' L'+cx+' '+(base-h)+' L'+(cx+h*0.25)+' '+(base-h*0.65)+' Z',
+        fill: '#6878a0', opacity: '0.7' }, mtnG);
+    });
+    // Smaller ridge line
+    svgEl('path', { d: 'M250 270 L290 252 L330 265 L370 248 L410 260 L450 245 L490 258',
+      fill: 'none', stroke: '#3a4868', 'stroke-width': 3, 'stroke-linejoin': 'round' }, mtnG);
+    // Mine entrance symbols
+    [[420,290],[510,310],[600,295]].forEach(([x,y]) => {
+      svgEl('path', { d: 'M'+(x-6)+' '+y+' L'+x+' '+(y-8)+' L'+(x+6)+' '+y,
+        fill: '#1a1c28', stroke: '#d0a040', 'stroke-width': 1.5 }, mtnG);
+    });
+
+    // ── Men golden fields: wheat rows, meadow patches ──
+    const fieldG = svgEl('g', { opacity: '0.4' }, svg);
+    // Rolling hills
+    svgEl('path', { d: 'M720 200 Q770 180, 820 195 T880 185',
+      fill: 'none', stroke: '#4a5028', 'stroke-width': 6, 'stroke-linecap': 'round' }, fieldG);
+    svgEl('path', { d: 'M740 260 Q790 245, 840 255 T890 248',
+      fill: 'none', stroke: '#3a4020', 'stroke-width': 5, 'stroke-linecap': 'round' }, fieldG);
+    // Wheat field patches
+    [[770,230,20,12],[830,310,18,10],[800,360,22,14],[750,380,16,10]].forEach(([x,y,w,h]) => {
+      svgEl('ellipse', { cx: x, cy: y, rx: w, ry: h, fill: '#3a3818', opacity: '0.5' }, fieldG);
+      // Wheat lines
+      for (let i = -2; i <= 2; i++) {
+        svgEl('line', { x1: x + i*5, y1: y + h*0.3, x2: x + i*5, y2: y - h*0.5,
+          stroke: '#887830', 'stroke-width': 1, opacity: '0.5' }, fieldG);
+      }
+    });
+
+    // ── Goblin swamp: murky pools, toxic bubbles ──
+    const swampG = svgEl('g', { opacity: '0.45' }, svg);
+    // Murky water pools
+    [[200,400,24,12],[320,430,20,10],[450,440,28,14],[580,420,18,9],[680,430,22,11]].forEach(([x,y,rx,ry]) => {
+      svgEl('ellipse', { cx: x, cy: y, rx, ry, fill: '#0c2810', stroke: '#183818', 'stroke-width': 1.5 }, swampG);
+      svgEl('ellipse', { cx: x - rx*0.3, cy: y - ry*0.2, rx: rx*0.3, ry: ry*0.3, fill: '#184020', opacity: '0.5' }, swampG);
+    });
+    // Dead trees
+    [[240,390],[380,410],[550,400],[650,415]].forEach(([x,y]) => {
+      svgEl('line', { x1: x, y1: y, x2: x, y2: y - 18, stroke: '#2a3020', 'stroke-width': 2 }, swampG);
+      svgEl('line', { x1: x, y1: y - 12, x2: x - 6, y2: y - 18, stroke: '#2a3020', 'stroke-width': 1.5 }, swampG);
+      svgEl('line', { x1: x, y1: y - 10, x2: x + 5, y2: y - 16, stroke: '#2a3020', 'stroke-width': 1.5 }, swampG);
+    });
+    // Toxic bubbles
+    [[190,395],[350,425],[500,435],[610,410]].forEach(([x,y]) => {
+      svgEl('circle', { cx: x, cy: y, r: 3, fill: '#80c828', opacity: '0.3', class: 'map-particle' }, swampG);
+    });
+
+    // ── Rivers (more prominent) ──
+    svgEl('path', { d: 'M450 110 C430 160, 360 200, 320 250 S250 310, 230 370',
+      fill: 'none', stroke: '#1a4868', 'stroke-width': 5, 'stroke-linecap': 'round' }, svg);
+    svgEl('path', { d: 'M450 110 C430 160, 360 200, 320 250 S250 310, 230 370',
+      fill: 'none', stroke: '#3080c0', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: '0.4' }, svg);
+    svgEl('path', { d: 'M684 120 C720 165, 738 220, 710 290 S690 340, 720 380',
+      fill: 'none', stroke: '#1a4868', 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+    svgEl('path', { d: 'M684 120 C720 165, 738 220, 710 290 S690 340, 720 380',
+      fill: 'none', stroke: '#3080c0', 'stroke-width': 2, 'stroke-linecap': 'round', opacity: '0.35' }, svg);
+    // Small tributary
+    svgEl('path', { d: 'M520 180 C500 210, 440 230, 400 260',
+      fill: 'none', stroke: '#1a4060', 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
+
+    // ── Canyon between orc and dwarf territory ──
+    const canyonG = svgEl('g', { opacity: '0.4' }, svg);
+    svgEl('path', { d: 'M210 250 Q230 265, 260 260 Q290 255, 310 270',
+      fill: 'none', stroke: '#0c0808', 'stroke-width': 6, 'stroke-linecap': 'round' }, canyonG);
+    svgEl('path', { d: 'M210 250 Q230 265, 260 260 Q290 255, 310 270',
+      fill: 'none', stroke: '#3a1808', 'stroke-width': 2, 'stroke-linecap': 'round' }, canyonG);
 
     // Animated biome particles
     const particleG = svgEl('g', {}, svg);
@@ -500,30 +614,24 @@
       { cx: 360, cy: 238, fill: '#a0c0e0', r: 2 }, { cx: 558, cy: 253, fill: '#90b8d8', r: 1.8 },
       { cx: 180, cy: 412, fill: '#40ff60', r: 2 }, { cx: 450, cy: 426, fill: '#60e080', r: 1.5 },
       { cx: 630, cy: 419, fill: '#80ff60', r: 2 },
+      { cx: 780, cy: 250, fill: '#e8c060', r: 1.5 }, { cx: 820, cy: 330, fill: '#d0a040', r: 2 },
+      { cx: 440, cy: 260, fill: '#8060c0', r: 2.5 },
     ];
     biomeParticles.forEach((p) => {
-      const c = svgEl('circle', { cx: p.cx, cy: p.cy, r: p.r, fill: p.fill, class: 'map-particle' }, particleG);
+      svgEl('circle', { cx: p.cx, cy: p.cy, r: p.r, fill: p.fill, class: 'map-particle' }, particleG);
     });
 
-    // Terrain texture lines
-    for (let k = 0; k < 10; k++) {
-      svgEl('path', {
-        d: 'M-10 ' + (36 + k * 51) + ' C 180 ' + (14 + k * 51) + ', 630 ' + (65 + k * 51) + ', 940 ' + (33 + k * 51),
-        fill: 'none', stroke: 'rgba(232,220,192,.03)', 'stroke-width': 1.3,
-      }, svg);
-    }
-
-    // Region labels
+    // Region labels (more visible)
     const regions = [
-      { label: 'ALDERMERE', x: 810, y: 231, color: BF.factionById('men').color },
+      { label: 'ALDERMERE', x: 810, y: 225, color: BF.factionById('men').color },
       { label: 'SYLVANMERE', x: 396, y: 14, color: BF.factionById('elves').color },
-      { label: 'ASHEN WASTES', x: 144, y: 144, color: BF.factionById('orcs').color },
-      { label: 'KARAK DUN', x: 450, y: 253, color: BF.factionById('dwarves').color },
-      { label: 'GLOOMHOLLOW', x: 387, y: 368, color: BF.factionById('goblins').color },
-      { label: 'THE VOID', x: 432, y: 466, color: '#8040c0' },
+      { label: 'ASHEN WASTES', x: 144, y: 140, color: BF.factionById('orcs').color },
+      { label: 'KARAK DUN', x: 470, y: 250, color: BF.factionById('dwarves').color },
+      { label: 'GLOOMHOLLOW', x: 387, y: 370, color: BF.factionById('goblins').color },
+      { label: 'THE VOID', x: 450, y: 265, color: '#8040c0' },
     ];
     regions.forEach(({ label, x, y, color }) => {
-      const el = svgEl('text', { x, y, 'text-anchor': 'middle', fill: color, 'font-size': 11, 'font-weight': 700, opacity: 0.25, 'letter-spacing': 2.5 }, svg);
+      const el = svgEl('text', { x, y, 'text-anchor': 'middle', fill: color, 'font-size': 11, 'font-weight': 700, opacity: 0.35, 'letter-spacing': 2.5 }, svg);
       el.textContent = label;
     });
 
@@ -924,16 +1032,15 @@
     const tray = $('#tray');
     tray.innerHTML = '';
 
-    // Single row: unit cards + action circle buttons
+    // Action circle buttons (compact ring icons)
     var circR = 18;
-    function circBtn(id, label, iconSvg, barId, extra) {
-      return '<button id="' + id + '" class="footer-btn" ' + (extra || '') + ' aria-label="' + label + '">' +
+    function circBtn(id, iconSvg, barId, extra) {
+      return '<button id="' + id + '" class="footer-btn" ' + (extra || '') + '>' +
         '<svg class="footer-ring" viewBox="0 0 40 40">' +
           '<circle class="fr-track" cx="20" cy="20" r="' + circR + '"/>' +
           '<circle class="fr-fill" id="' + barId + '" cx="20" cy="20" r="' + circR + '"/>' +
         '</svg>' +
         '<span class="footer-icon-svg">' + iconSvg + '</span>' +
-        '<span class="footer-label">' + label + '</span>' +
       '</button>';
     }
     var swordIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/></svg>';
@@ -941,12 +1048,13 @@
     var hammerIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l4-4"/><path d="M15 5l-3 3 4 4 3-3z"/><path d="M2 22l5-5"/></svg>';
     var boltIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>';
 
+    // Unit cards (icon + cost only, no name)
     BF.ROLES.forEach((r) => {
       const u = f.units[r];
       const cost = B.unitCost(r);
       const b = document.createElement('button');
       b.className = 'ucard'; b.dataset.role = r;
-      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + u.name + '</div><div class="cs">' + coin + cost + '</div>';
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="cs">' + coin + cost + '</div>';
       const c2 = $('canvas', b).getContext('2d');
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, r, false, 0);
@@ -965,7 +1073,7 @@
     if (og) {
       const b = document.createElement('button');
       b.className = 'ucard og-card'; b.dataset.role = 'og';
-      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="nm">' + og.name + '</div><div class="cs">' + coin + og.cost + '</div>';
+      b.innerHTML = '<canvas width="76" height="76"></canvas><div class="cs">' + coin + og.cost + '</div>';
       const c2 = $('canvas', b).getContext('2d');
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, 'og', false, 0);
@@ -977,20 +1085,51 @@
     }
 
     // Separator
-    const sep = document.createElement('div');
+    var sep = document.createElement('div');
     sep.className = 'tray-sep';
     tray.appendChild(sep);
 
     // Action circle buttons inline
     const actHtml =
-      circBtn('btn-recruit', 'Reinforce', swordIcon, 'recruit-bar', '') +
-      circBtn('btn-merc', 'Merc', daggerIcon, 'merc-bar', '') +
-      circBtn('btn-repair', 'Repair', hammerIcon, 'repair-bar', '') +
-      circBtn('btn-ability', (ab ? ab.key : 'EQ'), boltIcon, 'ability-bar-fill', 'style="--c:' + f.color + '"');
+      circBtn('btn-recruit', swordIcon, 'recruit-bar', '') +
+      circBtn('btn-merc', daggerIcon, 'merc-bar', '') +
+      circBtn('btn-repair', hammerIcon, 'repair-bar', '') +
+      circBtn('btn-ability', boltIcon, 'ability-bar-fill', 'style="--c:' + f.color + '"');
     const actFrag = document.createElement('div');
     actFrag.innerHTML = actHtml;
     while (actFrag.firstChild) tray.appendChild(actFrag.firstChild);
 
+    // Separator
+    sep = document.createElement('div');
+    sep.className = 'tray-sep';
+    tray.appendChild(sep);
+
+    // HUD section: gold + wave info
+    const hudSection = document.createElement('div');
+    hudSection.className = 'hud-section';
+    hudSection.innerHTML =
+      '<div class="hud-gold"><span class="coin"></span><b id="hud-gold">0</b></div>' +
+      '<div class="hud-wave-compact">' +
+        '<span id="hud-wave-text" class="hud-wave-label">W1</span>' +
+        '<div class="hud-wave-bar"><i id="hud-wave-fill"></i></div>' +
+      '</div>';
+    tray.appendChild(hudSection);
+
+    // Separator
+    sep = document.createElement('div');
+    sep.className = 'tray-sep';
+    tray.appendChild(sep);
+
+    // Control buttons: sell, speed, pause
+    const ctrlSection = document.createElement('div');
+    ctrlSection.className = 'hud-btns';
+    ctrlSection.innerHTML =
+      '<button id="btn-sell" class="icon-btn" aria-label="Sell">$</button>' +
+      '<button id="btn-speed" class="icon-btn" aria-label="Speed">' + speed + '×</button>' +
+      '<button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>';
+    tray.appendChild(ctrlSection);
+
+    // Wire up action button events
     $('#btn-recruit').addEventListener('click', () => {
       if (!B || B.over || B.autoRecruitCd > 0) return;
       uiS.selected = uiS.selected === 'reinforce' ? null : 'reinforce';
@@ -1015,6 +1154,15 @@
       uiS.sellMode = false; $('#btn-sell').classList.remove('on');
       Sound.play('ui'); syncTray();
     });
+    // Wire up control button events
+    $('#btn-sell').addEventListener('click', (e) => {
+      uiS.sellMode = !uiS.sellMode;
+      e.currentTarget.classList.toggle('on', uiS.sellMode);
+      if (uiS.sellMode) { uiS.selected = null; syncTray(); }
+      Sound.play('ui');
+    });
+    $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
+    $('#btn-pause').addEventListener('click', openPause);
   }
   function syncActBtns() {
     if (!B) return;
@@ -1065,9 +1213,14 @@
     B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm });
     uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0 };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
-    $('#btn-speed').textContent = '1×';
-    $('#btn-sell').classList.remove('on');
     buildTray();
+    // Wire skip button in overlay
+    var skipBtn = $('#btn-skip');
+    if (skipBtn) skipBtn.onclick = function() {
+      if (!B || B.over) return;
+      var reward = B.skipWave();
+      if (reward) { var c2 = camp(save.last); c2.stats.skipGold += reward; persist(); Sound.play('coin'); syncTray(); }
+    };
     show('battle');
     lockLandscape();
     fit();
@@ -1133,10 +1286,13 @@
   });
 
   function updateHud() {
-    $('#hud-gold').textContent = Math.floor(B.gold);
+    var goldEl = $('#hud-gold');
+    if (goldEl) goldEl.textContent = Math.floor(B.gold);
     const w = Math.max(1, B.waveNow());
-    $('#hud-wave-text').textContent = (terr.final ? 'The Citadel · ' : '') + 'Wave ' + w + ' / ' + terr.waves;
-    $('#hud-wave-fill').style.width = Math.round((B.next / B.schedule.length) * 100) + '%';
+    var waveTextEl = $('#hud-wave-text');
+    if (waveTextEl) waveTextEl.textContent = w + '/' + terr.waves;
+    var waveFillEl = $('#hud-wave-fill');
+    if (waveFillEl) waveFillEl.style.width = Math.round((B.next / B.schedule.length) * 100) + '%';
     // Wave countdown between waves
     const cdEl = $('#hud-countdown');
     if (cdEl) {
@@ -1153,7 +1309,7 @@
         const role = B.schedule[i].role;
         if (!seen[role]) { seen[role] = true; upcoming.push(role); }
       }
-      const ROLE_ICON = { spear: '🗡', sword: '⚔', archer: '🏹', mage: '✨', champion: '👑', warlord: '💀' };
+      const ROLE_ICON = { spear: '🗡', sword: '⚔', archer: '🏹', mage: '✨', warlock: '🔥', healer: '💚', champion: '👑', warlord: '💀' };
       fcEl.innerHTML = upcoming.length ? upcoming.map(function(r) {
         return '<span class="fc-pip" title="' + r + '">' + (ROLE_ICON[r] || '⚔') + '</span>';
       }).join('') : '';
@@ -1230,24 +1386,6 @@
     if (B.over && !resultShown) { resultShown = true; setTimeout(showResult, 700); }
   }
 
-  $('#btn-sell').addEventListener('click', (e) => {
-    uiS.sellMode = !uiS.sellMode;
-    e.currentTarget.classList.toggle('on', uiS.sellMode);
-    if (uiS.sellMode) { uiS.selected = null; syncTray(); }
-    Sound.play('ui');
-  });
-  $('#btn-skip').addEventListener('click', () => {
-    if (!B || B.over) return;
-    const reward = B.skipWave();
-    if (reward) {
-      const c = camp(save.last);
-      c.stats.skipGold += reward;
-      persist();
-      Sound.play('coin'); syncTray();
-    }
-  });
-  $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
-  $('#btn-pause').addEventListener('click', openPause);
   document.addEventListener('visibilitychange', () => { if (document.hidden && B && !B.over && !paused && $('#screen-battle').classList.contains('active')) openPause(); });
 
   function openPause() {

@@ -16,8 +16,6 @@
     <section id="screen-splash" class="screen active">
       <div class="splash">
         <div class="splash-logos">
-          <img class="splash-logo splash-logo-jls" src="img/jlokstudios.jpg" alt="JLokStudios" width="120" height="120">
-          <span class="splash-x">×</span>
           <img class="splash-logo splash-logo-bf" src="img/logo.svg" alt="Bannerfall" width="120" height="120">
         </div>
         <div class="splash-bar"><div class="splash-bar-fill" id="splash-fill"></div></div>
@@ -36,22 +34,15 @@
 
     <!-- 3. Battle -->
     <section id="screen-battle" class="screen">
-      <header id="hud">
-        <div class="hud-gold"><span class="coin"></span><b id="hud-gold">0</b></div>
-        <div class="hud-wave">
-          <div id="hud-wave-text">Wave 1</div>
-          <div class="hud-wave-bar"><i id="hud-wave-fill"></i></div>
+      <div id="field">
+        <canvas id="cv"></canvas>
+        <div id="hint" class="hint hidden">Tap a unit, then tap a lane.</div>
+        <div id="hud-overlay">
           <span id="hud-countdown" class="hud-countdown"></span>
           <button id="btn-skip" class="wave-skip hidden" aria-label="Skip to next wave">⏭ <span id="skip-reward"></span></button>
           <div id="wave-forecast" class="wave-forecast"></div>
         </div>
-        <div class="hud-btns">
-          <button id="btn-sell" class="icon-btn" aria-label="Sell mode" title="Sell unit">$</button>
-          <button id="btn-speed" class="icon-btn" aria-label="Game speed">1×</button>
-          <button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>
-        </div>
-      </header>
-      <div id="field"><canvas id="cv"></canvas><div id="hint" class="hint hidden">Pick a unit below, then tap a lane to send them into battle.</div></div>
+      </div>
       <footer id="tray"></footer>
     </section>
 

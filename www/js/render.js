@@ -272,6 +272,81 @@
         }
         break;
       }
+      case 'warlock': {
+        const charge = ap > 0.05 ? M.min(1, (ap - 0.05) / 0.6) : 0;
+        // Dark robe — deeper, more ominous
+        ctx.fillStyle = '#1a0828'; ctx.globalAlpha = 0.55 + charge * 0.25;
+        ctx.beginPath(); ctx.roundRect(-bw/2-4, -bh/2-2, bw+8, bh+14, [2,2,10,10]); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Glowing robe trim
+        ctx.strokeStyle = '#ff4020'; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.5 + charge * 0.3;
+        ctx.beginPath(); ctx.roundRect(-bw/2-4, -bh/2-2, bw+8, bh+14, [2,2,10,10]); ctx.stroke();
+        ctx.globalAlpha = 1;
+        // Dual staves crossed behind
+        const sTopL = { x: -bw/2 - 8, y: -bh/2 - 22 };
+        const sTopR = { x: bw/2 + 4, y: -bh/2 - 20 };
+        ctx.strokeStyle = '#3a1808'; ctx.lineWidth = 2.8;
+        ctx.beginPath(); ctx.moveTo(-bw/2 - 2, bh/2 + 4); ctx.lineTo(sTopL.x, sTopL.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bw/2 - 2, bh/2 + 2); ctx.lineTo(sTopR.x, sTopR.y); ctx.stroke();
+        // Twin orbs — fire + shadow
+        const wOrbR = 6 + charge * 4;
+        const wPulse = 0.6 + 0.4 * sin(walkPhase * 1.8);
+        // Left orb: fire
+        ctx.fillStyle = '#ff4020';
+        ctx.beginPath(); ctx.arc(sTopL.x, sTopL.y - 5, wOrbR, 0, TAU); ctx.fill();
+        ctx.globalAlpha = wPulse * 0.5 + charge * 0.35;
+        ctx.fillStyle = '#ff8040';
+        ctx.beginPath(); ctx.arc(sTopL.x, sTopL.y - 5, wOrbR * 2.0, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Right orb: shadow
+        ctx.fillStyle = '#6020c0';
+        ctx.beginPath(); ctx.arc(sTopR.x, sTopR.y - 5, wOrbR * 0.85, 0, TAU); ctx.fill();
+        ctx.globalAlpha = wPulse * 0.4 + charge * 0.3;
+        ctx.fillStyle = '#a060ff';
+        ctx.beginPath(); ctx.arc(sTopR.x, sTopR.y - 5, wOrbR * 1.8, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        // Off-hand arms to staves
+        ctx.lineWidth = 3; ctx.strokeStyle = accentColor;
+        ctx.beginPath(); ctx.moveTo(-bw/2 + 1, -bh/2 + 3); ctx.lineTo(-bw/2 - 6, -bh/2 - 3); ctx.stroke();
+        // Orbiting dark particles
+        for (let j = 0; j < 5; j++) {
+          const a = walkPhase * 2.8 + j * (TAU / 5);
+          const oR = 12 + charge * 7;
+          const rx = cos(a) * oR;
+          const ry = sin(a) * oR * 0.35 - bh/2 - 10;
+          ctx.globalAlpha = 0.3 + charge * 0.5;
+          ctx.fillStyle = j % 2 === 0 ? '#ff6040' : '#a060ff';
+          ctx.beginPath(); ctx.arc(rx, ry, 2.5 + charge * 1.5, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        // Cataclysm charge-up ring
+        if (ap > 0.5) {
+          const rf = (ap - 0.5) / 0.5;
+          ctx.globalAlpha = 0.7 * (1 - rf);
+          ctx.strokeStyle = '#ff4020'; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(0, -bh/2 - 10, 8 + rf * 20, 0, TAU); ctx.stroke();
+          ctx.strokeStyle = '#a060ff'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(0, -bh/2 - 10, 4 + rf * 14, 0, TAU); ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        // Casting blast during attack
+        if (ap > 0.06) {
+          ctx.globalAlpha = M.min(1, ap * 2.5);
+          ctx.strokeStyle = '#ff6040'; ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(ex, ey); ctx.lineTo(ex + 12, ey - 7);
+          ctx.moveTo(ex, ey); ctx.lineTo(ex + 10, ey + 6);
+          ctx.moveTo(ex, ey); ctx.lineTo(ex + 15, ey);
+          ctx.stroke();
+          ctx.strokeStyle = '#a060ff'; ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(ex + 2, ey - 2); ctx.lineTo(ex + 9, ey - 10);
+          ctx.moveTo(ex + 2, ey + 2); ctx.lineTo(ex + 9, ey + 9);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        break;
+      }
     }
   }
 
@@ -333,7 +408,7 @@
     _head(ctx, fid, hR, hY, accentColor);
 
     // ── OFF-HAND ARM ─────────────────────────────────────────────────
-    if (role !== 'archer' && role !== 'mage') { // archer/mage handle their own off-hand
+    if (role !== 'archer' && role !== 'mage' && role !== 'warlock') { // archer/mage/warlock handle their own off-hand
       const baSwing = sin(wp + pi * 0.5) * 0.18 * walkStrength;
       ctx.lineWidth = 3; ctx.strokeStyle = accentColor;
       ctx.beginPath();
@@ -352,7 +427,7 @@
     const elbowX = BW/2 - 1 + cos(armDir) * armLen;
     const elbowY = -BH/2 + 3 + sin(armDir) * armLen;
 
-    if (role !== 'archer') { // archer overrides arm in _weapon
+    if (role !== 'archer' && role !== 'warlock') { // archer/warlock overrides arm in _weapon
       ctx.lineWidth = 3.5; ctx.strokeStyle = accentColor;
       ctx.beginPath(); ctx.moveTo(BW/2 - 1, -BH/2 + 3); ctx.lineTo(elbowX, elbowY); ctx.stroke();
     }
@@ -386,7 +461,7 @@
     // Figure (no badge circle — drawn directly)
     ctx.scale(r / 20, r / 20);
     const OG_GLYPH = { men:'sword', elves:'archer', orcs:'sword', goblins:'mage', dwarves:'sword', citadel:'mage' };
-    const base = role === 'og' ? (OG_GLYPH[f.id] || 'sword') : (role === 'champion' || role === 'warlord') ? 'sword' : role;
+    const base = role === 'og' ? (OG_GLYPH[f.id] || 'sword') : (role === 'champion' || role === 'warlord') ? 'sword' : role === 'healer' ? 'mage' : role;
     glyph(ctx, base, enemy ? f.color : f.accent, enemy, f.id, atkPhase || 0, walkPhase || 0);
     // OG Force elite crown
     if (role === 'og') {
@@ -411,6 +486,21 @@
         ctx.lineTo(8,-21); ctx.lineTo(20,-30); ctx.lineTo(12,-17);
       }
       ctx.closePath(); ctx.fill();
+    }
+    // Healer aura (green pulsing ring)
+    if (role === 'healer') {
+      const hp = 0.5 + 0.5 * M.sin((walkPhase || 0) * 1.5);
+      ctx.globalAlpha = 0.35 + hp * 0.25;
+      ctx.strokeStyle = '#60ff80'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.stroke();
+      ctx.fillStyle = '#60ff80'; ctx.globalAlpha = 0.12 + hp * 0.08;
+      ctx.beginPath(); ctx.arc(0, 0, 16, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      // Cross symbol
+      ctx.fillStyle = '#60ff80'; ctx.globalAlpha = 0.8;
+      ctx.fillRect(-1.5, -18, 3, 7);
+      ctx.fillRect(-3.5, -16, 7, 3);
+      ctx.globalAlpha = 1;
     }
     // Hit flash
     if (hit > 0) {

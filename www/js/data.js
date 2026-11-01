@@ -36,7 +36,7 @@
     G.cw = Math.round(ch * aspect);
     G.w = G.cw;
   };
-  BF.ROLES = ['spear', 'sword', 'archer', 'mage'];
+  BF.ROLES = ['spear', 'sword', 'archer', 'mage', 'warlock'];
 
   // ---- Economy ----
   BF.ECON = {
@@ -82,6 +82,8 @@
     sword: { speed: 15, leak: 6 },
     archer: { speed: 15, leak: 5 },
     mage: { speed: 13, leak: 6 },
+    warlock: { speed: 11, leak: 8 },
+    healer: { speed: 12, leak: 4 },
   };
 
   /* --------------------------------------------------------------------------
@@ -100,6 +102,7 @@
         sword: { name: 'Swordsman', hp: 190, dmg: 19, rate: 1.1, range: 30 },
         archer: { name: 'Archer', hp: 70, dmg: 15, rate: 0.85, range: 250 },
         mage: { name: 'Battle Mage', hp: 75, dmg: 30, rate: 0.7, range: 230, aoe: 80 },
+        warlock: { name: 'Templar', hp: 90, dmg: 42, rate: 0.5, range: 200, aoe: 100 },
       },
     },
     {
@@ -114,6 +117,7 @@
         sword: { name: 'Bladedancer', hp: 150, dmg: 17, rate: 1.2, range: 30 },
         archer: { name: 'Longbow Ranger', hp: 65, dmg: 22, rate: 0.55, range: 330 },
         mage: { name: 'Moon Mage', hp: 65, dmg: 28, rate: 0.65, range: 240, aoe: 80 },
+        warlock: { name: 'Archdruid', hp: 80, dmg: 38, rate: 0.45, range: 280, aoe: 105 },
       },
     },
     {
@@ -128,6 +132,7 @@
         sword: { name: 'Warbrute', hp: 260, dmg: 26, rate: 1.0, range: 30 },
         archer: { name: 'Skirmisher', hp: 55, dmg: 11, rate: 0.8, range: 210 },
         mage: { name: 'Shaman', hp: 65, dmg: 28, rate: 0.6, range: 210, aoe: 80 },
+        warlock: { name: 'Blood Warlock', hp: 85, dmg: 44, rate: 0.45, range: 190, aoe: 95 },
       },
     },
     {
@@ -142,6 +147,7 @@
         sword: { name: 'Cutthroat', hp: 110, dmg: 12, rate: 1.3, range: 30 },
         archer: { name: 'Slinger', hp: 45, dmg: 8.5, rate: 1.1, range: 240 },
         mage: { name: 'Hexer', hp: 50, dmg: 26, rate: 0.7, range: 220, aoe: 85 },
+        warlock: { name: 'Bomber', hp: 60, dmg: 36, rate: 0.55, range: 210, aoe: 115 },
       },
     },
     {
@@ -156,6 +162,7 @@
         sword: { name: 'Axeguard', hp: 240, dmg: 21, rate: 0.9, range: 30 },
         archer: { name: 'Crossbowman', hp: 80, dmg: 17, rate: 0.7, range: 210 },
         mage: { name: 'Runesmith', hp: 85, dmg: 33, rate: 0.6, range: 210, aoe: 75 },
+        warlock: { name: 'Siege Engine', hp: 110, dmg: 48, rate: 0.4, range: 180, aoe: 90 },
       },
     },
   ];
@@ -171,6 +178,7 @@
       sword: { name: 'Seraph Knight', hp: 210, dmg: 22, rate: 1.05, range: 30 },
       archer: { name: 'Starbow', hp: 75, dmg: 18, rate: 0.75, range: 270 },
       mage: { name: 'Oracle', hp: 80, dmg: 32, rate: 0.65, range: 230, aoe: 80 },
+      warlock: { name: 'Void Seer', hp: 95, dmg: 45, rate: 0.45, range: 220, aoe: 100 },
     },
   };
   for (const role of BF.ROLES) {
@@ -208,15 +216,17 @@
   BF.factionById = (id) => BF.FACTIONS.find((f) => f.id === id) || (id === 'citadel' ? BF.CITADEL_FACTION : null);
 
   // Normalise champion/warlord role names to their base role for weakness lookup
-  BF.baseRole = (role) => (role === 'champion' || role === 'warlord') ? 'sword' : role;
+  BF.baseRole = (role) => (role === 'champion' || role === 'warlord') ? 'sword' : (role === 'healer') ? 'mage' : role;
 
   // Rock-paper-scissors damage multipliers
   // archers shred swords; mages shred defensive melee; melee beats ranged in close
   BF.dmgMult = function (atkRole, defRole) {
     if (atkRole === 'archer' && defRole === 'sword')  return 1.75;
     if (atkRole === 'archer' && defRole === 'spear')  return 1.3;
-    if (atkRole === 'mage'   && (defRole === 'spear' || defRole === 'sword')) return 1.6;
-    if ((atkRole === 'spear' || atkRole === 'sword') && (defRole === 'archer' || defRole === 'mage')) return 1.3;
+    if (atkRole === 'archer' && (defRole === 'warlock')) return 1.8;
+    if ((atkRole === 'mage' || atkRole === 'warlock') && (defRole === 'spear' || defRole === 'sword')) return 1.6;
+    if (atkRole === 'warlock' && defRole === 'mage')  return 1.4;
+    if ((atkRole === 'spear' || atkRole === 'sword') && (defRole === 'archer' || defRole === 'mage' || defRole === 'warlock')) return 1.3;
     return 1.0;
   };
 
@@ -389,6 +399,7 @@
     sword:  { name: 'Rally Cry',    desc: '+50% attack speed for lane allies 5s',     cooldown: 20, dur: 5 },
     archer: { name: 'Rapid Volley', desc: 'Fires 3 instant shots at closest enemy',   cooldown: 12, dur: 0 },
     mage:   { name: 'Chain Blast',  desc: '2× AoE damage pulse hits every enemy in lane', cooldown: 16, dur: 0 },
+    warlock:{ name: 'Cataclysm',   desc: 'Devastating blast: 3× AoE damage to all enemies in range', cooldown: 22, dur: 0 },
   };
 
   // ---- Tier-1 strength / weakness matrix ----
@@ -399,6 +410,7 @@
     sword:  { strong: ['spear', 'mage'],   weak: ['archer'],         flavor: 'Armoured brawler; shrugs off polearms, suffers under arrows.' },
     archer: { strong: ['sword', 'spear'],  weak: ['spear at melee'], flavor: 'Shreds heavy infantry; panics when closed on.' },
     mage:   { strong: ['spear', 'sword'],  weak: ['archer', 'spear'],flavor: 'Melts melee blobs; glass-cannon when focused.' },
+    warlock:{ strong: ['spear', 'sword', 'mage'], weak: ['archer'],     flavor: 'Supreme ranged devastation; slow and fragile against fast arrows.' },
   };
 
   // ---- First-10-wave enemy siege design ----
@@ -410,11 +422,11 @@
     { n:3,  name:'Armoured Footmen',   mix:{ spear:0.35, sword:0.65 },              count:6,  challenge:'Sword-heavy; archers now earn cost.' },
     { n:4,  name:'Crossbow Snipers',   mix:{ spear:0.4, sword:0.3, archer:0.3 },   count:7,  challenge:'First ranged; players need counter-archers.' },
     { n:5,  name:'Raid Party',         mix:{ sword:0.4, archer:0.4, spear:0.2 },   count:9,  challenge:'Balanced push; economy stress-test.' },
-    { n:6,  name:'Siege Division',     mix:{ sword:0.4, archer:0.3, mage:0.3 },    count:10, challenge:'Mages debut; AoE punishes tight clusters.' },
-    { n:7,  name:'Battering Vanguard', mix:{ spear:0.2, sword:0.5, mage:0.3 },     count:11, challenge:'Heavy melee + mage combo; gate HP at risk.' },
-    { n:8,  name:'Arrow Storm',        mix:{ archer:0.55, mage:0.45 },              count:12, challenge:'Ranged-dominant; spear Shield Wall shines.' },
-    { n:9,  name:'Elite Guard',        mix:{ sword:0.35, archer:0.3, mage:0.35 },  count:13, challenge:'Stats near champion tier; merc/repair advised.' },
-    { n:10, name:'Final Assault',      mix:{ sword:0.35, archer:0.3, mage:0.35 },  count:15, challenge:'Champion spawns at wave end; all resources on deck.' },
+    { n:6,  name:'Siege Division',     mix:{ sword:0.4, archer:0.3, mage:0.3 },                  count:10, challenge:'Mages debut; AoE punishes tight clusters.' },
+    { n:7,  name:'Battering Vanguard', mix:{ spear:0.2, sword:0.4, mage:0.25, healer:0.15 },   count:11, challenge:'Healers debut; focus-fire them or they undo your damage.' },
+    { n:8,  name:'Arrow Storm',        mix:{ archer:0.45, mage:0.35, healer:0.20 },             count:12, challenge:'Ranged-dominant with healers; spear Shield Wall shines.' },
+    { n:9,  name:'Elite Guard',        mix:{ sword:0.30, archer:0.25, mage:0.25, healer:0.20 }, count:13, challenge:'Stats near champion tier; healers keep them alive.' },
+    { n:10, name:'Final Assault',      mix:{ sword:0.30, archer:0.25, mage:0.25, healer:0.20 }, count:15, challenge:'Champion spawns at wave end; all resources on deck.' },
   ];
 
   if (typeof module !== 'undefined') module.exports = BF;

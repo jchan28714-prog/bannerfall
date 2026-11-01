@@ -102,6 +102,7 @@
         sword: 0.45 + 0.12 * w + 0.04 * i,
         archer: w >= 1 || i >= 1 ? 0.2 + 0.06 * w + 0.05 * i : 0,
         mage: i >= 2 && w >= 2 ? 0.1 + 0.03 * w + 0.03 * i : 0,
+        healer: w >= 4 || i >= 3 ? 0.08 + 0.02 * w + 0.02 * i : 0,
       };
       let total = 0; for (const k in wt) total += wt[k];
       let r = this.rand() * total;
@@ -163,7 +164,7 @@
     _spawn(s) {
       const T = this.terr;
       const big = s.role === 'champion' || s.role === 'warlord';
-      const roleKey = big ? 'sword' : s.role;
+      const roleKey = big ? 'sword' : s.role === 'healer' ? 'mage' : s.role;
       const u = this.owner.units[roleKey];
       const core = (x) => Math.sqrt(x.dmg * x.rate * (x.aoe ? 1.5 : 1) * x.hp);
       const norm = core(BF.factionById('men').units[roleKey]) / core(u);
@@ -180,12 +181,19 @@
       } else if (s.role === 'warlord') {
         Object.assign(e, { hp: u.hp * norm * 10 * T.hpScale * mm, dmg: u.dmg * norm * 2.2 * T.dmgScale * mm, rate: u.rate * 0.8, range: 34, speed: 9, leak: 40, bounty: 300, size: 2.0 });
       } else {
+        const baseRole = s.role === 'healer' ? 'healer' : s.role;
         const melee = s.role === 'spear' || s.role === 'sword';
+        const roleInfo = BF.ROLE[baseRole] || BF.ROLE.mage;
         Object.assign(e, {
-          hp: u.hp * norm * T.hpScale * mm, dmg: u.dmg * norm * T.dmgScale * mm, rate: u.rate,
+          hp: u.hp * norm * T.hpScale * mm * (s.role === 'healer' ? 0.7 : 1),
+          dmg: u.dmg * norm * T.dmgScale * mm * (s.role === 'healer' ? 0.3 : 1),
+          rate: u.rate,
           range: melee ? 28 : BF.ENEMY_RANGED_STOP,
-          speed: BF.ROLE[s.role].speed, leak: BF.ROLE[s.role].leak,
-          bounty: Math.round(menCost * BF.ECON.bountyRate), aoe: u.aoe || 0,
+          speed: roleInfo.speed, leak: roleInfo.leak,
+          bounty: Math.round(menCost * BF.ECON.bountyRate * (s.role === 'healer' ? 1.5 : 1)),
+          aoe: u.aoe || 0,
+          isHealer: s.role === 'healer',
+          healPower: s.role === 'healer' ? u.dmg * norm * T.dmgScale * mm * 0.6 : 0,
         });
       }
       if (s.boosted === 1) { e.hp *= 2; e.dmg *= 1.5; e.size = Math.max(e.size, 1.5); }
@@ -212,7 +220,7 @@
       if (this.gold < cost) return { ok: false, reason: 'gold' };
       this.gold -= cost;
       const m = this.defMult;
-      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : 0);
+      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'warlock' ? -6 : type === 'sword' ? -1 : type === 'spear' ? 3 : 0);
       const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
       const atkStrBonus = 1 + this._starLv(type, 'atkStr') * 0.08;
       const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
@@ -249,7 +257,7 @@
     _spawnFreeUnit(type, row) {
       const u = this.faction.units[type];
       if (!u) return;
-      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
+      const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'warlock' ? -6 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
       const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
       const atkStrBonus = 1 + this._starLv(type, 'atkStr') * 0.08;
       const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
@@ -381,14 +389,16 @@
       d.atk = 0.18;
       if (d.ranged) {
         const arcH = !d.aoe ? 20 : 0;
-        this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? '#c9a6ff' : '#e8dcc0', 0.16, arcH);
+        const orbColor = d.type === 'warlock' ? '#ff6040' : '#c9a6ff';
+        this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? orbColor : '#e8dcc0', 0.16, arcH);
       }
       const mult = BF.dmgMult(d.type, BF.baseRole(tgt.role));
       // Archers at point-blank range are ineffective (panic penalty)
       const panicMult = (d.type === 'archer' && Math.abs(tgt.x - d.x) < 35) ? 0.5 : 1;
       const dmg = d.dmg * mult * panicMult;
       if (d.aoe) {
-        this._ring(tgt.x, tgt.y, d.aoe, '#c9a6ff');
+        const ringColor = d.type === 'warlock' ? '#ff6040' : '#c9a6ff';
+        this._ring(tgt.x, tgt.y, d.aoe, ringColor);
         for (const e of this.enemies) {
           if (e.dead) continue;
           if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? dmg : d.dmg * 0.6);
@@ -502,6 +512,45 @@
         e.hit = Math.max(0, e.hit - dt);
         e.atk = Math.max(0, e.atk - dt);
         if (e.slowDur > 0) e.slowDur = Math.max(0, e.slowDur - dt);
+
+        // Healers: heal the most damaged nearby ally instead of attacking
+        if (e.isHealer) {
+          let healTgt = null, lowestFrac = 1;
+          for (const ally of this.enemies) {
+            if (ally.dead || ally === e || ally.isHealer) continue;
+            if (Math.abs(ally.x - e.x) > 120 || Math.abs(ally.y - e.y) > G.cell * 1.5) continue;
+            const frac = ally.hp / ally.maxHp;
+            if (frac < lowestFrac) { lowestFrac = frac; healTgt = ally; }
+          }
+          if (healTgt && e.cd <= 0) {
+            e.cd = 1 / e.rate;
+            e.atk = 0.18;
+            const heal = e.healPower;
+            healTgt.hp = Math.min(healTgt.maxHp, healTgt.hp + heal);
+            if (this.fx) {
+              this._shot(e.x - 4, e.y, healTgt.x, healTgt.y, 'orb', '#60ff80', 0.14, 0);
+              this._ring(healTgt.x, healTgt.y, 22, '#60ff80');
+              this._float(healTgt.x, healTgt.y - 16, '+' + Math.round(heal), '#60ff80');
+            }
+          }
+          // Healers stay behind other enemies; only march if no allies ahead
+          let hasAllyAhead = false;
+          for (const ally of this.enemies) {
+            if (!ally.dead && ally !== e && !ally.isHealer && ally.x < e.x && Math.abs(ally.y - e.y) < G.cell) { hasAllyAhead = true; break; }
+          }
+          if (!hasAllyAhead) {
+            e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
+          } else if (e.x > 160) {
+            e.x -= e.speed * 0.5 * (e.slowDur > 0 ? 0.25 : 1) * dt;
+          }
+          if (e.x <= 10) {
+            e.dead = true; this.leaked++; this.baseHp -= e.leak;
+            this._float(BF.CASTLE_W - 6, e.y, '-' + e.leak, '#ff6b5e');
+            this.events.push('leak');
+          }
+          continue;
+        }
+
         let tgt = null, best = 1e9;
         for (const d of this.defenders) {
           if (d.dead || d.row !== e.row) continue;
@@ -657,6 +706,12 @@
           if (!e.dead && e.row === d.row) this._hurtEnemy(e, d.dmg * 2);
         }
         this._ring(d.x + d.range / 2, d.y, d.range / 2, '#c9a6ff');
+      } else if (d.type === 'warlock') {
+        for (const e of this.enemies) {
+          if (!e.dead && dist(e.x, e.y, d.x, d.y) <= d.range) this._hurtEnemy(e, d.dmg * 3);
+        }
+        this._ring(d.x, d.y, d.range, '#ff6040');
+        this._ring(d.x, d.y, d.range * 0.6, '#ffa040');
       }
       this.events.push('ability');
       return true;
