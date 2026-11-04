@@ -754,12 +754,12 @@
 
   // ── Biome-based background system ─────────────────────────────────────────
   const BIOMES = {
-    meadow:   { skyA:'#3e8cc4', skyB:'#a8d8f8', horA:'#6ab048', horB:'#3a6828', groundB:'#243e18', cloudFill:'rgba(255,255,255,.72)', particle:'#f8e060', mtnFill:'#3e6030' },
-    forest:   { skyA:'#c07028', skyB:'#e8a858', horA:'#7a5430', horB:'#4c3418', groundB:'#362412', cloudFill:'rgba(240,140,60,.5)',   particle:'#f86028', mtnFill:'#4a6838' },
-    scorched: { skyA:'#c03010', skyB:'#e87830', horA:'#8a3810', horB:'#501808', groundB:'#300e04', cloudFill:'rgba(200,80,40,.52)',    particle:'#f09040', mtnFill:'#481808' },
-    mountain: { skyA:'#1a4878', skyB:'#60a4d8', horA:'#889aa8', horB:'#505868', groundB:'#2e3248', cloudFill:'rgba(220,240,255,.68)', particle:'#c8e0f8', mtnFill:'#505a78' },
-    swamp:    { skyA:'#123820', skyB:'#3a8060', horA:'#284830', horB:'#142418', groundB:'#0c1c14', cloudFill:'rgba(40,160,90,.46)',    particle:'#30f090', mtnFill:'#1a4028' },
-    dark:     { skyA:'#0c0220', skyB:'#280848', horA:'#380c3c', horB:'#1e0820', groundB:'#0c0414', cloudFill:'rgba(140,40,200,.52)',   particle:'#c040f0', mtnFill:'#280840' },
+    meadow:   { skyA:'#2870b0', skyB:'#78c8f0', horA:'#5aad3e', horB:'#2e7820', groundB:'#1a4a10', cloudFill:'rgba(255,255,255,.78)', particle:'#ffe060', mtnFill:'#3a7030' },
+    forest:   { skyA:'#d08030', skyB:'#f0b868', horA:'#8a6030', horB:'#5c3a18', groundB:'#3a2810', cloudFill:'rgba(255,160,70,.55)',   particle:'#ff6828', mtnFill:'#4a7838' },
+    scorched: { skyA:'#d03818', skyB:'#f08838', horA:'#9a4018', horB:'#602008', groundB:'#381004', cloudFill:'rgba(220,90,40,.55)',    particle:'#ff9850', mtnFill:'#582010' },
+    mountain: { skyA:'#185888', skyB:'#68b8e8', horA:'#90a8b8', horB:'#586878', groundB:'#303848', cloudFill:'rgba(230,245,255,.72)', particle:'#d0e8ff', mtnFill:'#586888' },
+    swamp:    { skyA:'#0a4828', skyB:'#389868', horA:'#285838', horB:'#183020', groundB:'#0c2414', cloudFill:'rgba(50,180,100,.5)',    particle:'#40ff98', mtnFill:'#205030' },
+    dark:     { skyA:'#100430', skyB:'#381060', horA:'#481048', horB:'#280c28', groundB:'#100818', cloudFill:'rgba(160,50,220,.55)',   particle:'#d050ff', mtnFill:'#301050' },
   };
   const BIOME_BY_FACTION = { men:'meadow', elves:'forest', orcs:'scorched', dwarves:'mountain', goblins:'swamp', citadel:'dark' };
 
@@ -842,14 +842,8 @@
     drawBackground(ctx, b.terr ? b.terr.id : null, b.owner ? b.owner.id : null, T);
 
     // Semi-transparent battlefield overlay so units remain readable
-    ctx.fillStyle = 'rgba(6,8,16,.40)';
+    ctx.fillStyle = 'rgba(6,8,16,.30)';
     ctx.fillRect(0, G.sky, G.cw, G.h);
-
-    // Alternating lane shading
-    for (let r = 0; r < G.rows; r++) {
-      ctx.fillStyle = r % 2 === 0 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)';
-      ctx.fillRect(0, G.sky + r * G.cell, G.cw, G.cell);
-    }
 
     // Defender-side spawn glow (castle exit)
     const dg = ctx.createLinearGradient(BF.SPAWN_X + 20, 0, BF.SPAWN_X + 70, 0);
@@ -861,36 +855,43 @@
     eg.addColorStop(0, hexA(foe.color, 0.28)); eg.addColorStop(1, hexA(foe.color, 0));
     ctx.fillStyle = eg; ctx.fillRect(G.cw - 90, G.sky, 90, G.h);
 
-    // Lane tap targets — full-row highlight + border so players know they can tap anywhere
-    if (ui.selected) {
-      for (let r = 0; r < G.rows; r++) {
-        const ry = G.sky + r * G.cell;
-        ctx.fillStyle = 'rgba(232,197,102,.07)';
-        ctx.fillRect(2, ry + 2, G.cw - 4, G.cell - 4);
-        ctx.strokeStyle = 'rgba(232,197,102,.38)'; ctx.lineWidth = 1.5;
-        ctx.strokeRect(2, ry + 2, G.cw - 4, G.cell - 4);
-        const cy = ry + G.cell / 2;
-        ctx.fillStyle = 'rgba(232,197,102,.65)';
-        ctx.beginPath(); ctx.moveTo(8, cy - 6); ctx.lineTo(22, cy); ctx.lineTo(8, cy + 6); ctx.closePath(); ctx.fill();
-      }
+    // Rolling terrain undulation (subtle perspective lines)
+    ctx.strokeStyle = 'rgba(255,255,255,.035)'; ctx.lineWidth = 1;
+    for (let y = G.sky + 20; y < G.sky + G.h - 10; y += 28) {
+      const wave = M.sin(y * 0.03 + T * 0.2) * 8;
+      ctx.beginPath();
+      ctx.moveTo(BF.CASTLE_W + 10, y);
+      ctx.quadraticCurveTo(G.cw * 0.3, y + wave, G.cw * 0.5, y);
+      ctx.quadraticCurveTo(G.cw * 0.7, y - wave, G.cw - BF.CASTLE_W - 10, y);
+      ctx.stroke();
     }
-    // Visible lane separator lines (always shown)
-    ctx.strokeStyle = 'rgba(255,255,255,.10)'; ctx.lineWidth = 1;
-    for (let r = 1; r < G.rows; r++) {
-      ctx.beginPath(); ctx.moveTo(BF.CASTLE_W + 2, G.sky + r * G.cell); ctx.lineTo(G.cw, G.sky + r * G.cell); ctx.stroke();
+    // Scattered grass tufts
+    ctx.strokeStyle = 'rgba(80,160,60,.15)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 12; i++) {
+      const gx = 80 + ((i * 137) % (G.cw - 160));
+      const gy = G.sky + 15 + ((i * 89) % (G.h - 30));
+      ctx.beginPath();
+      ctx.moveTo(gx, gy); ctx.lineTo(gx - 2, gy - 6);
+      ctx.moveTo(gx + 3, gy); ctx.lineTo(gx + 4, gy - 5);
+      ctx.moveTo(gx - 3, gy); ctx.lineTo(gx - 5, gy - 4);
+      ctx.stroke();
     }
 
-    // Range band for inspected unit
+    // Range circle for inspected unit
     if (ui.inspect && !ui.inspect.dead) {
       const d = ui.inspect;
-      ctx.fillStyle = 'rgba(232,197,102,.08)';
-      ctx.fillRect(d.x + 3, G.sky + d.row * G.cell + 3, d.range, G.cell - 6);
-      ctx.strokeStyle = 'rgba(232,197,102,.4)'; ctx.lineWidth = 1.5;
-      ctx.strokeRect(d.x + 3, G.sky + d.row * G.cell + 3, d.range, G.cell - 6);
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = '#e8c566';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.range, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = '#e8c566'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.range, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
-    // ── DEFENDERS ──────────────────────────────────────────────────────
-    for (const d of b.defenders) {
+    // ── DEFENDERS (sorted by Y for depth) ──────────────────────────────
+    const defs = b.defenders.slice().sort((a, c) => a.y - c.y);
+    for (const d of defs) {
       const ap = d.atk / 0.18;
       const wp = T * 4;
       const lunge = d.atk > 0 && !d.ranged ? 5 * (d.atk / 0.18) : 0;
@@ -907,10 +908,9 @@
       if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? OGR + 14 : DR + 11), 34, d.hp / d.maxHp, '#7fcf86');
     }
 
-    // ── ENEMIES (sorted rightmost first so frontrunners draw on top) ───
-    // Clip enemies inside the enemy fortress so they don't show through
+    // ── ENEMIES (sorted by Y for depth, then rightmost first) ──────────
     const fortressEdge = G.cw - BF.CASTLE_W;
-    const foes = b.enemies.slice().sort((a, c) => c.x - a.x);
+    const foes = b.enemies.slice().sort((a, c) => a.y !== c.y ? a.y - c.y : c.x - a.x);
     for (const e of foes) {
       if (e.x > fortressEdge + 8) continue;
       const r = ER * e.size;

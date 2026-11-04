@@ -1022,10 +1022,13 @@
     const box = $('#field');
     const bw = box.clientWidth, bh = box.clientHeight;
     if (bw <= 0 || bh <= 0) return;
+    const oldH = G.h, oldSky = G.sky;
     BF.reflow(bw, bh);
-    if (B) {
-      for (const d of B.defenders) d.y = G.sky + d.row * G.cell + G.cell / 2;
-      for (const e of B.enemies) e.y = G.sky + e.row * G.cell + G.cell / 2;
+    if (B && oldH > 0) {
+      // Rescale Y positions proportionally when field size changes
+      const scale = G.h / oldH;
+      for (const d of B.defenders) d.y = G.sky + (d.y - oldSky) * scale;
+      for (const e of B.enemies) e.y = G.sky + (e.y - oldSky) * scale;
     }
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     cv.style.width = bw + 'px'; cv.style.height = bh + 'px';
@@ -1076,8 +1079,14 @@
           if (B.manualRecruit(r)) { Sound.play('reinforce'); uiS.selected = null; syncTray(); }
           return;
         }
-        uiS.selected = uiS.selected === r ? null : r;
-        Sound.play('ui'); syncTray();
+        // Direct spawn on card tap (open field - no row selection)
+        const res = B.spawn(r);
+        if (res.ok) {
+          if (!save.hintSeen) { save.hintSeen = true; persist(); $('#hint').classList.add('hidden'); }
+          Sound.play('place'); syncTray();
+        } else if (res.reason === 'gold') {
+          Sound.play('deny'); flashGold();
+        }
       });
       tray.appendChild(b);
     });
@@ -1091,6 +1100,7 @@
       c2.scale(2, 2);
       BF.drawToken(c2, 19, 19, 16, f, 'og', false, 0);
       b.addEventListener('click', () => {
+        // OG is ability-gated, not gold-spawned; keep as selection
         uiS.selected = uiS.selected === 'og' ? null : 'og';
         Sound.play('ui'); syncTray();
       });
@@ -1151,9 +1161,10 @@
     });
     $('#btn-ability').addEventListener('click', () => {
       if (!B || B.over || B.abilityCd > 0) return;
-      uiS.selected = uiS.selected === 'ability' ? null : 'ability';
-      uiS.sellMode = false; $('#btn-sell').classList.remove('on');
-      Sound.play('ui'); syncTray();
+      // Direct activation (no row targeting in open field)
+      if (B.useAbility()) {
+        Sound.play('ability'); uiS.selected = null; syncTray();
+      }
     });
     $('#btn-repair').addEventListener('click', () => {
       if (!B || B.over) return;
@@ -1163,9 +1174,9 @@
     });
     $('#btn-merc').addEventListener('click', () => {
       if (!B || B.over || B.mercCd > 0) return;
-      uiS.selected = uiS.selected === 'merc' ? null : 'merc';
-      uiS.sellMode = false; $('#btn-sell').classList.remove('on');
-      Sound.play('ui'); syncTray();
+      // Direct hire (no row targeting in open field)
+      const res = B.hireMerc();
+      if (res.ok) { Sound.play('place'); syncTray(); }
     });
     // Wire up control button events
     $('#btn-sell').addEventListener('click', (e) => {
@@ -1202,7 +1213,7 @@
     const isReinforce = uiS.selected === 'reinforce';
     document.querySelectorAll('.ucard').forEach((c) => {
       const role = c.dataset.role;
-      c.classList.toggle('sel', isReinforce ? false : uiS.selected === role);
+      c.classList.toggle('sel', false);
       c.classList.toggle('poor', B.gold < B.unitCost(role));
       c.classList.toggle('reinforce-pick', isReinforce && B.gold >= B.unitCost(role));
     });
@@ -1224,10 +1235,9 @@
     terr = t;
     var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
     B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm });
-    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: B.zombie ? 'Survive!' : 'Siege the fortress!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0, manualUntil: 0 } };
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: B.zombie ? 'Survive!' : 'March to victory!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0 } };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     buildTray();
-    // Wire skip button in overlay
     var skipBtn = $('#btn-skip');
     if (skipBtn) skipBtn.onclick = function() {
       if (!B || B.over) return;
@@ -1264,7 +1274,6 @@
       const worldDx = dx / r.width * (G.viewW || G.cw);
       uiS.cam.x = Math.max(0, Math.min(G.cw - (G.viewW || G.cw), _panState.startCamX - worldDx));
       uiS.cam.target = uiS.cam.x;
-      uiS.cam.manualUntil = B.time + 4;
     }
   });
   cv.addEventListener('pointerup', (e) => {
@@ -1279,29 +1288,28 @@
     const dpr = cv.width / r.width;
     const cx = ((e.clientX - r.left) * dpr - BF.drawOffset.x) / drawScale;
     const cy = ((e.clientY - r.top) * dpr - BF.drawOffset.y) / drawScale;
-    const row = Math.floor((cy - G.sky) / G.cell);
-    if (row < 0 || row >= G.rows) return;
+    if (cy < G.sky || cy > G.sky + G.h) return;
 
     if (uiS.sellMode) {
       const near = B.unitNear(cx, cy);
       if (near) {
         B.sellUnit(near.id); Sound.play('sell');
-        uiS.sellMode = false; $('#btn-sell').classList.remove('on'); // snap to purchase mode
+        uiS.sellMode = false; $('#btn-sell').classList.remove('on');
         syncTray();
       }
       return;
     }
     if (uiS.selected === 'merc') {
-      const res = B.hireMerc(row);
+      const res = B.hireMerc(cy);
       if (res.ok) { Sound.play('place'); uiS.selected = null; syncTray(); }
       return;
     }
     if (uiS.selected === 'ability') {
-      if (B.useAbility(row)) { Sound.play('place'); uiS.selected = null; syncTray(); }
+      if (B.useAbility()) { Sound.play('place'); uiS.selected = null; syncTray(); }
       return;
     }
-    if (uiS.selected) {
-      const res = B.spawn(uiS.selected, row);
+    if (uiS.selected && uiS.selected !== 'og') {
+      const res = B.spawn(uiS.selected, cy);
       if (res.ok) {
         if (!save.hintSeen) { save.hintSeen = true; persist(); $('#hint').classList.add('hidden'); }
         Sound.play('place');
@@ -1418,17 +1426,6 @@
       if (uiS.siegeFlash > 0) uiS.siegeFlash -= dt;
       if (uiS.abilityFlash > 0) uiS.abilityFlash -= dt;
       if (uiS.inspect && B.time > uiS.inspectUntil) uiS.inspect = null;
-      // Camera auto-follow: focus on the frontline where defenders meet enemies
-      if (B.time > uiS.cam.manualUntil) {
-        var maxDefX = BF.SPAWN_X;
-        var minEnemyX = G.cw;
-        for (var di = 0; di < B.defenders.length; di++) { var dd = B.defenders[di]; if (!dd.dead && dd.x > maxDefX) maxDefX = dd.x; }
-        for (var ei = 0; ei < B.enemies.length; ei++) { var ee = B.enemies[ei]; if (!ee.dead && ee.x < minEnemyX) minEnemyX = ee.x; }
-        var vw = G.viewW || G.cw;
-        // Bias toward showing the player's units — weight 70% toward defenders
-        var focusX = maxDefX * 0.7 + Math.min(minEnemyX, maxDefX + vw * 0.8) * 0.3;
-        uiS.cam.target = Math.max(0, Math.min(G.cw - vw, focusX - vw * 0.35));
-      }
       uiS.cam.x += (uiS.cam.target - uiS.cam.x) * 0.06;
     }
     BF.renderBattle(ctx, B, uiS, drawScale, uiS.cam.x);
@@ -1511,7 +1508,7 @@
     terr = zombieTerr;
     var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
     B = new BF.Battle({ factionId: f.id, territory: zombieTerr, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm, zombie: true });
-    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Survive!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0, manualUntil: 0 } };
+    uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Survive!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0 } };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     buildTray();
     var skipBtn = $('#btn-skip');

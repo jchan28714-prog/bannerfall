@@ -2,9 +2,8 @@
    BANNERFALL - battle engine
    Pure game logic: no drawing, no DOM.
 
-   Board: 6 lanes. Enemies march from the RIGHT, defenders from the LEFT.
-   Player spawns defenders by clicking a lane; they march right until they
-   engage an enemy.  Kill-only income; no passive drip.
+   Board: open field. Enemies march from the RIGHT, defenders from the LEFT.
+   Units seek nearest foes in 2D.  Kill-only income; no passive drip.
    ========================================================================== */
 (function () {
   'use strict';
@@ -86,6 +85,14 @@
       this._aiThresholds = [0.50, 0.25];
       this._aiFired = [false, false];
       this._goldTimer = 0;
+    }
+
+    _randY() {
+      return G.sky + 14 + this.rand() * (G.h - 28);
+    }
+    _rowToY(row) {
+      const y = G.sky + (G.h * (row + 0.5)) / G.rows + (this.rand() - 0.5) * G.h * 0.1;
+      return Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, y));
     }
 
     // ---------- enemy wave plan ----------
@@ -200,7 +207,7 @@
       const e = this.enemyPool.get();
       e.id = this.nid++; e.side = 'enemy'; e.role = s.role; e.row = s.row;
       e.x = G.cw + 20;
-      e.y = G.sky + s.row * G.cell + G.cell / 2;
+      e.y = this._rowToY(s.row);
       e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
       const mm = this.modeMult;
       if (s.role === 'champion') {
@@ -244,13 +251,14 @@
       return Math.max(10, Math.round(u.cost * (1 - reduc)));
     }
 
-    spawn(type, row) {
+    spawn(type, yPos) {
       const u = this.faction.units[type];
       if (!u) return { ok: false, reason: 'unknown' };
-      if (row < 0 || row >= G.rows) return { ok: false, reason: 'invalid' };
       const cost = this.unitCost(type);
       if (this.gold < cost) return { ok: false, reason: 'gold' };
       this.gold -= cost;
+      if (yPos == null) yPos = this._randY();
+      yPos = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, yPos));
       const m = this.defMult;
       const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'warlock' ? -6 : type === 'sword' ? -1 : type === 'spear' ? 3 : 0);
       const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
@@ -258,8 +266,8 @@
       const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
       const movBonus    = 1 + this._starLv(type, 'moveSpd') * 0.06;
       const d = {
-        id: this.nid++, side: 'def', type, row,
-        x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
+        id: this.nid++, side: 'def', type, row: 0,
+        x: BF.SPAWN_X, y: yPos,
         marchSpeed: spd * movBonus,
         hp: u.hp * m, maxHp: u.hp * m, dmg: u.dmg * m * atkStrBonus,
         rate: u.rate * atkSpdBonus,
@@ -286,17 +294,19 @@
     }
 
     // ---------- spawn a free unit (ability / auto-recruit) ----------
-    _spawnFreeUnit(type, row) {
+    _spawnFreeUnit(type, yPos) {
       const u = this.faction.units[type];
       if (!u) return;
+      if (yPos == null) yPos = this._randY();
+      yPos = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, yPos));
       const spd = BF.MARCH_SPD + (type === 'archer' ? -2 : type === 'mage' ? -4 : type === 'warlock' ? -6 : type === 'sword' ? -1 : type === 'spear' ? 3 : type === 'og' ? -3 : 0);
       const atkSpdBonus = 1 + this._starLv(type, 'atkSpd') * 0.08;
       const atkStrBonus = 1 + this._starLv(type, 'atkStr') * 0.08;
       const defBonus    = 1 - this._starLv(type, 'def') * 0.06;
       const movBonus    = 1 + this._starLv(type, 'moveSpd') * 0.06;
       this.defenders.push({
-        id: this.nid++, side: 'def', type, row,
-        x: BF.SPAWN_X, y: G.sky + row * G.cell + G.cell / 2,
+        id: this.nid++, side: 'def', type, row: 0,
+        x: BF.SPAWN_X, y: yPos,
         marchSpeed: spd * movBonus,
         hp: u.hp * this.defMult, maxHp: u.hp * this.defMult,
         dmg: u.dmg * this.defMult * atkStrBonus, rate: u.rate * atkSpdBonus, range: u.range,
@@ -307,29 +317,37 @@
       });
     }
 
-    useAbility(targetRow) {
+    useAbility() {
       if (this.abilityCd > 0 || this.over) return false;
       const ab = BF.ABILITIES[this.faction.id];
       if (!ab) return false;
       this.abilityCd = ab.cooldown;
       const fid = this.faction.id;
 
-      // Use player-chosen lane or fall back to most-threatened
-      let ogRow = targetRow;
-      if (ogRow == null || ogRow < 0 || ogRow >= G.rows) {
-        const rowScore = Array(G.rows).fill(0);
-        for (const e of this.enemies) if (!e.dead) rowScore[e.row] += e.hp;
-        ogRow = rowScore.indexOf(Math.max(...rowScore));
+      // Spawn OG at most-threatened Y position
+      let bestY = G.sky + G.h / 2, bestThreat = -1;
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        let threat = 0;
+        for (const e2 of this.enemies) {
+          if (!e2.dead && Math.abs(e2.y - e.y) < G.cell * 2) threat += e2.hp;
+        }
+        if (threat > bestThreat) { bestThreat = threat; bestY = e.y; }
       }
-
-      this._spawnFreeUnit('og', ogRow);
+      this._spawnFreeUnit('og', bestY);
 
       if (fid === 'men') {
-        // Holy Smite: targeted damage — bolt strikes front enemy in every lane
-        for (let r = 0; r < G.rows; r++) {
+        // Holy Smite: targeted damage — bolts strike up to 6 front enemies spread across field
+        const struck = new Set();
+        for (let band = 0; band < G.rows; band++) {
+          const bandY = G.sky + (G.h * (band + 0.5)) / G.rows;
           let front = null, minX = 1e9;
-          for (const e of this.enemies) { if (!e.dead && e.row === r && e.x < minX) { minX = e.x; front = e; } }
+          for (const e of this.enemies) {
+            if (e.dead || struck.has(e.id)) continue;
+            if (Math.abs(e.y - bandY) < G.h / G.rows * 0.6 && e.x < minX) { minX = e.x; front = e; }
+          }
           if (front) {
+            struck.add(front.id);
             this._shot(front.x, front.y - 88, front.x, front.y, 'bolt', '#e8e0a8', 0.30);
             this._hurtEnemy(front, 30 + this.waveNow() * 3);
             this._ring(front.x, front.y, 32, '#e8e0a8');
@@ -511,15 +529,25 @@
         // Frozen defenders cannot move or attack
         if (d.frozenDur > 0) continue;
 
-        // Target: nearest enemy in same lane within range (to the right of defender)
-        let tgt = null, best = 1e9;
+        // Target: nearest enemy within engagement range (2D proximity)
+        let tgt = null, bestDist = 1e9;
         for (const e of this.enemies) {
-          if (e.dead || e.row !== d.row) continue;
-          const gap = e.x - d.x;
-          if (gap > -6 && gap <= d.range && e.x < best) { best = e.x; tgt = e; }
+          if (e.dead) continue;
+          const dx = e.x - d.x;
+          if (dx < -6 || dx > d.range + 40) continue;
+          const dy = Math.abs(e.y - d.y);
+          if (dy > G.cell * 2) continue;
+          const dist2 = dx * dx + dy * dy;
+          if (dx <= d.range && dist2 < bestDist) { bestDist = dist2; tgt = e; }
         }
 
         if (tgt) {
+          // Y-axis seeking: move toward target's Y
+          const yDiff = tgt.y - d.y;
+          if (Math.abs(yDiff) > 4) {
+            d.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), d.marchSpeed * 0.6 * dt);
+            d.y = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, d.y));
+          }
           if (d.cd <= 0) {
             const wild = (mods.berserk && !d.ranged && d.hp < d.maxHp * 0.5) || d.frenzied;
             const speedMult = (wild ? 1.75 : 1) * (d.rallied ? 1.5 : 1);
@@ -554,7 +582,7 @@
           let healTgt = null, lowestFrac = 1;
           for (const ally of this.enemies) {
             if (ally.dead || ally === e || ally.isHealer) continue;
-            if (Math.abs(ally.x - e.x) > 120 || Math.abs(ally.y - e.y) > G.cell * 1.5) continue;
+            if (Math.abs(ally.x - e.x) > 120 || Math.abs(ally.y - e.y) > G.cell * 2.5) continue;
             const frac = ally.hp / ally.maxHp;
             if (frac < lowestFrac) { lowestFrac = frac; healTgt = ally; }
           }
@@ -572,7 +600,7 @@
           // Healers stay behind other enemies; only march if no allies ahead
           let hasAllyAhead = false;
           for (const ally of this.enemies) {
-            if (!ally.dead && ally !== e && !ally.isHealer && ally.x < e.x && Math.abs(ally.y - e.y) < G.cell) { hasAllyAhead = true; break; }
+            if (!ally.dead && ally !== e && !ally.isHealer && ally.x < e.x && Math.abs(ally.y - e.y) < G.cell * 2) { hasAllyAhead = true; break; }
           }
           if (!hasAllyAhead) {
             e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
@@ -587,13 +615,25 @@
           continue;
         }
 
-        let tgt = null, best = 1e9;
+        let tgt = null, bestDist2 = 1e9;
         for (const d of this.defenders) {
-          if (d.dead || d.row !== e.row) continue;
-          const gap = e.x - d.x; // positive = defender is to the left (ahead of enemy)
-          if (gap > -20 && gap < best) { best = gap; tgt = d; }
+          if (d.dead) continue;
+          const dx = e.x - d.x;
+          if (dx < -20 || dx > e.range + 40) continue;
+          const dy = Math.abs(e.y - d.y);
+          if (dy > G.cell * 2) continue;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 < bestDist2) { bestDist2 = dist2; tgt = d; }
         }
-        if (tgt && best <= e.range) {
+        if (tgt) {
+          // Y-axis seeking
+          const yDiff = tgt.y - e.y;
+          if (Math.abs(yDiff) > 4) {
+            e.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), e.speed * 0.5 * dt);
+            e.y = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, e.y));
+          }
+        }
+        if (tgt && Math.sqrt(bestDist2) <= e.range + 10) {
           if (e.cd <= 0) { e.cd = 1 / e.rate; this._enemyAttack(e, tgt); }
         } else {
           e.x -= e.speed * (e.slowDur > 0 ? 0.25 : 1) * dt;
@@ -680,7 +720,10 @@
       cost = this.unitCost(role);
       if (this.gold < cost) { this._autoRecruit(); } else {
         this.gold -= cost;
-        for (let row = 0; row < G.rows; row++) this._spawnFreeUnit(role, row);
+        for (let i = 0; i < G.rows; i++) {
+          const y = G.sky + (G.h * (i + 0.5)) / G.rows + (this.rand() - 0.5) * G.h * 0.08;
+          this._spawnFreeUnit(role, y);
+        }
       }
       this.autoRecruitCd = BF.AUTO_RECRUIT ? BF.AUTO_RECRUIT.interval : 30;
       this.events.push('reinforce');
@@ -702,8 +745,9 @@
     }
 
     _autoRecruit() {
-      for (let row = 0; row < G.rows; row++) {
-        this._spawnFreeUnit('spear', row);
+      for (let i = 0; i < G.rows; i++) {
+        const y = G.sky + (G.h * (i + 0.5)) / G.rows + (this.rand() - 0.5) * G.h * 0.08;
+        this._spawnFreeUnit('spear', y);
       }
     }
 
@@ -724,14 +768,14 @@
         d.shielded = true; d.shieldDur = ab.dur;
       } else if (d.type === 'sword') {
         for (const o of this.defenders) {
-          if (!o.dead && o.row === d.row) { o.rallied = true; o.rallyDur = ab.dur; }
+          if (!o.dead && Math.abs(o.y - d.y) < G.cell * 2) { o.rallied = true; o.rallyDur = ab.dur; }
         }
       } else if (d.type === 'archer') {
         let tgt = null, best = 1e9;
         for (const e of this.enemies) {
-          if (e.dead || e.row !== d.row) continue;
+          if (e.dead) continue;
           const gap = e.x - d.x;
-          if (gap > -6 && gap < best) { best = gap; tgt = e; }
+          if (gap > -6 && gap < best && Math.abs(e.y - d.y) < G.cell * 2.5) { best = gap; tgt = e; }
         }
         if (tgt) {
           for (let i = 0; i < 3; i++) {
@@ -741,7 +785,7 @@
         }
       } else if (d.type === 'mage') {
         for (const e of this.enemies) {
-          if (!e.dead && e.row === d.row) this._hurtEnemy(e, d.dmg * 2);
+          if (!e.dead && Math.abs(e.y - d.y) < G.cell * 2 && e.x - d.x < d.range && e.x - d.x > -10) this._hurtEnemy(e, d.dmg * 2);
         }
         this._ring(d.x + d.range / 2, d.y, d.range / 2, '#c9a6ff');
       } else if (d.type === 'warlock') {
@@ -765,16 +809,10 @@
       return { ok: true };
     }
 
-    hireMerc(targetRow) {
+    hireMerc(yPos) {
       if (this.mercCd > 0 || this.over) return { ok: false, reason: this.mercCd > 0 ? 'cooldown' : 'over' };
-      let row = targetRow;
-      if (row == null || row < 0 || row >= G.rows) {
-        const rowCount = Array(G.rows).fill(0);
-        for (const d of this.defenders) if (!d.dead) rowCount[d.row]++;
-        row = rowCount.indexOf(Math.min(...rowCount));
-      }
       this.mercCd = BF.MERC_CD;
-      this._spawnFreeUnit('sword', row);
+      this._spawnFreeUnit('sword', yPos != null ? yPos : this._randY());
       this.events.push('place');
       return { ok: true };
     }
