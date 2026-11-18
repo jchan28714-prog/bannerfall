@@ -1579,8 +1579,8 @@
     const f = BF.factionById(save.last), c = camp(f.id);
     const zombieTerr = {
       id: 'zombie', name: 'The Endless Horde', owner: 'citadel',
-      waves: 10, final: false, index: 2,
-      hpScale: 1.0, dmgScale: 1.0, countScale: 1.0,
+      waves: 3, final: false, index: 4,
+      hpScale: 1.2, dmgScale: 1.1, countScale: 1.3,
     };
     terr = zombieTerr;
     var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;

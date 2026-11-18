@@ -183,9 +183,9 @@
 
     _appendZombieWave() {
       const w = this.zombieWave++;
-      const count = Math.min(40, 6 + Math.floor(w * 1.5));
-      const gap = Math.max(0.25, 1.2 - 0.025 * w);
-      let t = this.time + 6;
+      const count = Math.min(60, 8 + Math.floor(w * 2.5));
+      const gap = Math.max(0.2, 1.0 - 0.03 * w);
+      let t = this.time + 4;
       const r = this.rand;
       const focus = [Math.floor(r() * G.rows), Math.floor(r() * G.rows)];
       for (let k = 0; k < count; k++) {
@@ -243,7 +243,7 @@
       }
       if (this.zombie) {
         const zw = s.wave || 0;
-        const zScale = 1 + 0.12 * zw;
+        const zScale = 1 + 0.2 * zw + 0.01 * zw * zw;
         e.hp *= zScale; e.dmg *= zScale;
       }
       if (s.boosted === 1) { e.hp *= 2; e.dmg *= 1.5; e.size = Math.max(e.size, 1.5); }
@@ -603,7 +603,7 @@
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
       }
-      if (this.zombie && this.next >= this.schedule.length && this.enemies.length === 0) {
+      if (this.zombie && this.next >= this.schedule.length) {
         this._appendZombieWave();
       }
 
