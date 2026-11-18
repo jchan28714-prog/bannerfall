@@ -974,6 +974,15 @@
       ctx.globalAlpha = 1;
     }
 
+    // ── BLOOD PARTICLES ─────────────────────────────────────────────────
+    for (const p of b.bloods) {
+      const k = p.t / p.dur;
+      ctx.globalAlpha = 0.9 * (1 - k);
+      ctx.fillStyle = k < 0.3 ? '#c02020' : '#6a1010';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 - k * 0.4), 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
     ctx.save(); ctx.translate(0, G.sky);
     drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T, me.id);

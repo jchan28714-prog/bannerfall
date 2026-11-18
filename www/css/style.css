@@ -280,7 +280,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .hud-wave-bar { height: 3px; width: clamp(30px, 8vw, 50px); border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
 .hud-wave-bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s; }
 .hud-btns { display: flex; gap: clamp(2px, 0.5vw, 4px); align-items: center; }
-#field { flex: 1; min-height: 0; max-height: 68vh; display: flex; align-items: center; justify-content: center; position: relative; padding-top: env(safe-area-inset-top); }
+#field { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; padding-top: env(safe-area-inset-top); }
 #cv { width: 100%; height: 100%; border-radius: 0; border: none; background: #10131a; touch-action: none; }
 .hint { position: absolute; left: 50%; bottom: 50%; transform: translate(-50%, 50%); background: rgba(10, 12, 18, .85); border: 1px solid var(--line); padding: clamp(6px, 1.5vw, 9px) clamp(10px, 2.5vw, 14px); border-radius: 12px; font-size: var(--t-sm); color: var(--text); width: max-content; max-width: 86%; text-align: center; pointer-events: none; z-index: 4; }
 

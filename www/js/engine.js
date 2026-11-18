@@ -61,6 +61,8 @@
       this.shots = [];
       this.floats = [];
       this.rings = [];
+      this.bloods = [];
+      this.stance = 'attack';
       this.schedule = this._buildSchedule();
       this.next = 0;
       this.over = null;
@@ -409,7 +411,13 @@
     _shot(x1, y1, x2, y2, kind, color, dur, arc) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur, arc: arc || 0 }); }
     _ring(x, y, r, color) { if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 }); }
 
-    _killDef(d) { d.dead = true; }
+    _killDef(d) { d.dead = true; this._spawnBlood(d.x, d.y); }
+    _spawnBlood(x, y) {
+      if (!this.fx) return;
+      for (let i = 0; i < 6; i++) {
+        this.bloods.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -Math.random() * 40 - 10, t: 0, dur: 0.8 + Math.random() * 0.6, r: 1.5 + Math.random() * 2 });
+      }
+    }
 
     _hurtEnemy(e, dmg) {
       if (e.dead) return;
@@ -417,6 +425,7 @@
       e.hit = 0.12;
       if (e.hp <= 0) {
         e.dead = true;
+        this._spawnBlood(e.x, e.y);
         this.kills++;
         if (this.zombie) this.zombieKills++;
         const g = Math.round(e.bounty * this.bountyMult);
@@ -557,7 +566,9 @@
         } else {
           const castleWall = this.zombie ? G.cw - 30 : G.cw - BF.CASTLE_W;
           const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
-          if (!d.shielded) d.x = Math.min(siegeThresh, d.x + d.marchSpeed * dt);
+          const defendLine = BF.SPAWN_X + (d.ranged ? d.range * 0.6 : 80);
+          const marchLimit = this.stance === 'defend' ? defendLine : siegeThresh;
+          if (!d.shielded) d.x = Math.min(marchLimit, d.x + d.marchSpeed * dt);
           if (!this.zombie && d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
             d.cd = 1 / d.rate;
             const dmg = Math.round(d.dmg);
@@ -654,10 +665,12 @@
       this.defenders = this.defenders.filter((d) => !d.dead);
 
       if (this.fx) {
-        for (const list of [this.shots, this.floats, this.rings]) for (const o of list) o.t += dt;
+        for (const list of [this.shots, this.floats, this.rings, this.bloods]) for (const o of list) o.t += dt;
+        for (const p of this.bloods) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 80 * dt; }
         this.shots  = this.shots.filter((o) => o.t < o.dur);
         this.floats = this.floats.filter((o) => o.t < o.dur);
         this.rings  = this.rings.filter((o) => o.t < o.dur);
+        this.bloods = this.bloods.filter((o) => o.t < o.dur);
       }
 
       if (!this.zombie) {
@@ -731,6 +744,11 @@
     }
 
     // ---------- skip to next wave early: risk vs. reward gold bonus ----------
+    toggleStance() {
+      this.stance = this.stance === 'attack' ? 'defend' : 'attack';
+      return this.stance;
+    }
+
     skipWave() {
       if (this.over || this.enemies.length > 0 || this.next >= this.schedule.length) return null;
       const nextT = this.schedule[this.next].t;

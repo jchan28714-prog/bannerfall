@@ -1147,6 +1147,7 @@
     const ctrlSection = document.createElement('div');
     ctrlSection.className = 'hud-btns';
     ctrlSection.innerHTML =
+      '<button id="btn-stance" class="icon-btn" aria-label="Stance">ATK</button>' +
       '<button id="btn-sell" class="icon-btn" aria-label="Sell">$</button>' +
       '<button id="btn-speed" class="icon-btn" aria-label="Speed">' + speed + '×</button>' +
       '<button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>';
@@ -1187,6 +1188,13 @@
     });
     $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
     $('#btn-pause').addEventListener('click', openPause);
+    $('#btn-stance').addEventListener('click', (e) => {
+      if (!B || B.over) return;
+      const s = B.toggleStance();
+      e.currentTarget.textContent = s === 'attack' ? 'ATK' : 'DEF';
+      e.currentTarget.classList.toggle('on', s === 'defend');
+      Sound.play('ui');
+    });
   }
   function syncActBtns() {
     if (!B) return;
