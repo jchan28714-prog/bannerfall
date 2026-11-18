@@ -657,7 +657,7 @@
             marchLimit = BF.SPAWN_X + (d.ranged ? 10 : 15);
           } else if (this.stance === 'defend') {
             // Defend: hold a few metres outside the castle gate
-            marchLimit = BF.SPAWN_X + (d.ranged ? 50 : 40);
+            marchLimit = BF.SPAWN_X + (d.ranged ? 250 : 200);
           } else {
             // Attack: advance, ranged stay behind melee front
             if (d.ranged) {
