@@ -391,6 +391,9 @@
     { id: 'moveSpd',   name: 'Movement Speed',        desc: '+6% movement speed per level',    max: 5, perLv: 0.06 },
     { id: 'goldReduc', name: 'Gold Cost Reduction',   desc: '-5% unit gold cost per level',    max: 5, perLv: 0.05 },
   ];
+  BF.CASTLE_UPGRADE_ATTRS = [
+    { id: 'archer', name: 'Castle Archers', desc: 'Archers on your castle fire at enemies. 5× archer power at level 1, +1× per level.', max: 5, perLv: 1 },
+  ];
   BF.starUpgCost = (currentLevel) => currentLevel + 1;
   BF.starUpgTotalSpent = (level) => level * (level + 1) / 2;
 

@@ -399,6 +399,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 .bk-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
 .bk-tile { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--line); }
 .bk-tile-name { font-size: 7px; color: var(--dim); text-align: center; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.bk-castle-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex: none; }
+.stance-btn { font-size: clamp(12px, 3vw, 16px); }
 .bk-tile-val { font-size: clamp(9px, 2.2vw, 12px); font-weight: 700; color: var(--text); }
 .bk-tile .pips { margin: 1px 0; }
 .bk-tile .pips i { width: 5px; height: 5px; }

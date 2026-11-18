@@ -68,7 +68,9 @@
       this.shake = 0;
       this.shakeX = 0;
       this.shakeY = 0;
-      this.stance = 'attack';
+      this.stance = 'attack'; // 'attack' | 'defend' | 'retreat'
+      this.castleArcherCd = 0;
+      this.castleArcherLv = opts.starUpg && opts.starUpg['castle:archer'] || 0;
       this.schedule = this._buildSchedule();
       this.next = 0;
       this.over = null;
@@ -575,6 +577,29 @@
         this.events.push('coin');
       }
 
+      // Castle archers: auto-fire from the castle at nearest enemies
+      if (this.castleArcherLv > 0) {
+        this.castleArcherCd -= dt;
+        if (this.castleArcherCd <= 0) {
+          this.castleArcherCd = 1.2; // fire rate
+          const archerDmg = this._castleArcherDmg();
+          const numArrows = Math.min(3 + this.castleArcherLv, 8);
+          const fired = [];
+          for (const e of this.enemies) {
+            if (e.dead || fired.length >= numArrows) continue;
+            if (e.x < BF.CASTLE_W || e.x > (G.cw || 800)) continue;
+            fired.push(e);
+          }
+          fired.sort((a, b) => a.x - b.x);
+          for (let i = 0; i < Math.min(numArrows, fired.length); i++) {
+            const e = fired[i];
+            const shotY = G.sky + 10 + (i / Math.max(1, numArrows - 1)) * (G.h - 20);
+            this._shot(BF.CASTLE_W - 4, shotY, e.x, e.y, 'arrow', '#ffe8a0', 0.18, 25);
+            this._hurtEnemy(e, archerDmg, BF.CASTLE_W, shotY);
+          }
+        }
+      }
+
       while (this.next < this.schedule.length && this.schedule[this.next].t <= this.time) {
         this._spawn(this.schedule[this.next++]);
       }
@@ -626,13 +651,15 @@
         } else {
           const castleWall = this.zombie ? G.cw - 30 : G.cw - BF.CASTLE_W;
           const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
-          // Defend: hold a short distance outside the castle gate
-          const defendLine = BF.SPAWN_X + (d.ranged ? 50 : 40);
-          // Ranged units stay behind the front melee line
           let marchLimit;
-          if (this.stance === 'defend') {
-            marchLimit = defendLine;
+          if (this.stance === 'retreat') {
+            // Retreat: pull back to castle gate
+            marchLimit = BF.SPAWN_X + (d.ranged ? 10 : 15);
+          } else if (this.stance === 'defend') {
+            // Defend: hold a few metres outside the castle gate
+            marchLimit = BF.SPAWN_X + (d.ranged ? 50 : 40);
           } else {
+            // Attack: advance, ranged stay behind melee front
             if (d.ranged) {
               let meleeFront = BF.SPAWN_X;
               for (const m of this.defenders) {
@@ -643,7 +670,14 @@
               marchLimit = siegeThresh;
             }
           }
-          if (!d.shielded) d.x = Math.min(marchLimit, d.x + d.marchSpeed * dt);
+          if (!d.shielded) {
+            if (d.x > marchLimit + 5) {
+              // Pull back when stance changes to defend/retreat
+              d.x = Math.max(marchLimit, d.x - d.marchSpeed * 1.2 * dt);
+            } else {
+              d.x = Math.min(marchLimit, d.x + d.marchSpeed * dt);
+            }
+          }
           if (!this.zombie && d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
             d.cd = 1 / d.rate;
             const dmg = Math.round(d.dmg);
@@ -899,8 +933,22 @@
     }
 
     // ---------- skip to next wave early: risk vs. reward gold bonus ----------
+    _castleArcherDmg() {
+      const baseArcher = this.faction.units.archer;
+      const baseDmg = baseArcher.dmg * baseArcher.rate;
+      // Level 1 = 5x archer DPS, each additional level adds +1x
+      return baseDmg * (4 + this.castleArcherLv);
+    }
+
     toggleStance() {
-      this.stance = this.stance === 'attack' ? 'defend' : 'attack';
+      if (this.stance === 'attack') this.stance = 'defend';
+      else if (this.stance === 'defend') this.stance = 'retreat';
+      else this.stance = 'attack';
+      return this.stance;
+    }
+
+    setStance(s) {
+      if (s === 'attack' || s === 'defend' || s === 'retreat') this.stance = s;
       return this.stance;
     }
 

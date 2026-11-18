@@ -816,6 +816,27 @@
     }
   }
 
+  function drawCastleArchers(ctx, h, lv, factionColor, time) {
+    if (lv <= 0) return;
+    const cw = BF.CASTLE_W;
+    const count = M.min(3 + lv, 8);
+    const spacing = (h - 40) / (count + 1);
+    for (let i = 0; i < count; i++) {
+      const y = 20 + spacing * (i + 1);
+      const x = cw - 10;
+      const bob = M.sin(time * 2 + i * 1.5) * 1.5;
+      ctx.fillStyle = factionColor;
+      ctx.beginPath(); ctx.arc(x, y - 6 + bob, 3, 0, TAU); ctx.fill();
+      ctx.fillRect(x - 2, y - 3 + bob, 4, 7);
+      ctx.strokeStyle = '#7a5520'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x + 5, y - 2 + bob, 5, M.PI * 0.5, M.PI * 1.5); ctx.stroke();
+      ctx.strokeStyle = '#c8b880'; ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(x + 5, y + 3 + bob); ctx.lineTo(x + 3, y - 2 + bob); ctx.lineTo(x + 5, y - 7 + bob);
+      ctx.stroke();
+    }
+  }
+
   /* ==========================================================================
      HP BAR helper
   ========================================================================== */
@@ -1142,6 +1163,7 @@
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
     ctx.save(); ctx.translate(0, G.sky);
     drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T, me.id);
+    drawCastleArchers(ctx, G.h, b.castleArcherLv, me.color, T);
     ctx.restore();
 
     // ── ENEMY FORTRESS (right side, mirrored castle) ─────────────────

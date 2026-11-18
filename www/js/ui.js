@@ -1008,6 +1008,24 @@
         });
         html += '</div></div>';
       });
+      // Castle upgrades section
+      html += '<div class="bk-unit"><div class="bk-unit-head"><div class="bk-castle-icon">🏰</div><b>Castle Defences</b></div>';
+      html += '<div class="bk-grid">';
+      BF.CASTLE_UPGRADE_ATTRS.forEach((attr) => {
+        const key = 'castle:' + attr.id;
+        const lv = c.starUpg[key] || 0;
+        const cost = BF.starUpgCost(lv);
+        const atMax = lv >= attr.max;
+        const bonus = lv > 0 ? (4 + lv) + '×' : '—';
+        html += '<div class="bk-tile">' +
+          '<div class="bk-tile-name">' + attr.name + '</div>' +
+          '<div class="bk-tile-val">' + bonus + '</div>' +
+          pips(lv, attr.max) +
+          (atMax ? '<span class="dim" style="font-size:9px">Max</span>' : '<button class="btn small bk-buy" data-key="' + key + '"' + (avail < cost ? ' disabled' : '') + '>★ ' + cost + '</button>') +
+          '</div>';
+      });
+      html += '</div></div>';
+
       html += '<div class="row"><button class="btn" id="done">Done</button></div>';
 
       const card = openModal(html);
@@ -1024,7 +1042,8 @@
           const key = b.dataset.key;
           const lv = c.starUpg[key] || 0;
           const cost = BF.starUpgCost(lv);
-          const attr = BF.UPGRADE_ATTRS.find(a => key.endsWith(':' + a.id));
+          const attr = BF.UPGRADE_ATTRS.find(a => key.endsWith(':' + a.id))
+            || BF.CASTLE_UPGRADE_ATTRS.find(a => key.endsWith(':' + a.id));
           if (attr && lv < attr.max && availableStars(c) >= cost) {
             c.starUpg[key] = lv + 1; persist(); Sound.play('coin'); draw();
           }
@@ -1183,11 +1202,13 @@
     sep.className = 'tray-sep';
     tray.appendChild(sep);
 
-    // Control buttons: sell, speed, pause
+    // Stance buttons + control buttons
     const ctrlSection = document.createElement('div');
     ctrlSection.className = 'hud-btns';
     ctrlSection.innerHTML =
-      '<button id="btn-stance" class="icon-btn" aria-label="Stance">ATK</button>' +
+      '<button id="btn-attack" class="icon-btn stance-btn on" aria-label="Attack" title="Attack: advance">⚔</button>' +
+      '<button id="btn-defend" class="icon-btn stance-btn" aria-label="Defend" title="Defend: hold near gate">🛡</button>' +
+      '<button id="btn-retreat" class="icon-btn stance-btn" aria-label="Retreat" title="Retreat: fall back to castle">🏰</button>' +
       '<button id="btn-sell" class="icon-btn" aria-label="Sell">$</button>' +
       '<button id="btn-speed" class="icon-btn" aria-label="Speed">' + speed + '×</button>' +
       '<button id="btn-pause" class="icon-btn" aria-label="Pause">❚❚</button>';
@@ -1228,12 +1249,20 @@
     });
     $('#btn-speed').addEventListener('click', (e) => { speed = speed === 1 ? 2 : 1; e.currentTarget.textContent = speed + '×'; Sound.play('ui'); });
     $('#btn-pause').addEventListener('click', openPause);
-    $('#btn-stance').addEventListener('click', (e) => {
-      if (!B || B.over) return;
-      const s = B.toggleStance();
-      e.currentTarget.textContent = s === 'attack' ? 'ATK' : 'DEF';
-      e.currentTarget.classList.toggle('on', s === 'defend');
-      Sound.play('ui');
+    function updateStanceBtns(s) {
+      var ab = $('#btn-attack'), db = $('#btn-defend'), rb = $('#btn-retreat');
+      if (ab) { ab.classList.toggle('on', s === 'attack'); }
+      if (db) { db.classList.toggle('on', s === 'defend'); }
+      if (rb) { rb.classList.toggle('on', s === 'retreat'); }
+    }
+    $('#btn-attack').addEventListener('click', () => {
+      if (!B || B.over) return; B.setStance('attack'); updateStanceBtns('attack'); Sound.play('ui');
+    });
+    $('#btn-defend').addEventListener('click', () => {
+      if (!B || B.over) return; B.setStance('defend'); updateStanceBtns('defend'); Sound.play('ui');
+    });
+    $('#btn-retreat').addEventListener('click', () => {
+      if (!B || B.over) return; B.setStance('retreat'); updateStanceBtns('retreat'); Sound.play('ui');
     });
   }
   function syncActBtns() {
