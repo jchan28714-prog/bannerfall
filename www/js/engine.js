@@ -635,12 +635,26 @@
           if (dx <= d.range && dist2 < bestDist) { bestDist = dist2; tgt = e; }
         }
 
+        // Ranged units must always stay behind melee front line
+        let rangedCap = 1e9;
+        if (d.ranged) {
+          let meleeFront = BF.SPAWN_X;
+          for (const m of this.defenders) {
+            if (!m.dead && !m.ranged && m.x > meleeFront) meleeFront = m.x;
+          }
+          rangedCap = Math.max(BF.SPAWN_X + 20, meleeFront - 30);
+        }
+
         if (tgt) {
           // Y-axis seeking: move toward target's Y
           const yDiff = tgt.y - d.y;
           if (Math.abs(yDiff) > 4) {
             d.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), d.marchSpeed * 0.6 * dt);
             d.y = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, d.y));
+          }
+          // Ranged pull back if ahead of melee
+          if (d.ranged && d.x > rangedCap + 5) {
+            d.x = Math.max(rangedCap, d.x - d.marchSpeed * 1.2 * dt);
           }
           if (d.cd <= 0) {
             const wild = (mods.berserk && !d.ranged && d.hp < d.maxHp * 0.5) || d.frenzied;
@@ -653,26 +667,15 @@
           const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
           let marchLimit;
           if (this.stance === 'retreat') {
-            // Retreat: pull back to castle gate
             marchLimit = BF.SPAWN_X + (d.ranged ? 10 : 15);
           } else if (this.stance === 'defend') {
-            // Defend: hold a few metres outside the castle gate
             marchLimit = BF.SPAWN_X + (d.ranged ? 250 : 200);
+            if (d.ranged) marchLimit = Math.min(marchLimit, rangedCap);
           } else {
-            // Attack: advance, ranged stay behind melee front
-            if (d.ranged) {
-              let meleeFront = BF.SPAWN_X;
-              for (const m of this.defenders) {
-                if (!m.dead && !m.ranged && m.x > meleeFront) meleeFront = m.x;
-              }
-              marchLimit = Math.max(BF.SPAWN_X + 20, meleeFront - 30);
-            } else {
-              marchLimit = siegeThresh;
-            }
+            marchLimit = d.ranged ? rangedCap : siegeThresh;
           }
           if (!d.shielded) {
             if (d.x > marchLimit + 5) {
-              // Pull back when stance changes to defend/retreat
               d.x = Math.max(marchLimit, d.x - d.marchSpeed * 1.2 * dt);
             } else {
               d.x = Math.min(marchLimit, d.x + d.marchSpeed * dt);
