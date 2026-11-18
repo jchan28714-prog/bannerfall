@@ -131,7 +131,7 @@
     _buildSchedule() {
       const T = this.terr, idx = T.index, r = this.rand, out = [];
       const W = T.waves;
-      const waveGaps = [0, 15, 15, 20, 20, 20, 25]; // wave 1 instant, 2-3: 15s, 4-6: 20s, 7+: 25s
+      const waveGaps = [0, 30, 30, 30, 30, 30, 30]; // wave 1 instant, then 30s between each wave
       const hasBoss = idx >= 2;
       const mm = this.modeMult;
       // More units in easy mode, fewer in hard
@@ -626,8 +626,23 @@
         } else {
           const castleWall = this.zombie ? G.cw - 30 : G.cw - BF.CASTLE_W;
           const siegeThresh = d.ranged ? castleWall - 2 * G.cell : castleWall;
-          const defendLine = BF.SPAWN_X + (d.ranged ? d.range * 0.6 : 80);
-          const marchLimit = this.stance === 'defend' ? defendLine : siegeThresh;
+          // Defend: hold a short distance outside the castle gate
+          const defendLine = BF.SPAWN_X + (d.ranged ? 50 : 40);
+          // Ranged units stay behind the front melee line
+          let marchLimit;
+          if (this.stance === 'defend') {
+            marchLimit = defendLine;
+          } else {
+            if (d.ranged) {
+              let meleeFront = BF.SPAWN_X;
+              for (const m of this.defenders) {
+                if (!m.dead && !m.ranged && m.x > meleeFront) meleeFront = m.x;
+              }
+              marchLimit = Math.max(BF.SPAWN_X + 20, meleeFront - 30);
+            } else {
+              marchLimit = siegeThresh;
+            }
+          }
           if (!d.shielded) d.x = Math.min(marchLimit, d.x + d.marchSpeed * dt);
           if (!this.zombie && d.x >= siegeThresh - 5 && d.cd <= 0 && this.enemyBaseHp > 0) {
             d.cd = 1 / d.rate;

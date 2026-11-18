@@ -469,10 +469,12 @@
 
     // ── WEAPON ARM (IK + attack swing) ───────────────────────────────
     const shoulderRX = BW/2 - 1, shoulderRY = -BH/2 + 3;
+    const isRanged = role === 'archer' || role === 'mage' || role === 'warlock';
+    const restAngle = isRanged ? -pi * 0.15 : -pi * 0.55;
     const swingAng = ap > 0
-      ? ease(M.min(1, ap * 1.5)) * 1.4
+      ? ease(M.min(1, ap * 1.5)) * (isRanged ? 0.6 : 1.4)
       : sin(wp + pi) * 0.2 * walkStrength;
-    const armDir = -pi * 0.55 + swingAng;
+    const armDir = restAngle + swingAng;
     const handX = shoulderRX + cos(armDir) * (armUpper + armLower);
     const handY = shoulderRY + sin(armDir) * (armUpper + armLower);
     const elbowR = ik2(shoulderRX, shoulderRY, handX, handY, armUpper, armLower, 1);
