@@ -351,91 +351,161 @@
   }
 
   /* ==========================================================================
-     GLYPH – full sprite with walk + attack animation
+     GLYPH – full sprite with fluid walk + attack animation
      Drawn in a ~40×40 unit box centred at 0,0; scaled to token size via r/20.
      enemy=true mirrors horizontally (face left).
+     IK-style two-segment limbs with smooth easing.
   ========================================================================== */
+
+  // Easing helpers for fluid motion
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+  function smoothStep(t) { return t*t*(3-2*t); }
+
+  // IK two-segment limb: given hip and foot, compute knee position
+  function ik2(hx, hy, fx, fy, len1, len2, side) {
+    const dx = fx - hx, dy = fy - hy;
+    const d = M.min(len1 + len2 - 0.1, M.hypot(dx, dy));
+    const a = M.atan2(dy, dx);
+    const cos_b = (len1*len1 + d*d - len2*len2) / (2*len1*d);
+    const b = M.acos(M.max(-1, M.min(1, cos_b)));
+    const kA = a + b * side;
+    return { x: hx + M.cos(kA) * len1, y: hy + M.sin(kA) * len1 };
+  }
+
   function glyph(ctx, role, accentColor, enemy, fid, atkPhase, walkPhase) {
     const sin = M.sin, cos = M.cos, pi = M.PI;
     const ap = M.min(1, atkPhase || 0);
     const wp = walkPhase || 0;
 
     const skin = SKIN[fid] || SKIN.men;
-    // Body proportions per race
     const BW = { men:9, elves:7, orcs:13, goblins:7, dwarves:13 }[fid] || 9;
     const BH = 12;
     const hR = { men:5.5, elves:5, orcs:6.5, goblins:4, dwarves:5.5 }[fid] || 5.5;
-    const hY = -BH / 2 - hR - 1;
-    const legLen = { men:12, elves:13, orcs:11, goblins:10, dwarves:10 }[fid] || 12;
+    const legUpper = { men:7, elves:8, orcs:7, goblins:6, dwarves:6 }[fid] || 7;
+    const legLower = { men:7, elves:7, orcs:6, goblins:6, dwarves:5 }[fid] || 7;
     const legW  = { men:4, elves:3.5, orcs:5.5, goblins:3.5, dwarves:5.5 }[fid] || 4;
+    const armUpper = 5, armLower = 5;
 
     ctx.save();
     if (enemy) ctx.scale(-1, 1);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-    // Walk swing (halted during heavy attack)
-    const walkStrength = ap > 0.2 ? M.max(0, 1 - ap * 2) : 1;
-    const legSwingA = sin(wp) * 0.3 * walkStrength;
-    const legSwingB = sin(wp + pi) * 0.3 * walkStrength;
+    // Walk dynamics — smooth sine with eased transitions
+    const walkStrength = ap > 0.15 ? M.max(0, 1 - ap * 1.8) : 1;
+    const walkCycle = wp;
+    const bodyBob = sin(walkCycle * 2) * 1.5 * walkStrength;
+    const bodySway = sin(walkCycle) * 0.8 * walkStrength;
+    const bodyLean = ap > 0.1 ? sin(ap * pi) * 3 : 0;
 
-    // ── BACK LEG ─────────────────────────────────────────────────────
+    // Hip position
+    const hipY = BH * 0.45 + bodyBob;
+    const hipX = bodySway;
+
+    // Foot positions with smooth step cycle
+    const stride = 10 * walkStrength;
+    const liftH = 5 * walkStrength;
+    const stepA = (sin(walkCycle) + 1) * 0.5;
+    const stepB = (sin(walkCycle + pi) + 1) * 0.5;
+    const footAX = hipX - 2.5 + sin(walkCycle) * stride;
+    const footAY = hipY + legUpper + legLower - smoothStep(sin(M.max(0, walkCycle % (pi*2)))) * liftH;
+    const footBX = hipX + 2.5 + sin(walkCycle + pi) * stride;
+    const footBY = hipY + legUpper + legLower - smoothStep(sin(M.max(0, (walkCycle + pi) % (pi*2)))) * liftH;
+
+    // IK knees
+    const kneeA = ik2(hipX - 2.5, hipY, footAX, footAY, legUpper, legLower, 1);
+    const kneeB = ik2(hipX + 2.5, hipY, footBX, footBY, legUpper, legLower, 1);
+
+    // ── BACK LEG (two segments with knee joint) ─────────────────────
     ctx.lineWidth = legW; ctx.strokeStyle = '#1a1f32';
-    ctx.beginPath();
-    ctx.moveTo(-2.5, BH * 0.5);
-    ctx.lineTo(-2.5 + sin(legSwingA) * legLen, BH * 0.5 + cos(legSwingA) * legLen);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hipX - 2.5, hipY); ctx.lineTo(kneeA.x, kneeA.y); ctx.lineTo(footAX, footAY); ctx.stroke();
+    ctx.fillStyle = '#1a1f32'; ctx.beginPath(); ctx.arc(kneeA.x, kneeA.y, legW * 0.4, 0, TAU); ctx.fill();
 
     // ── FRONT LEG ────────────────────────────────────────────────────
     ctx.lineWidth = legW + 0.5; ctx.strokeStyle = '#242840';
-    ctx.beginPath();
-    ctx.moveTo(2.5, BH * 0.5);
-    ctx.lineTo(2.5 + sin(legSwingB) * legLen, BH * 0.5 + cos(legSwingB) * legLen);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hipX + 2.5, hipY); ctx.lineTo(kneeB.x, kneeB.y); ctx.lineTo(footBX, footBY); ctx.stroke();
+    ctx.fillStyle = '#242840'; ctx.beginPath(); ctx.arc(kneeB.x, kneeB.y, legW * 0.45, 0, TAU); ctx.fill();
 
-    // ── TORSO ────────────────────────────────────────────────────────
+    // ── TORSO (with lean and bob) ────────────────────────────────────
+    ctx.save();
+    ctx.translate(hipX, -BH * 0.1 + bodyBob * 0.5);
+    ctx.rotate(bodySway * 0.03 + bodyLean * 0.02);
+    const hY = -BH / 2 - hR - 1;
     ctx.fillStyle = accentColor;
     ctx.beginPath(); ctx.roundRect(-BW/2, -BH/2, BW, BH, [4,4,2,2]); ctx.fill();
-    // Armor sheen
+    // Armor plate detail
     ctx.fillStyle = 'rgba(255,255,255,.18)';
     ctx.beginPath(); ctx.roundRect(-BW/2+1, -BH/2+1, BW-2, BH*0.42, [3,3,0,0]); ctx.fill();
-    // Leg-join shadow
-    ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.beginPath(); ctx.roundRect(-BW/2, BH/2-3, BW, 3, [0,0,2,2]); ctx.fill();
+    // Belt / waist shadow
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.fillRect(-BW/2, BH/2 - 3, BW, 3);
+    // Shoulder pauldrons
+    ctx.fillStyle = accentColor;
+    ctx.beginPath(); ctx.arc(-BW/2 + 1, -BH/2 + 2, 3, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(BW/2 - 1, -BH/2 + 2, 3, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.beginPath(); ctx.arc(-BW/2 + 1, -BH/2 + 1.5, 2.5, pi, 0); ctx.fill();
+    ctx.beginPath(); ctx.arc(BW/2 - 1, -BH/2 + 1.5, 2.5, pi, 0); ctx.fill();
 
-    // ── HEAD ─────────────────────────────────────────────────────────
+    // ── HEAD (with gentle bob) ───────────────────────────────────────
+    const headBob = sin(walkCycle * 2 + 0.3) * 0.8 * walkStrength;
     ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.arc(0, hY, hR, 0, TAU); ctx.fill();
-    _head(ctx, fid, hR, hY, accentColor);
+    ctx.beginPath(); ctx.arc(0, hY + headBob, hR, 0, TAU); ctx.fill();
+    // Eye
+    ctx.fillStyle = '#1a1a2a';
+    ctx.beginPath(); ctx.arc(hR * 0.35, hY + headBob - 0.5, 1.2, 0, TAU); ctx.fill();
+    _head(ctx, fid, hR, hY + headBob, accentColor);
 
-    // ── OFF-HAND ARM ─────────────────────────────────────────────────
-    if (role !== 'archer' && role !== 'mage' && role !== 'warlock') { // archer/mage/warlock handle their own off-hand
-      const baSwing = sin(wp + pi * 0.5) * 0.18 * walkStrength;
-      ctx.lineWidth = 3; ctx.strokeStyle = accentColor;
-      ctx.beginPath();
-      ctx.moveTo(-BW/2 + 1, -BH/2 + 3);
-      ctx.lineTo(-BW/2 - 4 + sin(baSwing) * 2, -BH/2 + 3 + cos(baSwing) * 6);
-      ctx.stroke();
+    // ── OFF-HAND ARM (IK two-segment) ────────────────────────────────
+    const shoulderLX = -BW/2 + 1, shoulderLY = -BH/2 + 3;
+    if (role !== 'archer' && role !== 'mage' && role !== 'warlock') {
+      const oaSwing = sin(wp + pi * 0.5) * 0.25 * walkStrength;
+      const oaHandX = shoulderLX - 4 + sin(oaSwing) * 3;
+      const oaHandY = shoulderLY + 8 + cos(oaSwing) * 3;
+      const oaElbow = ik2(shoulderLX, shoulderLY, oaHandX, oaHandY, armUpper, armLower, -1);
+      ctx.lineWidth = 3; ctx.strokeStyle = skin;
+      ctx.beginPath(); ctx.moveTo(shoulderLX, shoulderLY); ctx.lineTo(oaElbow.x, oaElbow.y); ctx.lineTo(oaHandX, oaHandY); ctx.stroke();
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(oaElbow.x, oaElbow.y, 1.8, 0, TAU); ctx.fill();
     }
 
-    // ── WEAPON ARM ───────────────────────────────────────────────────
-    // Attack phase drives a forward swing; idle state has gentle sway
+    // ── WEAPON ARM (IK + attack swing) ───────────────────────────────
+    const shoulderRX = BW/2 - 1, shoulderRY = -BH/2 + 3;
     const swingAng = ap > 0
-      ? sin(ap * pi) * 1.2
-      : sin(wp + pi) * 0.18 * walkStrength;
+      ? ease(M.min(1, ap * 1.5)) * 1.4
+      : sin(wp + pi) * 0.2 * walkStrength;
     const armDir = -pi * 0.55 + swingAng;
-    const armLen = 7;
-    const elbowX = BW/2 - 1 + cos(armDir) * armLen;
-    const elbowY = -BH/2 + 3 + sin(armDir) * armLen;
+    const handX = shoulderRX + cos(armDir) * (armUpper + armLower);
+    const handY = shoulderRY + sin(armDir) * (armUpper + armLower);
+    const elbowR = ik2(shoulderRX, shoulderRY, handX, handY, armUpper, armLower, 1);
 
-    if (role !== 'archer' && role !== 'warlock') { // archer/warlock overrides arm in _weapon
-      ctx.lineWidth = 3.5; ctx.strokeStyle = accentColor;
-      ctx.beginPath(); ctx.moveTo(BW/2 - 1, -BH/2 + 3); ctx.lineTo(elbowX, elbowY); ctx.stroke();
+    if (role !== 'archer' && role !== 'warlock') {
+      ctx.lineWidth = 3.5; ctx.strokeStyle = skin;
+      ctx.beginPath(); ctx.moveTo(shoulderRX, shoulderRY); ctx.lineTo(elbowR.x, elbowR.y); ctx.lineTo(handX, handY); ctx.stroke();
+      ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(elbowR.x, elbowR.y, 2, 0, TAU); ctx.fill();
     }
 
     // ── WEAPON DRAWING ────────────────────────────────────────────────
-    _weapon(ctx, role, accentColor, elbowX, elbowY, armDir, ap, BW, BH, wp);
+    _weapon(ctx, role, accentColor, handX, handY, armDir, ap, BW, BH, wp);
 
-    ctx.restore();
+    // Swing trail for melee during attack
+    if (ap > 0.1 && ap < 0.8 && (role === 'sword' || role === 'spear')) {
+      const trailAlpha = sin(ap * pi) * 0.4;
+      ctx.globalAlpha = trailAlpha;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      const trailLen = role === 'sword' ? 19 : 30;
+      const trailSpread = 0.6;
+      for (let i = 0; i < 3; i++) {
+        const tAng = armDir - trailSpread * (i + 1) * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(handX, handY);
+        ctx.lineTo(handX + cos(tAng) * trailLen, handY + sin(tAng) * trailLen);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore(); // undo torso lean
+    ctx.restore(); // undo enemy flip
   }
   BF.drawGlyph = glyph;
 
@@ -826,8 +896,9 @@
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     var ox = M.max(0, offsetX), oy = M.max(0, offsetY);
     var camOff = -camX * scale;
-    BF.drawOffset.x = ox + camOff; BF.drawOffset.y = oy;
-    ctx.setTransform(scale, 0, 0, scale, ox + camOff, oy);
+    var sx = (b.shakeX || 0) * scale, sy = (b.shakeY || 0) * scale;
+    BF.drawOffset.x = ox + camOff + sx; BF.drawOffset.y = oy + sy;
+    ctx.setTransform(scale, 0, 0, scale, ox + camOff + sx, oy + sy);
     ctx.clearRect(camX, 0, vw, G.ch);
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
@@ -893,8 +964,9 @@
     const defs = b.defenders.slice().sort((a, c) => a.y - c.y);
     for (const d of defs) {
       const ap = d.atk / 0.18;
-      const wp = T * 4;
+      const wp = T * 4 + d.id * 0.7;
       const lunge = d.atk > 0 && !d.ranged ? 5 * (d.atk / 0.18) : 0;
+      const kbTilt = (d.kbx || 0) * -0.008;
       const dx = d.x + lunge, dy = d.y;
 
       // Sell mode overlay (kept for UX)
@@ -904,7 +976,10 @@
         ctx.font = '700 10px "Avenir Next",system-ui,sans-serif';
         ctx.fillText('+' + refund, dx, dy - (DR + 12));
       }
+      ctx.save();
+      if (M.abs(kbTilt) > 0.005) { ctx.translate(dx, dy); ctx.rotate(kbTilt); ctx.translate(-dx, -dy); }
       token(ctx, dx, dy, d.isOg ? OGR : DR, me, d.type, false, d.hit, ap, wp);
+      ctx.restore();
       if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? OGR + 14 : DR + 11), 34, d.hp / d.maxHp, '#7fcf86');
     }
 
@@ -915,9 +990,14 @@
       if (e.x > fortressEdge + 8) continue;
       const r = ER * e.size;
       const ap = e.atk / 0.18;
-      const wp = T * 4.2;
+      const wp = T * 4.2 + e.id * 0.7;
       const lunge = e.atk > 0 && !e.ranged ? -5 * (e.atk / 0.18) : 0;
-      token(ctx, e.x + lunge, e.y, r, foe, e.role, true, e.hit, ap, wp);
+      const kbTilt = (e.kbx || 0) * -0.008;
+      const ex2 = e.x + lunge, ey2 = e.y;
+      ctx.save();
+      if (M.abs(kbTilt) > 0.005) { ctx.translate(ex2, ey2); ctx.rotate(kbTilt); ctx.translate(-ex2, -ey2); }
+      token(ctx, ex2, ey2, r, foe, e.role, true, e.hit, ap, wp);
+      ctx.restore();
       if (e.hp < e.maxHp - 0.5) bar(ctx, e.x, e.y - r - 9, 32 * M.min(1.4, e.size), e.hp / e.maxHp, '#e0605a');
     }
 
@@ -929,8 +1009,18 @@
       const y = s.y1 + (s.y2 - s.y1) * k - arc * M.sin(k * M.PI);
       ctx.fillStyle = s.color; ctx.strokeStyle = s.color;
       if (s.kind === 'orb') {
-        ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, 9, 0, TAU); ctx.fill();
-        ctx.globalAlpha = 1;    ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
+        // Trailing glow particles
+        for (let tr = 1; tr <= 3; tr++) {
+          const tk = M.max(0, k - tr * 0.03);
+          const tx = s.x1 + (s.x2 - s.x1) * tk;
+          const ty = s.y1 + (s.y2 - s.y1) * tk - arc * M.sin(tk * M.PI);
+          ctx.globalAlpha = 0.15 / tr;
+          ctx.beginPath(); ctx.arc(tx, ty, 7 / tr, 0, TAU); ctx.fill();
+        }
+        ctx.globalAlpha = 0.4; ctx.beginPath(); ctx.arc(x, y, 10, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 2, 0, TAU); ctx.fill();
+        ctx.fillStyle = s.color;
       } else if (s.kind === 'bolt') {
         // Jagged lightning bolt (Holy Smite VFX) — full path from source to target
         const flash = M.max(0, 1 - k * 1.8);
@@ -961,8 +1051,23 @@
           ctx.beginPath(); ctx.arc(x, y, 6 * (1 - fk * 0.5), 0, TAU); ctx.fill();
           ctx.globalAlpha = 1; ctx.fillStyle = s.color; ctx.strokeStyle = s.color;
         }
-        ctx.lineWidth = 2; ctx.beginPath();
-        ctx.moveTo(x - M.cos(a) * 9, y - M.sin(a) * 9); ctx.lineTo(x, y); ctx.stroke();
+        // Arrow shaft with shadow
+        ctx.lineWidth = 2.2; ctx.strokeStyle = '#5a3a10';
+        ctx.beginPath(); ctx.moveTo(x - M.cos(a) * 10, y - M.sin(a) * 10); ctx.lineTo(x, y); ctx.stroke();
+        ctx.lineWidth = 1.8; ctx.strokeStyle = '#7a5a28';
+        ctx.beginPath(); ctx.moveTo(x - M.cos(a) * 10, y - M.sin(a) * 10); ctx.lineTo(x, y); ctx.stroke();
+        // Arrowhead (filled triangle)
+        ctx.fillStyle = '#c8d8e0';
+        ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+        ctx.beginPath(); ctx.moveTo(5, 0); ctx.lineTo(-2, -3); ctx.lineTo(-2, 3); ctx.closePath(); ctx.fill();
+        ctx.restore();
+        // Fletching
+        const tail = { x: x - M.cos(a) * 10, y: y - M.sin(a) * 10 };
+        ctx.strokeStyle = '#d8a050'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y); ctx.lineTo(tail.x + M.cos(a + 0.5) * 4, tail.y + M.sin(a + 0.5) * 4);
+        ctx.moveTo(tail.x, tail.y); ctx.lineTo(tail.x + M.cos(a - 0.5) * 4, tail.y + M.sin(a - 0.5) * 4);
+        ctx.stroke();
       }
     }
     // AoE rings
@@ -974,12 +1079,61 @@
       ctx.globalAlpha = 1;
     }
 
+    // ── CORPSES (ragdoll dead units) ────────────────────────────────────
+    for (const c of b.corpses) {
+      const k = c.t / c.dur;
+      const fade = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.rot);
+      ctx.globalAlpha = fade * 0.7;
+      ctx.scale(0.6, 0.6);
+      const col = c.isEnemy ? (b.owner ? b.owner.color : '#888') : (b.faction ? b.faction.accent : '#888');
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.roundRect(-6, -8, 12, 16, 3); ctx.fill();
+      ctx.fillStyle = '#1a1a2a';
+      ctx.beginPath(); ctx.arc(0, -12, 4, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+
     // ── BLOOD PARTICLES ─────────────────────────────────────────────────
     for (const p of b.bloods) {
       const k = p.t / p.dur;
       ctx.globalAlpha = 0.9 * (1 - k);
-      ctx.fillStyle = k < 0.3 ? '#c02020' : '#6a1010';
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 - k * 0.4), 0, TAU); ctx.fill();
+      const streak = M.min(8, M.hypot(p.vx, p.vy) * 0.04);
+      if (streak > 2) {
+        ctx.strokeStyle = k < 0.3 ? '#c02020' : '#6a1010';
+        ctx.lineWidth = p.r * (1 - k * 0.4);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.vx * 0.02, p.y - p.vy * 0.02);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = k < 0.3 ? '#c02020' : '#6a1010';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 - k * 0.4), 0, TAU); ctx.fill();
+      }
+    }
+
+    // ── SPARKS (melee impact) ─────────────────────────────────────────
+    for (const s of b.sparks) {
+      const k = s.t / s.dur;
+      ctx.globalAlpha = (1 - k) * 0.9;
+      ctx.strokeStyle = s.color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(s.x - s.vx * 0.015, s.y - s.vy * 0.015);
+      ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = (1 - k) * 0.6;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 1.5 * (1 - k), 0, TAU); ctx.fill();
+    }
+
+    // ── DUST CLOUDS ───────────────────────────────────────────────────
+    for (const d of b.dusts) {
+      const k = d.t / d.dur;
+      ctx.globalAlpha = 0.35 * (1 - k);
+      ctx.fillStyle = '#8a7a60';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = 1;
 

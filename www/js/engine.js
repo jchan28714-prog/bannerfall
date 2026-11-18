@@ -62,6 +62,12 @@
       this.floats = [];
       this.rings = [];
       this.bloods = [];
+      this.corpses = [];
+      this.sparks = [];
+      this.dusts = [];
+      this.shake = 0;
+      this.shakeX = 0;
+      this.shakeY = 0;
       this.stance = 'attack';
       this.schedule = this._buildSchedule();
       this.next = 0;
@@ -211,6 +217,7 @@
       e.x = G.cw + 20;
       e.y = this._rowToY(s.row);
       e.cd = 0.5; e.hit = 0; e.atk = 0; e.dead = false; e.aoe = 0; e.size = 1; e.slowDur = 0;
+      e.kbx = 0; e.kby = 0;
       const mm = this.modeMult;
       if (s.role === 'champion') {
         Object.assign(e, { hp: u.hp * norm * 3.5 * T.hpScale * mm, dmg: u.dmg * norm * 1.7 * T.dmgScale * mm, rate: u.rate * 0.8, range: 32, speed: 11, leak: 18, bounty: Math.round(menCost * 0.5), size: 1.5 });
@@ -277,6 +284,7 @@
         aoe: u.aoe || 0, ranged: u.range > 120, cost, cd: 0.35, hit: 0, atk: 0, dead: false,
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
         starDefMod: defBonus, frozenDur: 0,
+        kbx: 0, kby: 0,
       };
       this.defenders.push(d);
       this.events.push('place');
@@ -316,6 +324,7 @@
         cd: 0.35, hit: 0, atk: 0, dead: false, isOg: type === 'og',
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
         starDefMod: defBonus, frozenDur: 0,
+        kbx: 0, kby: 0,
       });
     }
 
@@ -351,7 +360,7 @@
           if (front) {
             struck.add(front.id);
             this._shot(front.x, front.y - 88, front.x, front.y, 'bolt', '#e8e0a8', 0.30);
-            this._hurtEnemy(front, 30 + this.waveNow() * 3);
+            this._hurtEnemy(front, 30 + this.waveNow() * 3, front.x, front.y - 88);
             this._ring(front.x, front.y, 32, '#e8e0a8');
           }
         }
@@ -366,17 +375,19 @@
         this._ring((G.viewW || G.cw) * 0.5, G.sky + G.h * 0.5, (G.viewW || G.cw) * 0.42, '#60c040');
       } else if (fid === 'orcs') {
         // Eruption: targeted damage — scorches all enemies
+        this._addShake(0.5);
         for (const e of this.enemies) {
           if (!e.dead) {
-            this._hurtEnemy(e, 28 + this.waveNow() * 2.5);
+            this._hurtEnemy(e, 28 + this.waveNow() * 2.5, e.x, e.y + 50);
             this._ring(e.x, e.y, 40, '#e05020');
           }
         }
       } else if (fid === 'goblins') {
         // Acid Rain: targeted damage — melts all enemies
+        this._addShake(0.4);
         for (const e of this.enemies) {
           if (!e.dead) {
-            this._hurtEnemy(e, 22 + this.waveNow() * 2);
+            this._hurtEnemy(e, 22 + this.waveNow() * 2, e.x, e.y - 50);
             this._ring(e.x, e.y, 28, '#80c828');
           }
         }
@@ -411,21 +422,61 @@
     _shot(x1, y1, x2, y2, kind, color, dur, arc) { if (this.fx) this.shots.push({ x1, y1, x2, y2, kind, color, t: 0, dur, arc: arc || 0 }); }
     _ring(x, y, r, color) { if (this.fx) this.rings.push({ x, y, r, color, t: 0, dur: 0.35 }); }
 
-    _killDef(d) { d.dead = true; this._spawnBlood(d.x, d.y); }
-    _spawnBlood(x, y) {
+    _killDef(d) {
+      d.dead = true;
+      this._spawnBlood(d.x, d.y, 8);
+      this._spawnCorpse(d.x, d.y, -1, d.type, false);
+      this._addShake(0.15);
+    }
+    _spawnBlood(x, y, count) {
       if (!this.fx) return;
-      for (let i = 0; i < 6; i++) {
-        this.bloods.push({ x, y, vx: (Math.random() - 0.5) * 60, vy: -Math.random() * 40 - 10, t: 0, dur: 0.8 + Math.random() * 0.6, r: 1.5 + Math.random() * 2 });
+      for (let i = 0; i < (count || 6); i++) {
+        this.bloods.push({ x, y, vx: (Math.random() - 0.5) * 80, vy: -Math.random() * 50 - 15, t: 0, dur: 0.9 + Math.random() * 0.7, r: 1.5 + Math.random() * 2.5 });
       }
     }
+    _spawnCorpse(x, y, dir, role, isEnemy) {
+      if (!this.fx) return;
+      this.corpses.push({
+        x, y, vx: dir * (30 + Math.random() * 40), vy: -(40 + Math.random() * 30),
+        rot: 0, vr: (Math.random() - 0.5) * 12,
+        t: 0, dur: 2.5, role, isEnemy, grounded: false, groundY: y,
+      });
+    }
+    _spawnSparks(x, y, count, color) {
+      if (!this.fx) return;
+      for (let i = 0; i < (count || 4); i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = 40 + Math.random() * 60;
+        this.sparks.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - 20, t: 0, dur: 0.3 + Math.random() * 0.2, color: color || '#ffe080' });
+      }
+    }
+    _spawnDust(x, y) {
+      if (!this.fx) return;
+      for (let i = 0; i < 3; i++) {
+        this.dusts.push({ x: x + (Math.random() - 0.5) * 10, y, vx: (Math.random() - 0.5) * 20, vy: -Math.random() * 15, t: 0, dur: 0.5 + Math.random() * 0.3, r: 3 + Math.random() * 4 });
+      }
+    }
+    _addShake(amount) { this.shake = Math.min(1, this.shake + amount); }
+    _applyKnockback(unit, fromX, fromY, force) {
+      const dx = unit.x - fromX, dy = unit.y - fromY;
+      const d = Math.max(1, Math.hypot(dx, dy));
+      unit.kbx += (dx / d) * force;
+      unit.kby += (dy / d) * force * 0.3;
+    }
 
-    _hurtEnemy(e, dmg) {
+    _hurtEnemy(e, dmg, fromX, fromY) {
       if (e.dead) return;
       e.hp -= dmg;
       e.hit = 0.12;
+      const kbForce = Math.min(60, dmg * 0.4);
+      this._applyKnockback(e, fromX != null ? fromX : e.x - 30, fromY != null ? fromY : e.y, kbForce);
+      if (dmg > 20) this._spawnSparks(e.x, e.y, Math.min(6, Math.ceil(dmg / 15)), '#ffe080');
       if (e.hp <= 0) {
         e.dead = true;
-        this._spawnBlood(e.x, e.y);
+        this._spawnBlood(e.x, e.y, Math.min(12, Math.ceil(dmg / 8)));
+        this._spawnCorpse(e.x, e.y, -1, e.role, true);
+        this._spawnDust(e.x, e.y);
+        this._addShake(Math.min(0.3, dmg / 100));
         this.kills++;
         if (this.zombie) this.zombieKills++;
         const g = Math.round(e.bounty * this.bountyMult);
@@ -435,13 +486,17 @@
       }
     }
 
-    _hurtDef(d, dmg) {
+    _hurtDef(d, dmg, fromX, fromY) {
       if (d.dead) return;
       const ironReduce   = d.ironclad ? 0.4 : 1;
       const shieldReduce = d.shielded ? 0.4 : 1;
       const starDef      = d.starDefMod != null ? d.starDefMod : 1;
-      d.hp -= dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce * starDef;
+      const actual = dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce * starDef;
+      d.hp -= actual;
       d.hit = 0.12;
+      const kbForce = Math.min(40, actual * 0.3);
+      this._applyKnockback(d, fromX != null ? fromX : d.x + 30, fromY != null ? fromY : d.y, kbForce);
+      if (actual > 15) this._spawnSparks(d.x, d.y, Math.min(5, Math.ceil(actual / 12)), '#ff9060');
       if (d.hp <= 0) this._killDef(d);
     }
 
@@ -451,9 +506,10 @@
         const arcH = !d.aoe ? 20 : 0;
         const orbColor = d.type === 'warlock' ? '#ff6040' : '#c9a6ff';
         this._shot(d.x + 10, d.y, tgt.x, tgt.y, d.aoe ? 'orb' : 'arrow', d.aoe ? orbColor : '#e8dcc0', 0.16, arcH);
+      } else {
+        this._spawnSparks(tgt.x - 4, tgt.y, 3, '#ffe8a0');
       }
       const mult = BF.dmgMult(d.type, BF.baseRole(tgt.role));
-      // Archers at point-blank range are ineffective (panic penalty)
       const panicMult = (d.type === 'archer' && Math.abs(tgt.x - d.x) < 35) ? 0.5 : 1;
       const dmg = d.dmg * mult * panicMult;
       if (d.aoe) {
@@ -461,10 +517,11 @@
         this._ring(tgt.x, tgt.y, d.aoe, ringColor);
         for (const e of this.enemies) {
           if (e.dead) continue;
-          if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? dmg : d.dmg * 0.6);
+          if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? dmg : d.dmg * 0.6, d.x, d.y);
         }
+        this._addShake(0.08);
       } else {
-        this._hurtEnemy(tgt, dmg);
+        this._hurtEnemy(tgt, dmg, d.x, d.y);
       }
     }
 
@@ -473,6 +530,8 @@
       if (e.ranged) {
         const arcH = !e.aoe ? 15 : 0;
         this._shot(e.x - 8, e.y, tgt.x, tgt.y, e.aoe ? 'orb' : 'arrow', e.aoe ? '#ff9a7a' : '#d9b8a8', 0.16, arcH);
+      } else {
+        this._spawnSparks(tgt.x + 4, tgt.y, 3, '#ffa060');
       }
       const mult = BF.dmgMult(BF.baseRole(e.role), tgt.type);
       const dmg = e.dmg * mult;
@@ -480,10 +539,11 @@
         this._ring(tgt.x, tgt.y, e.aoe, '#ff9a7a');
         for (const d of this.defenders) {
           if (d.dead) continue;
-          if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? dmg : e.dmg * 0.6);
+          if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? dmg : e.dmg * 0.6, e.x, e.y);
         }
+        this._addShake(0.06);
       } else {
-        this._hurtDef(tgt, dmg);
+        this._hurtDef(tgt, dmg, e.x, e.y);
       }
     }
 
@@ -658,19 +718,99 @@
         }
       }
 
+      // ── Knockback physics: apply velocity then decay ──
+      const kbDecay = Math.pow(0.02, dt);
+      for (const u of this.defenders.concat(this.enemies)) {
+        if (u.dead) continue;
+        if (Math.abs(u.kbx) > 0.5 || Math.abs(u.kby) > 0.5) {
+          u.x += u.kbx * dt;
+          u.y += u.kby * dt;
+          u.kbx *= kbDecay;
+          u.kby *= kbDecay;
+          u.x = Math.max(10, Math.min(G.cw - 10, u.x));
+          u.y = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, u.y));
+        }
+      }
+
+      // ── Unit collision separation (same side pushes apart) ──
+      const sepForce = 60;
+      const minDist = 12;
+      for (let i = 0; i < this.defenders.length; i++) {
+        const a = this.defenders[i];
+        if (a.dead) continue;
+        for (let j = i + 1; j < this.defenders.length; j++) {
+          const b = this.defenders[j];
+          if (b.dead) continue;
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < minDist * minDist && d2 > 0) {
+            const d = Math.sqrt(d2);
+            const push = (minDist - d) * 0.5;
+            const nx = dx / d, ny = dy / d;
+            a.x += nx * push; a.y += ny * push;
+            b.x -= nx * push; b.y -= ny * push;
+          }
+        }
+      }
+      for (let i = 0; i < this.enemies.length; i++) {
+        const a = this.enemies[i];
+        if (a.dead) continue;
+        for (let j = i + 1; j < this.enemies.length; j++) {
+          const b = this.enemies[j];
+          if (b.dead) continue;
+          const dx = a.x - b.x, dy = a.y - b.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < minDist * minDist && d2 > 0) {
+            const d = Math.sqrt(d2);
+            const push = (minDist - d) * 0.5;
+            const nx = dx / d, ny = dy / d;
+            a.x += nx * push; a.y += ny * push;
+            b.x -= nx * push; b.y -= ny * push;
+          }
+        }
+      }
+
       // Return dead enemies to the pool instead of allocating a new filtered array
       for (let i = this.enemies.length - 1; i >= 0; i--) {
         if (this.enemies[i].dead) { this.enemyPool.release(this.enemies[i]); this.enemies.splice(i, 1); }
       }
       this.defenders = this.defenders.filter((d) => !d.dead);
 
+      // ── Screen shake decay ──
+      if (this.shake > 0) {
+        this.shake = Math.max(0, this.shake - dt * 3);
+        this.shakeX = (Math.random() - 0.5) * this.shake * 8;
+        this.shakeY = (Math.random() - 0.5) * this.shake * 6;
+      }
+
       if (this.fx) {
-        for (const list of [this.shots, this.floats, this.rings, this.bloods]) for (const o of list) o.t += dt;
-        for (const p of this.bloods) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 80 * dt; }
-        this.shots  = this.shots.filter((o) => o.t < o.dur);
-        this.floats = this.floats.filter((o) => o.t < o.dur);
-        this.rings  = this.rings.filter((o) => o.t < o.dur);
-        this.bloods = this.bloods.filter((o) => o.t < o.dur);
+        const fxLists = [this.shots, this.floats, this.rings, this.bloods, this.sparks, this.dusts, this.corpses];
+        for (const list of fxLists) for (const o of list) o.t += dt;
+        for (const p of this.bloods) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt; }
+        for (const p of this.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 100 * dt; p.vx *= 0.95; }
+        for (const p of this.dusts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 10 * dt; p.r += 3 * dt; }
+        for (const c of this.corpses) {
+          if (!c.grounded) {
+            c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 180 * dt; c.rot += c.vr * dt;
+            if (c.y >= c.groundY) {
+              c.y = c.groundY; c.grounded = true;
+              c.vy = -Math.abs(c.vy) * 0.3;
+              c.vx *= 0.4;
+              if (Math.abs(c.vy) > 8) { c.grounded = false; } // bounce
+              else { c.vy = 0; c.vx = 0; c.vr = 0; }
+              this._spawnDust(c.x, c.y);
+            }
+          } else {
+            c.vx *= Math.pow(0.1, dt);
+          }
+        }
+        this.shots   = this.shots.filter((o) => o.t < o.dur);
+        this.floats  = this.floats.filter((o) => o.t < o.dur);
+        this.rings   = this.rings.filter((o) => o.t < o.dur);
+        this.bloods  = this.bloods.filter((o) => o.t < o.dur);
+        this.sparks  = this.sparks.filter((o) => o.t < o.dur);
+        this.dusts   = this.dusts.filter((o) => o.t < o.dur);
+        this.corpses = this.corpses.filter((o) => o.t < o.dur);
       }
 
       if (!this.zombie) {
@@ -798,17 +938,17 @@
         if (tgt) {
           for (let i = 0; i < 3; i++) {
             this._shot(d.x + 10, d.y, tgt.x, tgt.y, 'arrow', '#e8dcc0', 0.06 + i * 0.04, 20);
-            if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.2);
+            if (!tgt.dead) this._hurtEnemy(tgt, d.dmg * 1.2, d.x, d.y);
           }
         }
       } else if (d.type === 'mage') {
         for (const e of this.enemies) {
-          if (!e.dead && Math.abs(e.y - d.y) < G.cell * 2 && e.x - d.x < d.range && e.x - d.x > -10) this._hurtEnemy(e, d.dmg * 2);
+          if (!e.dead && Math.abs(e.y - d.y) < G.cell * 2 && e.x - d.x < d.range && e.x - d.x > -10) this._hurtEnemy(e, d.dmg * 2, d.x, d.y);
         }
         this._ring(d.x + d.range / 2, d.y, d.range / 2, '#c9a6ff');
       } else if (d.type === 'warlock') {
         for (const e of this.enemies) {
-          if (!e.dead && dist(e.x, e.y, d.x, d.y) <= d.range) this._hurtEnemy(e, d.dmg * 3);
+          if (!e.dead && dist(e.x, e.y, d.x, d.y) <= d.range) this._hurtEnemy(e, d.dmg * 3, d.x, d.y);
         }
         this._ring(d.x, d.y, d.range, '#ff6040');
         this._ring(d.x, d.y, d.range * 0.6, '#ffa040');
