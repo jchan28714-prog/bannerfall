@@ -12,13 +12,13 @@
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   --sans: "Avenir Next", "SF Pro Text", "Segoe UI", system-ui, -apple-system, sans-serif;
 
-  /* Fluid type scale – everything derives from these tokens */
-  --t-xs:  clamp(10px, 2.5vw, 13px);
-  --t-sm:  clamp(12px, 3.0vw, 15px);
-  --t-md:  clamp(14px, 3.5vw, 17px);
-  --t-lg:  clamp(16px, 4.2vw, 21px);
-  --t-xl:  clamp(19px, 5.0vw, 26px);
-  --t-2xl: clamp(24px, 6.2vw, 38px);
+  /* Fluid type scale – percentage-based for phone adaptability */
+  --t-xs:  clamp(9px, 2.2vw, 12px);
+  --t-sm:  clamp(10px, 2.6vw, 14px);
+  --t-md:  clamp(12px, 3.0vw, 16px);
+  --t-lg:  clamp(14px, 3.5vw, 19px);
+  --t-xl:  clamp(16px, 4.2vw, 24px);
+  --t-2xl: clamp(20px, 5.2vw, 32px);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -104,8 +104,8 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 
 /* ---------- home screen ---------- */
 .home { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0; padding: 0 24px; }
-.home-logo { width: clamp(80px, 20vw, 140px); height: auto; aspect-ratio: 1; border-radius: 20%; margin-bottom: clamp(8px, 2vh, 16px); filter: drop-shadow(0 4px 18px rgba(201, 164, 92, .18)); }
-.home h1 { font-size: clamp(26px, 7vw, 44px); letter-spacing: .32em; color: var(--gold); text-indent: .32em; margin-bottom: 2px; }
+.home-logo { width: clamp(60px, 16vw, 110px); height: auto; aspect-ratio: 1; border-radius: 20%; margin-bottom: clamp(6px, 1.5vh, 12px); filter: drop-shadow(0 4px 18px rgba(201, 164, 92, .18)); }
+.home h1 { font-size: clamp(20px, 5.5vw, 34px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; margin-bottom: 2px; }
 .home .subtitle { color: var(--dim); font-size: var(--t-xs); margin-bottom: clamp(20px, 5vh, 40px); }
 .home-menu { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px; }
 .home-menu .btn { width: 100%; }
@@ -122,7 +122,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
   padding: clamp(6px, 1.5vw, 12px) clamp(10px, 2.5vw, 16px);
   text-align: center; flex: none;
 }
-.leg-header h1 { font-size: clamp(16px, 4.5vw, 28px); letter-spacing: .28em; color: var(--gold); text-indent: .28em; }
+.leg-header h1 { font-size: clamp(14px, 3.8vw, 24px); letter-spacing: .24em; color: var(--gold); text-indent: .24em; }
 .leg-header p { margin: 1px 0 0; color: var(--dim); font-size: var(--t-xs); }
 
 /* 3D revolving-door carousel */
@@ -156,7 +156,7 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 /* Card header: icon + name */
 .lcard-head { display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1.5vh, 10px); text-align: center; }
 .lcard-icon { width: clamp(48px, 12vw, 64px); height: clamp(48px, 12vw, 64px); border-radius: 50%; flex: none; }
-.lcard-head h3 { font-size: clamp(13px, 3.2vw, 18px); color: var(--text); line-height: 1.15; margin: 0; }
+.lcard-head h3 { font-size: clamp(11px, 2.8vw, 16px); color: var(--text); line-height: 1.15; margin: 0; }
 .lcard-prog { font-size: 9px; color: var(--gold); font-weight: 700; padding: 2px 6px; border-radius: 8px; background: rgba(232,197,102,.12); margin-top: 2px; }
 
 /* Tagline shown on card */

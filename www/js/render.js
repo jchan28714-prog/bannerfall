@@ -616,7 +616,7 @@
     }
     // Hit flash
     if (hit > 0) {
-      ctx.globalAlpha = M.min(0.55, hit * 5);
+      ctx.globalAlpha = M.min(0.22, hit * 2.5);
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1;
@@ -1024,10 +1024,13 @@
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     var ox = M.max(0, offsetX), oy = M.max(0, offsetY);
     var camOff = -camX * scale;
-    var sx = (b.shakeX || 0) * scale, sy = (b.shakeY || 0) * scale;
+    var rawSX = b.shakeX || 0, rawSY = b.shakeY || 0;
+    if (M.abs(rawSX) < 0.3) rawSX = 0;
+    if (M.abs(rawSY) < 0.3) rawSY = 0;
+    var sx = rawSX * scale, sy = rawSY * scale;
     BF.drawOffset.x = ox + camOff + sx; BF.drawOffset.y = oy + sy;
     ctx.setTransform(scale, 0, 0, scale, ox + camOff + sx, oy + sy);
-    ctx.clearRect(camX, 0, vw, G.ch);
+    ctx.clearRect(camX - 10, -10, vw + 20, G.ch + 20);
     const me = b.faction, foe = b.owner;
     const T = b.time; // game time drives all animations
 

@@ -669,233 +669,274 @@
       if (tx < minX) minX = tx; if (tx > maxX) maxX = tx;
       if (ty < minY) minY = ty; if (ty > maxY) maxY = ty;
     });
-    var pad = 60;
+    var pad = 80;
     var vbX = Math.floor(minX - pad), vbY = Math.floor(minY - pad);
     var vbW = Math.ceil(maxX - minX + pad * 2), vbH = Math.ceil(maxY - minY + pad * 2);
     svg.setAttribute('viewBox', vbX + ' ' + vbY + ' ' + vbW + ' ' + vbH);
     const defs = svgEl('defs', {}, svg);
 
-    // ── Vibrant clipart-style map — no dark background ──
+    // ── Helper: get rotated position for a territory ──
+    function tPos(t) {
+      var tc = terrMap[t.id] || t;
+      return { x: tc.mapX != null ? tc.mapX : tc.x, y: tc.mapY != null ? tc.mapY : tc.y };
+    }
 
-    // Bright continent landmass (parchment/sand tone)
-    svgEl('path', {
-      d: 'M54 58 Q30 100, 22 144 Q28 195, 36 246 Q26 290, 22 332 Q40 385, 72 433 Q120 468, 180 491 Q270 510, 360 513 Q468 512, 576 506 Q680 496, 774 477 Q820 440, 855 390 Q868 340, 864 289 Q870 238, 873 188 Q864 142, 846 101 Q808 66, 756 43 Q658 26, 558 22 Q440 16, 324 18 Q228 22, 144 33 Q90 44, 54 58 Z',
-      fill: '#f5e6c8', stroke: '#c9a86c', 'stroke-width': 3,
-    }, svg);
-
-    // Soft coastline inner glow
-    svgEl('path', {
-      d: 'M54 58 Q30 100, 22 144 Q28 195, 36 246 Q26 290, 22 332 Q40 385, 72 433 Q120 468, 180 491 Q270 510, 360 513 Q468 512, 576 506 Q680 496, 774 477 Q820 440, 855 390 Q868 340, 864 289 Q870 238, 873 188 Q864 142, 846 101 Q808 66, 756 43 Q658 26, 558 22 Q440 16, 324 18 Q228 22, 144 33 Q90 44, 54 58 Z',
-      fill: 'none', stroke: '#e8d5a8', 'stroke-width': 8, opacity: '0.5',
-    }, svg);
-
-    // ── Faction territory colored blobs (vibrant, soft-edged) ──
-
-    // Elf territory — lush green (top band)
-    svgEl('path', {
-      d: 'M144 33 Q200 10, 324 18 Q440 10, 558 22 Q658 28, 756 43 Q810 55, 846 101 Q830 110, 780 100 Q700 110, 650 95 Q550 100, 440 90 Q320 90, 220 95 Q160 90, 100 100 Q80 80, 100 65 Q120 48, 144 33 Z',
-      fill: '#7dd4a0', opacity: '0.55',
-    }, svg);
-    svgEl('path', {
-      d: 'M144 33 Q200 10, 324 18 Q440 10, 558 22 Q658 28, 756 43 Q810 55, 846 101 Q830 110, 780 100 Q700 110, 650 95 Q550 100, 440 90 Q320 90, 220 95 Q160 90, 100 100 Q80 80, 100 65 Q120 48, 144 33 Z',
-      fill: '#4db87a', opacity: '0.3',
-    }, svg);
-
-    // Orc territory — warm red-orange (left side)
-    svgEl('path', {
-      d: 'M54 58 Q30 100, 22 144 Q28 195, 36 246 Q26 290, 22 332 Q35 320, 60 300 Q100 280, 180 270 Q220 250, 260 240 Q280 200, 260 160 Q220 120, 180 100 Q140 80, 100 65 Q80 58, 54 58 Z',
-      fill: '#e8946a', opacity: '0.5',
-    }, svg);
-    svgEl('path', {
-      d: 'M54 58 Q30 100, 22 144 Q28 195, 36 246 Q26 290, 22 332 Q35 320, 60 300 Q100 280, 180 270 Q220 250, 260 240 Q280 200, 260 160 Q220 120, 180 100 Q140 80, 100 65 Q80 58, 54 58 Z',
-      fill: '#d05a30', opacity: '0.25',
-    }, svg);
-
-    // Dwarf territory — steel blue-grey (center)
-    svgEl('path', {
-      d: 'M260 240 Q320 210, 400 215 Q480 210, 560 220 Q620 230, 660 250 Q680 280, 660 310 Q620 320, 560 310 Q480 320, 400 310 Q330 310, 280 290 Q250 270, 260 240 Z',
-      fill: '#a8c0e0', opacity: '0.5',
-    }, svg);
-    svgEl('path', {
-      d: 'M260 240 Q320 210, 400 215 Q480 210, 560 220 Q620 230, 660 250 Q680 280, 660 310 Q620 320, 560 310 Q480 320, 400 310 Q330 310, 280 290 Q250 270, 260 240 Z',
-      fill: '#7090c0', opacity: '0.25',
-    }, svg);
-
-    // Men territory — golden wheat (right side)
-    svgEl('path', {
-      d: 'M756 43 Q810 65, 846 101 Q864 142, 873 188 Q868 240, 864 289 Q860 340, 855 390 Q820 440, 774 477 Q750 460, 740 420 Q720 370, 710 320 Q700 270, 710 230 Q720 180, 740 140 Q750 100, 756 43 Z',
-      fill: '#f0d080', opacity: '0.5',
-    }, svg);
-    svgEl('path', {
-      d: 'M756 43 Q810 65, 846 101 Q864 142, 873 188 Q868 240, 864 289 Q860 340, 855 390 Q820 440, 774 477 Q750 460, 740 420 Q720 370, 710 320 Q700 270, 710 230 Q720 180, 740 140 Q750 100, 756 43 Z',
-      fill: '#c8a040', opacity: '0.25',
-    }, svg);
-
-    // Goblin territory — murky yellow-green (bottom band)
-    svgEl('path', {
-      d: 'M22 332 Q40 385, 72 433 Q120 468, 180 491 Q270 510, 360 513 Q468 512, 576 506 Q680 496, 774 477 Q740 460, 680 450 Q580 440, 480 440 Q380 450, 280 440 Q180 430, 120 400 Q60 370, 22 332 Z',
-      fill: '#c8d868', opacity: '0.45',
-    }, svg);
-    svgEl('path', {
-      d: 'M22 332 Q40 385, 72 433 Q120 468, 180 491 Q270 510, 360 513 Q468 512, 576 506 Q680 496, 774 477 Q740 460, 680 450 Q580 440, 480 440 Q380 450, 280 440 Q180 430, 120 400 Q60 370, 22 332 Z',
-      fill: '#90a830', opacity: '0.25',
-    }, svg);
-
-    // Citadel territory — purple (center island)
-    svgEl('ellipse', { cx: 450, cy: 260, rx: 55, ry: 45, fill: '#c8a0f0', opacity: '0.5' }, svg);
-    svgEl('ellipse', { cx: 450, cy: 260, rx: 40, ry: 32, fill: '#a070d8', opacity: '0.35' }, svg);
-
-    // ── Clipart decorative elements ──
-
-    // Elf forest: bright green trees with trunks
-    const forestG = svgEl('g', {}, svg);
-    [[180,50,14],[252,38,16],[340,32,12],[430,42,18],[540,38,14],[630,55,16],[720,68,12],
-     [150,85,20],[280,72,16],[400,58,22],[520,64,14],[660,80,12],[200,100,13],[350,90,10],
-     [500,82,16],[600,96,11],[460,52,13],[310,60,18]].forEach(([fx,fy,r]) => {
-      svgEl('rect', { x: fx - 2, y: fy, width: 4, height: r * 0.7, fill: '#7a5a30', rx: 1 }, forestG);
-      svgEl('circle', { cx: fx, cy: fy - r * 0.1, r, fill: '#40b868' }, forestG);
-      svgEl('circle', { cx: fx - r*0.25, cy: fy - r*0.3, r: r*0.5, fill: '#60d080' }, forestG);
+    // ── Group territories by original faction owner ──
+    var factionGroups = {};
+    var FACTION_COLORS = { elves:'#7dd4a0', orcs:'#e8946a', dwarves:'#a8c0e0', men:'#f0d080', goblins:'#c8d868', citadel:'#c8a0f0' };
+    var FACTION_COLORS2 = { elves:'#4db87a', orcs:'#d05a30', dwarves:'#7090c0', men:'#c8a040', goblins:'#90a830', citadel:'#a070d8' };
+    var FACTION_LABELS = { elves:'SYLVANMERE', orcs:'ASHEN WASTES', dwarves:'KARAK DUN', men:'ALDERMERE', goblins:'GLOOMHOLLOW' };
+    var FACTION_LABEL_COLORS = { elves:'#287048', orcs:'#a03820', dwarves:'#506890', men:'#3a60a0', goblins:'#607020' };
+    BF.TERRITORIES.forEach(function(t) {
+      if (t.final) return;
+      if (!factionGroups[t.owner]) factionGroups[t.owner] = [];
+      factionGroups[t.owner].push(t);
     });
 
-    // Orc volcanic terrain: bright lava, smoking craters
-    const volcG = svgEl('g', {}, svg);
-    svgEl('path', { d: 'M80 170 Q100 200, 90 240 T110 290',
-      fill: 'none', stroke: '#ff6030', 'stroke-width': 3.5, 'stroke-linecap': 'round', opacity: '0.8' }, volcG);
-    svgEl('path', { d: 'M140 150 Q160 190, 130 220 T170 270',
-      fill: 'none', stroke: '#ff8840', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: '0.7' }, volcG);
-    svgEl('path', { d: 'M200 180 Q220 210, 190 240',
-      fill: 'none', stroke: '#ff5020', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.7' }, volcG);
-    // Volcano mountains (clipart style)
-    [[90,195,28],[165,165,20],[230,200,18]].forEach(([vx,vy,vs]) => {
-      svgEl('path', { d: 'M'+(vx-vs)+' '+(vy+vs*0.5)+' L'+vx+' '+(vy-vs*0.4)+' L'+(vx+vs)+' '+(vy+vs*0.5)+' Z',
-        fill: '#8b4028' }, volcG);
-      svgEl('path', { d: 'M'+(vx-vs*0.3)+' '+(vy-vs*0.1)+' L'+vx+' '+(vy-vs*0.4)+' L'+(vx+vs*0.3)+' '+(vy-vs*0.1)+' Z',
-        fill: '#d04020' }, volcG);
-      svgEl('circle', { cx: vx, cy: vy - vs*0.3, r: vs*0.15, fill: '#ff8830' }, volcG);
-    });
-    // Scorched ground patches
-    [[70,230,12],[130,260,10],[180,215,14],[230,240,9]].forEach(([x,y,r]) => {
-      svgEl('circle', { cx: x, cy: y, r, fill: '#c08060', opacity: '0.3' }, volcG);
+    // ── Convex hull for continent boundary (Graham scan) ──
+    var hullPts = terrs.map(function(t) { var p = tPos(t); return [p.x, p.y]; });
+    function cross(O, A, B) { return (A[0]-O[0])*(B[1]-O[1]) - (A[1]-O[1])*(B[0]-O[0]); }
+    hullPts.sort(function(a,b) { return a[0]-b[0] || a[1]-b[1]; });
+    var lower = [];
+    for (var i = 0; i < hullPts.length; i++) {
+      while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], hullPts[i]) <= 0) lower.pop();
+      lower.push(hullPts[i]);
+    }
+    var upper = [];
+    for (var i = hullPts.length - 1; i >= 0; i--) {
+      while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], hullPts[i]) <= 0) upper.pop();
+      upper.push(hullPts[i]);
+    }
+    lower.pop(); upper.pop();
+    var hull = lower.concat(upper);
+
+    // Expand hull outward with irregular offsets for organic coastline
+    var hcx = 0, hcy = 0;
+    hull.forEach(function(p) { hcx += p[0]; hcy += p[1]; });
+    hcx /= hull.length; hcy /= hull.length;
+    var expandedHull = hull.map(function(p, i) {
+      var dx = p[0] - hcx, dy = p[1] - hcy;
+      var d = Math.sqrt(dx*dx + dy*dy);
+      var wobble = 50 + 18 * Math.sin(i * 2.3) + 12 * Math.sin(i * 5.1 + 1.7);
+      var nx = dx / d, ny = dy / d;
+      return [p[0] + nx * wobble, p[1] + ny * wobble];
     });
 
-    // Dwarf mountains: colorful snow-capped peaks
-    const mtnG = svgEl('g', {}, svg);
-    [[300,245,32],[370,230,38],[450,225,42],[530,233,35],[610,237,40],[680,243,32]].forEach(([cx,base,h]) => {
-      svgEl('path', { d: 'M'+(cx-h*0.8)+' '+base+' L'+cx+' '+(base-h)+' L'+(cx+h*0.8)+' '+base+' Z',
-        fill: '#8095b8' }, mtnG);
-      svgEl('path', { d: 'M'+(cx-h*0.3)+' '+(base-h*0.55)+' L'+cx+' '+(base-h)+' L'+(cx+h*0.3)+' '+(base-h*0.55)+' Z',
-        fill: '#e8f0ff' }, mtnG);
-      svgEl('path', { d: 'M'+(cx-h*0.15)+' '+(base-h*0.7)+' L'+cx+' '+(base-h)+' L'+(cx+h*0.15)+' '+(base-h*0.7)+' Z',
-        fill: '#fff', opacity: '0.8' }, mtnG);
-    });
-    // Mine entrance symbols (golden arches)
-    [[420,296],[510,315],[600,300]].forEach(([x,y]) => {
-      svgEl('path', { d: 'M'+(x-7)+' '+y+' L'+x+' '+(y-10)+' L'+(x+7)+' '+y,
-        fill: '#5a4a30', stroke: '#e8b840', 'stroke-width': 2 }, mtnG);
-      svgEl('circle', { cx: x, cy: y - 4, r: 2, fill: '#e8b840' }, mtnG);
+    // Build smooth continent path with quadratic curves
+    var coastD = 'M' + Math.round(expandedHull[0][0]) + ' ' + Math.round(expandedHull[0][1]);
+    for (var i = 0; i < expandedHull.length; i++) {
+      var cur = expandedHull[i];
+      var nxt = expandedHull[(i + 1) % expandedHull.length];
+      var mx = Math.round((cur[0] + nxt[0]) / 2), my = Math.round((cur[1] + nxt[1]) / 2);
+      coastD += ' Q' + Math.round(cur[0]) + ' ' + Math.round(cur[1]) + ', ' + mx + ' ' + my;
+    }
+    coastD += ' Z';
+
+    svgEl('path', { d: coastD, fill: '#f5e6c8', stroke: '#c9a86c', 'stroke-width': 3 }, svg);
+    svgEl('path', { d: coastD, fill: 'none', stroke: '#e8d5a8', 'stroke-width': 8, opacity: '0.5' }, svg);
+
+    // ── Faction territory colored blobs (computed from actual territory positions) ──
+    Object.keys(factionGroups).forEach(function(fid) {
+      var pts = factionGroups[fid].map(function(t) { return tPos(t); });
+      if (pts.length < 2) return;
+      // Compute centroid
+      var fcx = 0, fcy = 0;
+      pts.forEach(function(p) { fcx += p.x; fcy += p.y; });
+      fcx /= pts.length; fcy /= pts.length;
+      // Sort points by angle from centroid
+      pts.sort(function(a, b) {
+        return Math.atan2(a.y - fcy, a.x - fcx) - Math.atan2(b.y - fcy, b.x - fcx);
+      });
+      // Build blob path with expansion
+      var expand = 55;
+      var blobPts = pts.map(function(p) {
+        var dx = p.x - fcx, dy = p.y - fcy;
+        var d = Math.sqrt(dx*dx + dy*dy) || 1;
+        return { x: p.x + (dx/d) * expand, y: p.y + (dy/d) * expand };
+      });
+      var bD = 'M' + Math.round(blobPts[0].x) + ' ' + Math.round(blobPts[0].y);
+      for (var j = 0; j < blobPts.length; j++) {
+        var cur = blobPts[j];
+        var nxt = blobPts[(j + 1) % blobPts.length];
+        var mx = Math.round((cur.x + nxt.x) / 2), my = Math.round((cur.y + nxt.y) / 2);
+        bD += ' Q' + Math.round(cur.x) + ' ' + Math.round(cur.y) + ', ' + mx + ' ' + my;
+      }
+      bD += ' Z';
+      svgEl('path', { d: bD, fill: FACTION_COLORS[fid] || '#aaa', opacity: '0.45' }, svg);
+      svgEl('path', { d: bD, fill: FACTION_COLORS2[fid] || '#888', opacity: '0.25' }, svg);
     });
 
-    // Men golden fields: wheat, windmills, meadows
-    const fieldG = svgEl('g', {}, svg);
-    // Rolling green hills
-    svgEl('path', { d: 'M720 200 Q770 180, 820 195 T880 185',
-      fill: 'none', stroke: '#80b848', 'stroke-width': 8, 'stroke-linecap': 'round', opacity: '0.6' }, fieldG);
-    svgEl('path', { d: 'M740 260 Q790 245, 840 255 T890 248',
-      fill: 'none', stroke: '#70a840', 'stroke-width': 6, 'stroke-linecap': 'round', opacity: '0.5' }, fieldG);
-    // Wheat patches with golden detail
-    [[770,230,20,12],[830,310,18,10],[800,360,22,14],[750,380,16,10]].forEach(([x,y,w,h]) => {
-      svgEl('ellipse', { cx: x, cy: y, rx: w, ry: h, fill: '#e8c860', opacity: '0.5' }, fieldG);
-      for (let i = -2; i <= 2; i++) {
-        svgEl('line', { x1: x + i*5, y1: y + h*0.3, x2: x + i*5, y2: y - h*0.6,
-          stroke: '#c8a030', 'stroke-width': 1.5, opacity: '0.7' }, fieldG);
-        svgEl('circle', { cx: x + i*5, cy: y - h*0.6, r: 2, fill: '#e8b830', opacity: '0.7' }, fieldG);
+    // Citadel territory — purple glow around Citadel position
+    var citT = terrMap['t_citadel'];
+    if (citT) {
+      var citX = citT.mapX != null ? citT.mapX : citT.x, citY = citT.mapY != null ? citT.mapY : citT.y;
+      svgEl('ellipse', { cx: citX, cy: citY, rx: 55, ry: 45, fill: '#c8a0f0', opacity: '0.5' }, svg);
+      svgEl('ellipse', { cx: citX, cy: citY, rx: 40, ry: 32, fill: '#a070d8', opacity: '0.35' }, svg);
+    }
+
+    // ── Decorative elements placed relative to faction territory centroids ──
+    function factionCentroid(fid) {
+      var pts = (factionGroups[fid] || []).map(function(t) { return tPos(t); });
+      if (!pts.length) return { x: hcx, y: hcy };
+      var cx2 = 0, cy2 = 0;
+      pts.forEach(function(p) { cx2 += p.x; cy2 += p.y; });
+      return { x: cx2 / pts.length, y: cy2 / pts.length };
+    }
+
+    // Elf forest: trees near elf territory
+    var elfC = factionCentroid('elves');
+    var elfPts = (factionGroups['elves'] || []).map(function(t) { return tPos(t); });
+    var forestG = svgEl('g', {}, svg);
+    elfPts.forEach(function(p) {
+      for (var k = 0; k < 3; k++) {
+        var fx = p.x + (k - 1) * 22 + Math.sin(k * 3.7) * 10;
+        var fy = p.y + Math.cos(k * 2.1) * 12 - 20;
+        var r = 10 + Math.sin(k * 1.5) * 6;
+        svgEl('rect', { x: fx - 2, y: fy, width: 4, height: r * 0.7, fill: '#7a5a30', rx: 1 }, forestG);
+        svgEl('circle', { cx: fx, cy: fy - r * 0.1, r: r, fill: '#40b868' }, forestG);
+        svgEl('circle', { cx: fx - r * 0.25, cy: fy - r * 0.3, r: r * 0.5, fill: '#60d080' }, forestG);
       }
     });
-    // Windmill (clipart)
-    (function(wx, wy) {
-      svgEl('rect', { x: wx - 2, y: wy - 20, width: 4, height: 20, fill: '#a08060' }, fieldG);
-      [[0,-30],[30,0],[0,30],[-30,0]].forEach(([dx,dy]) => {
-        svgEl('line', { x1: wx, y1: wy - 20, x2: wx + dx*0.4, y2: wy - 20 + dy*0.4,
-          stroke: '#806040', 'stroke-width': 2 }, fieldG);
-      });
-      svgEl('circle', { cx: wx, cy: wy - 20, r: 3, fill: '#c08848' }, fieldG);
-    })(810, 280);
 
-    // Goblin swamp: bright green pools, mushrooms, dead trees
-    const swampG = svgEl('g', {}, svg);
-    // Bright murky pools
-    [[200,405,24,12],[320,435,20,10],[450,445,28,14],[580,425,18,9],[680,435,22,11]].forEach(([x,y,rx,ry]) => {
-      svgEl('ellipse', { cx: x, cy: y, rx, ry, fill: '#68c048', opacity: '0.4', stroke: '#509030', 'stroke-width': 1.5 }, swampG);
-      svgEl('ellipse', { cx: x + rx*0.2, cy: y - ry*0.15, rx: rx*0.4, ry: ry*0.3, fill: '#90e060', opacity: '0.35' }, swampG);
+    // Orc volcanic terrain near orc territory
+    var orcC = factionCentroid('orcs');
+    var orcPts = (factionGroups['orcs'] || []).map(function(t) { return tPos(t); });
+    var volcG = svgEl('g', {}, svg);
+    orcPts.forEach(function(p, idx) {
+      if (idx % 2 === 0) {
+        var vx = p.x + Math.sin(idx * 2.3) * 15, vy = p.y + Math.cos(idx * 1.7) * 10;
+        var vs = 16 + idx * 3;
+        svgEl('path', { d: 'M'+(vx-vs)+' '+(vy+vs*0.5)+' L'+vx+' '+(vy-vs*0.4)+' L'+(vx+vs)+' '+(vy+vs*0.5)+' Z',
+          fill: '#8b4028' }, volcG);
+        svgEl('path', { d: 'M'+(vx-vs*0.3)+' '+(vy-vs*0.1)+' L'+vx+' '+(vy-vs*0.4)+' L'+(vx+vs*0.3)+' '+(vy-vs*0.1)+' Z',
+          fill: '#d04020' }, volcG);
+        svgEl('circle', { cx: vx, cy: vy - vs*0.3, r: vs*0.15, fill: '#ff8830' }, volcG);
+      }
     });
-    // Mushrooms (colorful clipart)
-    [[240,392],[380,414],[550,404],[650,418]].forEach(([x,y]) => {
-      svgEl('rect', { x: x - 1.5, y: y - 6, width: 3, height: 8, fill: '#c0a870', rx: 1 }, swampG);
-      svgEl('ellipse', { cx: x, cy: y - 7, rx: 6, ry: 4, fill: '#e04040' }, swampG);
-      svgEl('circle', { cx: x - 2, cy: y - 8, r: 1.5, fill: '#fff', opacity: '0.7' }, swampG);
-      svgEl('circle', { cx: x + 2.5, cy: y - 6.5, r: 1, fill: '#fff', opacity: '0.7' }, swampG);
-    });
-    // Dead gnarled trees
-    [[270,398],[420,420],[510,408],[620,422]].forEach(([x,y]) => {
-      svgEl('line', { x1: x, y1: y, x2: x, y2: y - 16, stroke: '#6a5a40', 'stroke-width': 2.5 }, swampG);
-      svgEl('line', { x1: x, y1: y - 10, x2: x - 7, y2: y - 17, stroke: '#6a5a40', 'stroke-width': 1.5 }, swampG);
-      svgEl('line', { x1: x, y1: y - 8, x2: x + 6, y2: y - 15, stroke: '#6a5a40', 'stroke-width': 1.5 }, swampG);
-    });
-    // Toxic bubbles (bright green)
-    [[190,398],[350,428],[500,438],[610,414]].forEach(([x,y]) => {
-      svgEl('circle', { cx: x, cy: y, r: 3.5, fill: '#a0ff40', opacity: '0.5', class: 'map-particle' }, swampG);
-    });
+    // Lava flows between orc territories
+    for (var oi = 0; oi < orcPts.length - 1; oi++) {
+      var a = orcPts[oi], b = orcPts[oi + 1];
+      svgEl('path', {
+        d: 'M'+a.x+' '+a.y+' Q'+(a.x+b.x)/2+' '+(a.y+b.y)/2+', '+b.x+' '+b.y,
+        fill: 'none', stroke: '#ff6030', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.6'
+      }, volcG);
+    }
 
-    // ── Rivers (bright blue, prominent) ──
-    svgEl('path', { d: 'M450 110 C430 160, 360 200, 320 250 S250 310, 230 370',
-      fill: 'none', stroke: '#4098d0', 'stroke-width': 6, 'stroke-linecap': 'round' }, svg);
-    svgEl('path', { d: 'M450 110 C430 160, 360 200, 320 250 S250 310, 230 370',
-      fill: 'none', stroke: '#80c8f0', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: '0.6' }, svg);
-    svgEl('path', { d: 'M684 120 C720 165, 738 220, 710 290 S690 340, 720 380',
-      fill: 'none', stroke: '#4098d0', 'stroke-width': 5, 'stroke-linecap': 'round' }, svg);
-    svgEl('path', { d: 'M684 120 C720 165, 738 220, 710 290 S690 340, 720 380',
-      fill: 'none', stroke: '#80c8f0', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: '0.5' }, svg);
-    svgEl('path', { d: 'M520 180 C500 210, 440 230, 400 260',
-      fill: 'none', stroke: '#4098d0', 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
-
-    // ── Bridges over rivers ──
-    [[370,220],[340,270],[710,250]].forEach(([bx,by]) => {
-      svgEl('rect', { x: bx - 8, y: by - 3, width: 16, height: 6, fill: '#c09860', stroke: '#a07840', 'stroke-width': 1, rx: 2 }, svg);
+    // Dwarf mountains near dwarf territory
+    var dwarfPts = (factionGroups['dwarves'] || []).map(function(t) { return tPos(t); });
+    var mtnG = svgEl('g', {}, svg);
+    dwarfPts.forEach(function(p, idx) {
+      var mx = p.x + Math.sin(idx * 1.9) * 12, base = p.y + 8;
+      var h = 28 + idx * 4;
+      svgEl('path', { d: 'M'+(mx-h*0.8)+' '+base+' L'+mx+' '+(base-h)+' L'+(mx+h*0.8)+' '+base+' Z',
+        fill: '#8095b8' }, mtnG);
+      svgEl('path', { d: 'M'+(mx-h*0.3)+' '+(base-h*0.55)+' L'+mx+' '+(base-h)+' L'+(mx+h*0.3)+' '+(base-h*0.55)+' Z',
+        fill: '#e8f0ff' }, mtnG);
+      svgEl('path', { d: 'M'+(mx-h*0.15)+' '+(base-h*0.7)+' L'+mx+' '+(base-h)+' L'+(mx+h*0.15)+' '+(base-h*0.7)+' Z',
+        fill: '#fff', opacity: '0.8' }, mtnG);
     });
 
-    // ── Canyon between orc and dwarf territory ──
-    svgEl('path', { d: 'M210 255 Q230 268, 260 262 Q290 258, 310 272',
-      fill: 'none', stroke: '#8a6a40', 'stroke-width': 5, 'stroke-linecap': 'round', opacity: '0.5' }, svg);
-
-    // Animated biome particles (brighter)
-    const particleG = svgEl('g', {}, svg);
-    [
-      { cx: 288, cy: 51, fill: '#40e878', r: 2.5 }, { cx: 504, cy: 61, fill: '#50f088', r: 2 },
-      { cx: 180, cy: 40, fill: '#60f8a0', r: 3 }, { cx: 630, cy: 47, fill: '#40e070', r: 2 },
-      { cx: 90, cy: 181, fill: '#ff7040', r: 2.5 }, { cx: 126, cy: 231, fill: '#ffa050', r: 3 },
-      { cx: 72, cy: 260, fill: '#ff6030', r: 2 },
-      { cx: 360, cy: 238, fill: '#c0d8f0', r: 2.5 }, { cx: 558, cy: 253, fill: '#b0d0e8', r: 2 },
-      { cx: 180, cy: 412, fill: '#60ff70', r: 2.5 }, { cx: 450, cy: 426, fill: '#80f090', r: 2 },
-      { cx: 630, cy: 419, fill: '#a0ff70', r: 2.5 },
-      { cx: 780, cy: 250, fill: '#f0d060', r: 2 }, { cx: 820, cy: 330, fill: '#e0b848', r: 2.5 },
-      { cx: 440, cy: 260, fill: '#b080e0', r: 3 },
-    ].forEach((p) => {
-      svgEl('circle', { cx: p.cx, cy: p.cy, r: p.r, fill: p.fill, class: 'map-particle' }, particleG);
+    // Men golden fields near men territory
+    var menPts = (factionGroups['men'] || []).map(function(t) { return tPos(t); });
+    var fieldG = svgEl('g', {}, svg);
+    menPts.forEach(function(p, idx) {
+      if (idx % 2 === 0) {
+        var ex = p.x + Math.sin(idx * 2.5) * 15, ey = p.y + Math.cos(idx * 1.3) * 10;
+        var w = 18 + idx * 2, eh = 10 + idx;
+        svgEl('ellipse', { cx: ex, cy: ey, rx: w, ry: eh, fill: '#e8c860', opacity: '0.5' }, fieldG);
+        for (var wi = -2; wi <= 2; wi++) {
+          svgEl('line', { x1: ex + wi*5, y1: ey + eh*0.3, x2: ex + wi*5, y2: ey - eh*0.6,
+            stroke: '#c8a030', 'stroke-width': 1.5, opacity: '0.7' }, fieldG);
+          svgEl('circle', { cx: ex + wi*5, cy: ey - eh*0.6, r: 2, fill: '#e8b830', opacity: '0.7' }, fieldG);
+        }
+      }
     });
 
-    // Region labels (prominent, colored)
-    const regions = [
-      { label: 'ALDERMERE', x: 810, y: 215, color: '#3a60a0' },
-      { label: 'SYLVANMERE', x: 396, y: 20, color: '#287048' },
-      { label: 'ASHEN WASTES', x: 144, y: 140, color: '#a03820' },
-      { label: 'KARAK DUN', x: 470, y: 212, color: '#506890' },
-      { label: 'GLOOMHOLLOW', x: 420, y: 468, color: '#607020' },
-      { label: 'THE VOID', x: 450, y: 240, color: '#7050a0' },
+    // Goblin swamp near goblin territory
+    var gobPts = (factionGroups['goblins'] || []).map(function(t) { return tPos(t); });
+    var swampG = svgEl('g', {}, svg);
+    gobPts.forEach(function(p, idx) {
+      var sx = p.x + Math.sin(idx * 3.1) * 18, sy = p.y + Math.cos(idx * 2.3) * 12;
+      var rx = 16 + idx * 3, ry = 8 + idx * 1.5;
+      svgEl('ellipse', { cx: sx, cy: sy, rx: rx, ry: ry, fill: '#68c048', opacity: '0.4', stroke: '#509030', 'stroke-width': 1.5 }, swampG);
+      // Mushroom
+      if (idx % 2 === 0) {
+        svgEl('rect', { x: sx + rx - 2, y: sy - 8, width: 3, height: 8, fill: '#c0a870', rx: 1 }, swampG);
+        svgEl('ellipse', { cx: sx + rx, cy: sy - 9, rx: 6, ry: 4, fill: '#e04040' }, swampG);
+        svgEl('circle', { cx: sx + rx - 2, cy: sy - 10, r: 1.5, fill: '#fff', opacity: '0.7' }, swampG);
+      }
+      // Dead tree
+      if (idx % 3 === 1) {
+        svgEl('line', { x1: sx - rx, y1: sy, x2: sx - rx, y2: sy - 16, stroke: '#6a5a40', 'stroke-width': 2.5 }, swampG);
+        svgEl('line', { x1: sx - rx, y1: sy - 10, x2: sx - rx - 7, y2: sy - 17, stroke: '#6a5a40', 'stroke-width': 1.5 }, swampG);
+      }
+    });
+
+    // ── Rivers between faction regions ──
+    // Draw rivers along boundaries between adjacent factions
+    var riverPairs = [['elves','orcs'],['elves','dwarves'],['dwarves','men'],['dwarves','goblins'],['orcs','dwarves']];
+    riverPairs.forEach(function(pair) {
+      var c1 = factionCentroid(pair[0]), c2 = factionCentroid(pair[1]);
+      var mx = (c1.x + c2.x) / 2, my = (c1.y + c2.y) / 2;
+      var dx = c2.x - c1.x, dy = c2.y - c1.y;
+      var len = Math.sqrt(dx*dx + dy*dy);
+      var nx = -dy / len * 60, ny = dx / len * 60;
+      var rD = 'M'+(mx - nx)+' '+(my - ny)+' Q'+mx+' '+my+', '+(mx + nx)+' '+(my + ny);
+      svgEl('path', { d: rD, fill: 'none', stroke: '#4098d0', 'stroke-width': 5, 'stroke-linecap': 'round' }, svg);
+      svgEl('path', { d: rD, fill: 'none', stroke: '#80c8f0', 'stroke-width': 2.5, 'stroke-linecap': 'round', opacity: '0.5' }, svg);
+    });
+
+    // ── Mountain ridges between orc/dwarf and elf/dwarf borders ──
+    var mtnPairs = [['orcs','dwarves'],['elves','men']];
+    mtnPairs.forEach(function(pair) {
+      var c1 = factionCentroid(pair[0]), c2 = factionCentroid(pair[1]);
+      var mx = (c1.x + c2.x) / 2, my = (c1.y + c2.y) / 2;
+      for (var ri = -1; ri <= 1; ri++) {
+        var dx = c2.x - c1.x, dy = c2.y - c1.y;
+        var len = Math.sqrt(dx*dx + dy*dy);
+        var px = mx + (-dy / len) * ri * 30, py = my + (dx / len) * ri * 30;
+        var mh = 22 + Math.abs(ri) * 8;
+        svgEl('path', { d: 'M'+(px-mh*0.7)+' '+(py+mh*0.4)+' L'+px+' '+(py-mh*0.4)+' L'+(px+mh*0.7)+' '+(py+mh*0.4)+' Z',
+          fill: '#8095b8', opacity: '0.6' }, svg);
+        svgEl('path', { d: 'M'+(px-mh*0.25)+' '+(py-mh*0.1)+' L'+px+' '+(py-mh*0.4)+' L'+(px+mh*0.25)+' '+(py-mh*0.1)+' Z',
+          fill: '#e8f0ff', opacity: '0.7' }, svg);
+      }
+    });
+
+    // Animated biome particles near faction centroids
+    var particleG = svgEl('g', {}, svg);
+    var particleDefs = [
+      { fid: 'elves', fill: '#40e878', count: 4 },
+      { fid: 'orcs', fill: '#ff7040', count: 3 },
+      { fid: 'dwarves', fill: '#c0d8f0', count: 3 },
+      { fid: 'goblins', fill: '#60ff70', count: 3 },
+      { fid: 'men', fill: '#f0d060', count: 3 },
     ];
-    regions.forEach(({ label, x, y, color }) => {
-      const el = svgEl('text', { x, y, 'text-anchor': 'middle', fill: color, 'font-size': 11, 'font-weight': 700, opacity: 0.6, 'letter-spacing': 2.5 }, svg);
-      el.textContent = label;
+    particleDefs.forEach(function(pd) {
+      var fc = factionCentroid(pd.fid);
+      for (var pi = 0; pi < pd.count; pi++) {
+        var px = fc.x + Math.sin(pi * 2.7 + 1.3) * 60;
+        var py = fc.y + Math.cos(pi * 3.1 + 0.7) * 40;
+        svgEl('circle', { cx: Math.round(px), cy: Math.round(py), r: 2 + pi * 0.3, fill: pd.fill, class: 'map-particle' }, particleG);
+      }
     });
+    if (citT) {
+      svgEl('circle', { cx: citX, cy: citY, r: 3, fill: '#b080e0', class: 'map-particle' }, particleG);
+    }
+
+    // Region labels placed at faction centroids
+    Object.keys(FACTION_LABELS).forEach(function(fid) {
+      var fc = factionCentroid(fid);
+      var el = svgEl('text', { x: Math.round(fc.x), y: Math.round(fc.y - 30), 'text-anchor': 'middle',
+        fill: FACTION_LABEL_COLORS[fid] || '#666', 'font-size': 11, 'font-weight': 700, opacity: 0.6, 'letter-spacing': 2.5 }, svg);
+      el.textContent = FACTION_LABELS[fid];
+    });
+    // Citadel label
+    if (citT) {
+      var voidEl = svgEl('text', { x: citX, y: citY - 30, 'text-anchor': 'middle',
+        fill: '#7050a0', 'font-size': 11, 'font-weight': 700, opacity: 0.6, 'letter-spacing': 2.5 }, svg);
+      voidEl.textContent = 'THE VOID';
+    }
 
     // Adjacency roads (draw all unique pairs, using rotated positions)
     const drawnEdges = new Set();
