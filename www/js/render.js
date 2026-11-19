@@ -14,12 +14,22 @@
 
   // ── faction skin palettes ──────────────────────────────────────────────────
   const SKIN = {
-    men:     '#d4906a',
-    elves:   '#c8d898',
-    orcs:    '#587838',
-    goblins: '#8a9828',
-    dwarves: '#c07848',
-    citadel: '#c0b0e0',
+    men:     '#d4956e',
+    elves:   '#b8d890',
+    orcs:    '#5a8035',
+    goblins: '#8ea028',
+    dwarves: '#c47a4a',
+    citadel: '#c8b8e8',
+  };
+
+  // ── cape / cloak colors per faction ───────────────────────────────────────
+  const CAPE = {
+    men:     ['#2a4a8a', '#1a3060'],
+    elves:   ['#2a6840', '#184828'],
+    orcs:    ['#6a2010', '#401008'],
+    goblins: ['#4a5018', '#303808'],
+    dwarves: ['#6a4820', '#3a2810'],
+    citadel: ['#4a3880', '#2a1850'],
   };
 
   /* ==========================================================================
@@ -393,9 +403,9 @@
     // Walk dynamics — smooth sine with eased transitions
     const walkStrength = ap > 0.15 ? M.max(0, 1 - ap * 1.8) : 1;
     const walkCycle = wp;
-    const bodyBob = sin(walkCycle * 2) * 1.5 * walkStrength;
-    const bodySway = sin(walkCycle) * 0.8 * walkStrength;
-    const bodyLean = ap > 0.1 ? sin(ap * pi) * 3 : 0;
+    const bodyBob = sin(walkCycle * 2) * 1.8 * walkStrength;
+    const bodySway = sin(walkCycle) * 1.0 * walkStrength;
+    const bodyLean = ap > 0.1 ? sin(ap * pi) * 4 : 0;
 
     // Hip position
     const hipY = BH * 0.45 + bodyBob;
@@ -415,15 +425,43 @@
     const kneeA = ik2(hipX - 2.5, hipY, footAX, footAY, legUpper, legLower, 1);
     const kneeB = ik2(hipX + 2.5, hipY, footBX, footBY, legUpper, legLower, 1);
 
+    // ── CAPE (flows behind the body) ───────────────────────────────
+    const capeCol = CAPE[fid] || CAPE.men;
+    const capeFlutter = sin(walkCycle * 1.5 + 0.5) * 4 * walkStrength + bodyLean * 0.8;
+    const capeFlutter2 = sin(walkCycle * 2.1 + 1.2) * 3 * walkStrength;
+    ctx.fillStyle = capeCol[0];
+    ctx.beginPath();
+    ctx.moveTo(hipX - BW * 0.3, -BH * 0.3);
+    ctx.lineTo(hipX + BW * 0.3, -BH * 0.3);
+    ctx.quadraticCurveTo(hipX - capeFlutter * 0.3 + BW * 0.4, hipY + 4 + capeFlutter2, hipX - capeFlutter * 0.6 + 2, hipY + legUpper + 6 + capeFlutter);
+    ctx.quadraticCurveTo(hipX - capeFlutter * 0.4, hipY + 2, hipX - BW * 0.3, -BH * 0.3);
+    ctx.fill();
+    ctx.fillStyle = capeCol[1]; ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(hipX, -BH * 0.2);
+    ctx.quadraticCurveTo(hipX - capeFlutter * 0.4 + BW * 0.2, hipY + 3 + capeFlutter2 * 0.7, hipX - capeFlutter * 0.5, hipY + legUpper + 4 + capeFlutter * 0.8);
+    ctx.lineTo(hipX - capeFlutter * 0.6 + 2, hipY + legUpper + 6 + capeFlutter);
+    ctx.quadraticCurveTo(hipX - capeFlutter * 0.3 + BW * 0.3, hipY + 2, hipX + BW * 0.2, -BH * 0.2);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+
     // ── BACK LEG (two segments with knee joint) ─────────────────────
     ctx.lineWidth = legW; ctx.strokeStyle = '#1a1f32';
     ctx.beginPath(); ctx.moveTo(hipX - 2.5, hipY); ctx.lineTo(kneeA.x, kneeA.y); ctx.lineTo(footAX, footAY); ctx.stroke();
     ctx.fillStyle = '#1a1f32'; ctx.beginPath(); ctx.arc(kneeA.x, kneeA.y, legW * 0.4, 0, TAU); ctx.fill();
+    // Boot
+    ctx.fillStyle = accentColor; ctx.globalAlpha = 0.6;
+    ctx.beginPath(); ctx.arc(footAX, footAY, legW * 0.5 + 0.5, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
 
     // ── FRONT LEG ────────────────────────────────────────────────────
     ctx.lineWidth = legW + 0.5; ctx.strokeStyle = '#242840';
     ctx.beginPath(); ctx.moveTo(hipX + 2.5, hipY); ctx.lineTo(kneeB.x, kneeB.y); ctx.lineTo(footBX, footBY); ctx.stroke();
     ctx.fillStyle = '#242840'; ctx.beginPath(); ctx.arc(kneeB.x, kneeB.y, legW * 0.45, 0, TAU); ctx.fill();
+    // Boot
+    ctx.fillStyle = accentColor; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(footBX, footBY, legW * 0.5 + 1, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
 
     // ── TORSO (with lean and bob) ────────────────────────────────────
     ctx.save();
@@ -584,6 +622,20 @@
     ctx.restore();
   }
   BF.drawToken = token;
+
+  // Low-HP danger overlay drawn separately after token
+  function drawHpOverlay(ctx, x, y, r, hpFrac, walkPhase) {
+    if (hpFrac > 0.3) return;
+    const pulse = 0.5 + 0.5 * M.sin((walkPhase || 0) * 3);
+    const intensity = (0.3 - hpFrac) / 0.3;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.globalAlpha = intensity * 0.25 * pulse;
+    ctx.fillStyle = '#ff2020';
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
 
   /* ==========================================================================
      CASTLE GATE – drawn over-top of units that enter it (siege visual)
@@ -847,12 +899,12 @@
 
   // ── Biome-based background system ─────────────────────────────────────────
   const BIOMES = {
-    meadow:   { skyA:'#2870b0', skyB:'#78c8f0', horA:'#5aad3e', horB:'#2e7820', groundB:'#1a4a10', cloudFill:'rgba(255,255,255,.78)', particle:'#ffe060', mtnFill:'#3a7030' },
-    forest:   { skyA:'#d08030', skyB:'#f0b868', horA:'#8a6030', horB:'#5c3a18', groundB:'#3a2810', cloudFill:'rgba(255,160,70,.55)',   particle:'#ff6828', mtnFill:'#4a7838' },
-    scorched: { skyA:'#d03818', skyB:'#f08838', horA:'#9a4018', horB:'#602008', groundB:'#381004', cloudFill:'rgba(220,90,40,.55)',    particle:'#ff9850', mtnFill:'#582010' },
-    mountain: { skyA:'#185888', skyB:'#68b8e8', horA:'#90a8b8', horB:'#586878', groundB:'#303848', cloudFill:'rgba(230,245,255,.72)', particle:'#d0e8ff', mtnFill:'#586888' },
-    swamp:    { skyA:'#0a4828', skyB:'#389868', horA:'#285838', horB:'#183020', groundB:'#0c2414', cloudFill:'rgba(50,180,100,.5)',    particle:'#40ff98', mtnFill:'#205030' },
-    dark:     { skyA:'#100430', skyB:'#381060', horA:'#481048', horB:'#280c28', groundB:'#100818', cloudFill:'rgba(160,50,220,.55)',   particle:'#d050ff', mtnFill:'#301050' },
+    meadow:   { skyA:'#1860a0', skyB:'#60b8e8', horA:'#4da835', horB:'#28681c', groundB:'#163c0c', cloudFill:'rgba(255,255,255,.82)', particle:'#ffe860', mtnFill:'#356828', fogA:'rgba(120,180,255,.06)', fogB:'rgba(60,140,80,.04)' },
+    forest:   { skyA:'#c06820', skyB:'#e8a858', horA:'#7a5428', horB:'#4e3014', groundB:'#30200c', cloudFill:'rgba(255,140,50,.58)',   particle:'#ff7030', mtnFill:'#3e6830', fogA:'rgba(255,160,80,.05)', fogB:'rgba(80,120,40,.04)' },
+    scorched: { skyA:'#b82c10', skyB:'#e87028', horA:'#8a3410', horB:'#501808', groundB:'#2c0c04', cloudFill:'rgba(200,70,30,.58)',    particle:'#ffa060', mtnFill:'#4a1808', fogA:'rgba(255,80,20,.06)', fogB:'rgba(200,100,40,.04)' },
+    mountain: { skyA:'#104870', skyB:'#58a8d8', horA:'#8898a8', horB:'#485868', groundB:'#283040', cloudFill:'rgba(220,240,255,.75)', particle:'#c0e0ff', mtnFill:'#4a5878', fogA:'rgba(180,210,255,.06)', fogB:'rgba(140,160,200,.04)' },
+    swamp:    { skyA:'#083c20', skyB:'#2a8858', horA:'#204a30', horB:'#142818', groundB:'#0a1c10', cloudFill:'rgba(40,160,90,.55)',    particle:'#38ff88', mtnFill:'#1a4028', fogA:'rgba(40,200,100,.06)', fogB:'rgba(30,80,50,.05)' },
+    dark:     { skyA:'#0c0320', skyB:'#300c50', horA:'#3c0c40', horB:'#200a20', groundB:'#0c0610', cloudFill:'rgba(140,40,200,.58)',   particle:'#c040ff', mtnFill:'#280c48', fogA:'rgba(120,40,200,.06)', fogB:'rgba(80,20,140,.05)' },
   };
   const BIOME_BY_FACTION = { men:'meadow', elves:'forest', orcs:'scorched', dwarves:'mountain', goblins:'swamp', citadel:'dark' };
 
@@ -893,14 +945,38 @@
       ctx.globalAlpha = 1;
     }
 
+    // Atmospheric fog layers
+    if (bm.fogA) {
+      const fogY1 = skyH * 0.7, fogY2 = skyH + ch * 0.15;
+      ctx.fillStyle = bm.fogA;
+      ctx.beginPath();
+      ctx.moveTo(0, fogY1);
+      for (let k = 0; k <= 8; k++) {
+        const fx = k * cw / 8;
+        const fy = fogY1 + sin(k * 1.3 + T * 0.3) * 12 + sin(k * 2.7 + T * 0.5) * 6;
+        ctx.lineTo(fx, fy);
+      }
+      ctx.lineTo(cw, fogY2); ctx.lineTo(0, fogY2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = bm.fogB;
+      ctx.beginPath();
+      ctx.moveTo(0, fogY2 - 10);
+      for (let k = 0; k <= 10; k++) {
+        const fx = k * cw / 10;
+        const fy = fogY2 - 10 + sin(k * 1.7 + T * 0.2 + 2) * 8;
+        ctx.lineTo(fx, fy);
+      }
+      ctx.lineTo(cw, ch * 0.5); ctx.lineTo(0, ch * 0.5); ctx.closePath(); ctx.fill();
+    }
+
     // Ambient particles (pollen/embers/snowflakes/fireflies per biome)
     ctx.fillStyle = bm.particle;
-    for (let i = 0; i < 10; i++) {
-      const px = (cw + 80 - ((T * (2 + i * 0.4) + i * 50) % (cw + 100)));
-      const py = skyH * 0.12 + sin(T * 0.8 + i * 1.5) * skyH * 0.32 + i * (ch / 12);
-      if (py > 0 && py < ch * 0.62) {
-        ctx.globalAlpha = 0.35 + 0.35 * sin(T * 1.5 + i);
-        ctx.beginPath(); ctx.arc(px, py, 1.5 + sin(i * 2.1) * 0.7, 0, TAU); ctx.fill();
+    for (let i = 0; i < 16; i++) {
+      const px = (cw + 80 - ((T * (1.5 + i * 0.35) + i * 47) % (cw + 100)));
+      const py = skyH * 0.1 + sin(T * 0.7 + i * 1.4) * skyH * 0.35 + i * (ch / 18);
+      if (py > 0 && py < ch * 0.65) {
+        ctx.globalAlpha = 0.3 + 0.4 * sin(T * 1.3 + i * 0.9);
+        const sz = 1.2 + sin(i * 2.1) * 0.8 + sin(T * 2 + i) * 0.3;
+        ctx.beginPath(); ctx.arc(px, py, sz, 0, TAU); ctx.fill();
       }
     }
     ctx.globalAlpha = 1;
@@ -1003,6 +1079,8 @@
       if (M.abs(kbTilt) > 0.005) { ctx.translate(dx, dy); ctx.rotate(kbTilt); ctx.translate(-dx, -dy); }
       token(ctx, dx, dy, d.isOg ? OGR : DR, me, d.type, false, d.hit, ap, wp);
       ctx.restore();
+      const dR = d.isOg ? OGR : DR;
+      drawHpOverlay(ctx, dx, dy, dR, d.hp / d.maxHp, wp);
       if (d.hp < d.maxHp - 0.5) bar(ctx, d.x, d.y - (d.isOg ? OGR + 14 : DR + 11), 34, d.hp / d.maxHp, '#7fcf86');
     }
 
@@ -1021,6 +1099,7 @@
       if (M.abs(kbTilt) > 0.005) { ctx.translate(ex2, ey2); ctx.rotate(kbTilt); ctx.translate(-ex2, -ey2); }
       token(ctx, ex2, ey2, r, foe, e.role, true, e.hit, ap, wp);
       ctx.restore();
+      drawHpOverlay(ctx, ex2, ey2, r, e.hp / e.maxHp, wp);
       if (e.hp < e.maxHp - 0.5) bar(ctx, e.x, e.y - r - 9, 32 * M.min(1.4, e.size), e.hp / e.maxHp, '#e0605a');
     }
 
@@ -1105,13 +1184,26 @@
     // ── CORPSES (ragdoll dead units) ────────────────────────────────────
     for (const c of b.corpses) {
       const k = c.t / c.dur;
-      const fade = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+      const fade = k > 0.5 ? 1 - (k - 0.5) / 0.5 : 1;
+      // Death flash (brief white burst on fresh kills)
+      if (k < 0.08) {
+        const flashK = k / 0.08;
+        ctx.globalAlpha = (1 - flashK) * 0.6;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(c.x, c.y, 12 + flashK * 8, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       ctx.save();
       ctx.translate(c.x, c.y);
       ctx.rotate(c.rot);
-      ctx.globalAlpha = fade * 0.7;
-      ctx.scale(0.6, 0.6);
+      ctx.globalAlpha = fade * 0.65;
+      ctx.scale(0.55, 0.55);
       const col = c.isEnemy ? (b.owner ? b.owner.color : '#888') : (b.faction ? b.faction.accent : '#888');
+      // Cape remnant
+      const capeC = CAPE[c.isEnemy ? (b.owner ? b.owner.id : 'men') : (b.faction ? b.faction.id : 'men')] || CAPE.men;
+      ctx.fillStyle = capeC[0]; ctx.globalAlpha = fade * 0.35;
+      ctx.beginPath(); ctx.roundRect(-8, -4, 16, 20, 4); ctx.fill();
+      ctx.globalAlpha = fade * 0.65;
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.roundRect(-6, -8, 12, 16, 3); ctx.fill();
       ctx.fillStyle = '#1a1a2a';

@@ -44,7 +44,7 @@
     startGold: 500,     // gold at the start of each battle
     baseIncome: 24,     // kept for War Council display, but passive income is disabled
     sellRefund: 0.8,    // share of cost returned when you dismiss a unit
-    bountyRate: 0.1,    // gold per kill = unit cost x this (harsh: ~20% of old rate)
+    bountyRate: 0.05,   // gold per kill = unit cost x 5% — slows snowball in zombie mode
     baseHp: 60,         // gate health before upgrades
     tribute: 0.08,      // extra starting gold per territory already conquered
   };
@@ -67,7 +67,7 @@
   BF.upgradeCost = (level) => 15 * (level + 1);
 
   // ---- Price model ----
-  BF.COST_PER_POWER = 3.5; // raised — tighter economy, every unit purchase is a commitment
+  BF.COST_PER_POWER = 5; // expensive — every unit is a real investment
   BF.powerOf = function (u, armor) {
     const dps = u.dmg * u.rate * (u.aoe ? 1.5 : 1);
     const ehp = u.hp / (1 - (armor || 0));

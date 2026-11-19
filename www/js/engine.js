@@ -248,7 +248,7 @@
       }
       if (s.boosted === 1) { e.hp *= 2; e.dmg *= 1.5; e.size = Math.max(e.size, 1.5); }
       else if (s.boosted === 2) { e.hp *= 3.5; e.dmg *= 2.2; e.size = Math.max(e.size, 1.8); }
-      e.bounty = Math.max(e.bounty, Math.round(e.hp * 0.12));
+      e.bounty = Math.max(e.bounty, Math.round(e.hp * (this.zombie ? 0.02 : 0.12)));
       e.maxHp = e.hp;
       e.ranged = e.range > 90;
       this.enemies.push(e);
@@ -438,10 +438,13 @@
     }
     _spawnCorpse(x, y, dir, role, isEnemy) {
       if (!this.fx) return;
+      const power = 0.6 + Math.random() * 0.8;
       this.corpses.push({
-        x, y, vx: dir * (30 + Math.random() * 40), vy: -(40 + Math.random() * 30),
-        rot: 0, vr: (Math.random() - 0.5) * 12,
-        t: 0, dur: 2.5, role, isEnemy, grounded: false, groundY: y,
+        x, y,
+        vx: dir * (35 + Math.random() * 50) * power + (Math.random() - 0.5) * 20,
+        vy: -(50 + Math.random() * 40) * power,
+        rot: 0, vr: (Math.random() - 0.5) * 16,
+        t: 0, dur: 2.8, role, isEnemy, grounded: false, groundY: y, bounces: 0,
       });
     }
     _spawnSparks(x, y, count, color) {
@@ -462,8 +465,9 @@
     _applyKnockback(unit, fromX, fromY, force) {
       const dx = unit.x - fromX, dy = unit.y - fromY;
       const d = Math.max(1, Math.hypot(dx, dy));
-      unit.kbx += (dx / d) * force;
-      unit.kby += (dy / d) * force * 0.3;
+      const weight = unit.size ? (1 / Math.max(0.5, unit.size)) : 1;
+      unit.kbx += (dx / d) * force * weight;
+      unit.kby += (dy / d) * force * 0.35 * weight;
     }
 
     _hurtEnemy(e, dmg, fromX, fromY) {
@@ -784,43 +788,35 @@
         }
       }
 
-      // ── Unit collision separation (same side pushes apart) ──
-      const sepForce = 60;
-      const minDist = 12;
-      for (let i = 0; i < this.defenders.length; i++) {
-        const a = this.defenders[i];
-        if (a.dead) continue;
-        for (let j = i + 1; j < this.defenders.length; j++) {
-          const b = this.defenders[j];
-          if (b.dead) continue;
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d2 = dx * dx + dy * dy;
-          if (d2 < minDist * minDist && d2 > 0) {
-            const d = Math.sqrt(d2);
-            const push = (minDist - d) * 0.5;
-            const nx = dx / d, ny = dy / d;
-            a.x += nx * push; a.y += ny * push;
-            b.x -= nx * push; b.y -= ny * push;
+      // ── Unit collision separation (same side pushes apart, weight-aware) ──
+      const minDist = 14;
+      const _sep = (units) => {
+        for (let i = 0; i < units.length; i++) {
+          const a = units[i];
+          if (a.dead) continue;
+          const aSize = a.size || 1;
+          for (let j = i + 1; j < units.length; j++) {
+            const b = units[j];
+            if (b.dead) continue;
+            const bSize = b.size || 1;
+            const md = minDist * (aSize + bSize) * 0.5;
+            const dx = a.x - b.x, dy = a.y - b.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < md * md && d2 > 0.1) {
+              const d = Math.sqrt(d2);
+              const overlap = (md - d) * 0.55;
+              const nx = dx / d, ny = dy / d;
+              const totalW = aSize + bSize;
+              const aShare = bSize / totalW;
+              const bShare = aSize / totalW;
+              a.x += nx * overlap * aShare; a.y += ny * overlap * aShare;
+              b.x -= nx * overlap * bShare; b.y -= ny * overlap * bShare;
+            }
           }
         }
-      }
-      for (let i = 0; i < this.enemies.length; i++) {
-        const a = this.enemies[i];
-        if (a.dead) continue;
-        for (let j = i + 1; j < this.enemies.length; j++) {
-          const b = this.enemies[j];
-          if (b.dead) continue;
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d2 = dx * dx + dy * dy;
-          if (d2 < minDist * minDist && d2 > 0) {
-            const d = Math.sqrt(d2);
-            const push = (minDist - d) * 0.5;
-            const nx = dx / d, ny = dy / d;
-            a.x += nx * push; a.y += ny * push;
-            b.x -= nx * push; b.y -= ny * push;
-          }
-        }
-      }
+      };
+      _sep(this.defenders);
+      _sep(this.enemies);
 
       // Return dead enemies to the pool instead of allocating a new filtered array
       for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -843,17 +839,25 @@
         for (const p of this.dusts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy -= 10 * dt; p.r += 3 * dt; }
         for (const c of this.corpses) {
           if (!c.grounded) {
-            c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 180 * dt; c.rot += c.vr * dt;
+            c.x += c.vx * dt; c.y += c.vy * dt; c.vy += 220 * dt; c.rot += c.vr * dt;
+            c.vx *= Math.pow(0.92, dt * 60);
             if (c.y >= c.groundY) {
-              c.y = c.groundY; c.grounded = true;
-              c.vy = -Math.abs(c.vy) * 0.3;
-              c.vx *= 0.4;
-              if (Math.abs(c.vy) > 8) { c.grounded = false; } // bounce
-              else { c.vy = 0; c.vx = 0; c.vr = 0; }
-              this._spawnDust(c.x, c.y);
+              c.y = c.groundY;
+              c.bounces = (c.bounces || 0) + 1;
+              const dampV = Math.max(0.15, 0.45 - c.bounces * 0.1);
+              const dampH = Math.max(0.2, 0.5 - c.bounces * 0.1);
+              c.vy = -Math.abs(c.vy) * dampV;
+              c.vx *= dampH;
+              c.vr *= 0.6;
+              if (Math.abs(c.vy) > 5 && c.bounces < 4) {
+                this._spawnDust(c.x, c.y);
+              } else {
+                c.grounded = true; c.vy = 0; c.vx = 0; c.vr = 0;
+                this._spawnDust(c.x, c.y);
+              }
             }
           } else {
-            c.vx *= Math.pow(0.1, dt);
+            c.vx *= Math.pow(0.05, dt);
           }
         }
         this.shots   = this.shots.filter((o) => o.t < o.dur);
