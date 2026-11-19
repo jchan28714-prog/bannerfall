@@ -43,12 +43,13 @@
       this.rand = BF.rng(opts.seed != null ? opts.seed : (Math.random() * 2147483647) | 0);
       this.fx = opts.fx !== false;
       this.modeMult = opts.modeMult || 1;
+      this.goldMult = opts.goldMult || 1;
 
       const m = this.faction.mods;
-      this.gold = BF.ECON.startGold + 40 * this.up.treasury
-        + Math.round(BF.ECON.startGold * BF.ECON.tribute * (opts.tribute || 0));
+      this.gold = Math.round((BF.ECON.startGold + 40 * this.up.treasury
+        + Math.round(BF.ECON.startGold * BF.ECON.tribute * (opts.tribute || 0))) * this.goldMult);
       this.tribute = opts.tribute || 0;
-      this.bountyMult = m.bounty * (1 + 0.08 * this.up.treasury);
+      this.bountyMult = m.bounty * (1 + 0.08 * this.up.treasury) * this.goldMult;
       this.baseMax = Math.round((BF.ECON.baseHp + 15 * this.up.walls) * m.baseHp);
       this.baseHp = this.baseMax;
       this.defMult = 1 + 0.06 * this.up.barracks;
@@ -136,8 +137,8 @@
       const waveGaps = [0, 30, 30, 30, 30, 30, 30]; // wave 1 instant, then 30s between each wave
       const hasBoss = idx >= 2;
       const mm = this.modeMult;
-      // More units in easy mode, fewer in hard
-      const modeMult = mm < 1 ? 1.4 : mm > 1 ? 0.85 : 1;
+      // More units in easy mode, fewer in hard (wider gap for better feel)
+      const modeMult = mm < 1 ? 1.5 : mm > 1 ? 0.8 : 1;
 
       var cumT = 3;
       for (let w = 0; w < W; w++) {

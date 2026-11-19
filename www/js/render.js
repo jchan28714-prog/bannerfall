@@ -565,9 +565,11 @@
   function token(ctx, x, y, r, f, role, enemy, hit, atkPhase, walkPhase) {
     ctx.save();
     ctx.translate(x, y);
-    // Ground shadow
-    ctx.fillStyle = 'rgba(0,0,0,.32)';
-    ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 0.7, r * 0.2, 0, 0, TAU); ctx.fill();
+    // Ground shadow (layered for depth)
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.ellipse(0, r * 0.9, r * 0.9, r * 0.25, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath(); ctx.ellipse(0, r * 0.85, r * 0.65, r * 0.18, 0, 0, TAU); ctx.fill();
     // Figure (no badge circle — drawn directly)
     ctx.scale(r / 20, r / 20);
     const OG_GLYPH = { men:'sword', elves:'archer', orcs:'sword', goblins:'mage', dwarves:'sword', citadel:'mage' };
@@ -630,9 +632,16 @@
     const intensity = (0.3 - hpFrac) / 0.3;
     ctx.save();
     ctx.translate(x, y);
-    ctx.globalAlpha = intensity * 0.25 * pulse;
+    // Pulsing red danger glow
+    ctx.globalAlpha = intensity * 0.3 * pulse;
     ctx.fillStyle = '#ff2020';
-    ctx.beginPath(); ctx.arc(0, 0, r * 1.1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.15, 0, TAU); ctx.fill();
+    // Inner critical ring when below 15%
+    if (hpFrac < 0.15) {
+      ctx.globalAlpha = (0.15 - hpFrac) / 0.15 * 0.4 * pulse;
+      ctx.strokeStyle = '#ff4040'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, r * 1.25, 0, TAU); ctx.stroke();
+    }
     ctx.globalAlpha = 1;
     ctx.restore();
   }
@@ -933,15 +942,27 @@
     ctx.lineTo(cw, skyH); ctx.closePath(); ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Drifting clouds (3 at different speeds)
-    const CLOUDS = [[cw * 0.2, skyH * 0.28, 28, 4.0], [cw * 0.6, skyH * 0.15, 20, 6.2], [cw * 0.85, skyH * 0.35, 24, 5.0]];
+    // Drifting clouds (5 at different speeds and depths)
+    const CLOUDS = [
+      [cw * 0.15, skyH * 0.22, 30, 3.5], [cw * 0.4, skyH * 0.12, 22, 5.8],
+      [cw * 0.65, skyH * 0.30, 26, 4.5], [cw * 0.85, skyH * 0.18, 18, 7.0],
+      [cw * 0.3, skyH * 0.38, 20, 3.0],
+    ];
     ctx.fillStyle = bm.cloudFill;
-    for (const [ox, cy, r, spd] of CLOUDS) {
-      const cx = ((ox + T * spd) % (cw + 120)) - 60;
-      ctx.globalAlpha = 0.65;
-      ctx.beginPath(); ctx.ellipse(cx - 20, cy + 2, r * 0.75, r * 0.50, 0, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx,      cy - 4, r,        r * 0.60, 0, 0, TAU); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx + 20, cy + 3, r * 0.65, r * 0.48, 0, 0, TAU); ctx.fill();
+    for (let ci = 0; ci < CLOUDS.length; ci++) {
+      const [ox, cy, r, spd] = CLOUDS[ci];
+      const cx = ((ox + T * spd) % (cw + 160)) - 80;
+      const depth = 0.5 + ci * 0.1;
+      ctx.globalAlpha = 0.55 * depth;
+      ctx.beginPath(); ctx.ellipse(cx - r * 0.7, cy + 2, r * 0.72, r * 0.46, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.65 * depth;
+      ctx.beginPath(); ctx.ellipse(cx,           cy - 3, r,        r * 0.58, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + r * 0.7, cy + 3, r * 0.6,  r * 0.44, 0, 0, TAU); ctx.fill();
+      // Wispy highlight on top
+      ctx.globalAlpha = 0.2 * depth;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.ellipse(cx - 3, cy - r * 0.3, r * 0.5, r * 0.2, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = bm.cloudFill;
       ctx.globalAlpha = 1;
     }
 
@@ -970,13 +991,21 @@
 
     // Ambient particles (pollen/embers/snowflakes/fireflies per biome)
     ctx.fillStyle = bm.particle;
-    for (let i = 0; i < 16; i++) {
-      const px = (cw + 80 - ((T * (1.5 + i * 0.35) + i * 47) % (cw + 100)));
-      const py = skyH * 0.1 + sin(T * 0.7 + i * 1.4) * skyH * 0.35 + i * (ch / 18);
-      if (py > 0 && py < ch * 0.65) {
-        ctx.globalAlpha = 0.3 + 0.4 * sin(T * 1.3 + i * 0.9);
-        const sz = 1.2 + sin(i * 2.1) * 0.8 + sin(T * 2 + i) * 0.3;
+    for (let i = 0; i < 22; i++) {
+      const spd = 1.2 + (i * 0.47 + sin(i * 1.7) * 0.6);
+      const px = (cw + 100 - ((T * spd + i * 53) % (cw + 120)));
+      const drift = sin(T * 0.5 + i * 2.3) * 15;
+      const py = skyH * 0.05 + sin(T * 0.7 + i * 1.4) * skyH * 0.4 + i * (ch / 24) + drift;
+      if (py > 0 && py < ch * 0.7) {
+        const flicker = 0.25 + 0.5 * sin(T * 1.6 + i * 0.9) + 0.25 * sin(T * 3.1 + i * 2.4);
+        ctx.globalAlpha = flicker;
+        const sz = 1.0 + sin(i * 2.1) * 0.9 + sin(T * 2.5 + i) * 0.4;
         ctx.beginPath(); ctx.arc(px, py, sz, 0, TAU); ctx.fill();
+        // Subtle glow halo on larger particles
+        if (sz > 1.5) {
+          ctx.globalAlpha = flicker * 0.15;
+          ctx.beginPath(); ctx.arc(px, py, sz * 3, 0, TAU); ctx.fill();
+        }
       }
     }
     ctx.globalAlpha = 1;
@@ -1035,17 +1064,33 @@
       ctx.quadraticCurveTo(G.cw * 0.7, y - wave, G.cw - BF.CASTLE_W - 10, y);
       ctx.stroke();
     }
-    // Scattered grass tufts
+    // Scattered grass tufts (wind-animated)
     ctx.strokeStyle = 'rgba(80,160,60,.15)'; ctx.lineWidth = 1.5;
-    for (let i = 0; i < 12; i++) {
-      const gx = 80 + ((i * 137) % (G.cw - 160));
-      const gy = G.sky + 15 + ((i * 89) % (G.h - 30));
+    for (let i = 0; i < 16; i++) {
+      const gx = 70 + ((i * 131) % (G.cw - 140));
+      const gy = G.sky + 12 + ((i * 97) % (G.h - 24));
+      const wind = M.sin(T * 1.2 + i * 0.8) * 2;
       ctx.beginPath();
-      ctx.moveTo(gx, gy); ctx.lineTo(gx - 2, gy - 6);
-      ctx.moveTo(gx + 3, gy); ctx.lineTo(gx + 4, gy - 5);
-      ctx.moveTo(gx - 3, gy); ctx.lineTo(gx - 5, gy - 4);
+      ctx.moveTo(gx, gy); ctx.lineTo(gx - 2 + wind, gy - 6);
+      ctx.moveTo(gx + 3, gy); ctx.lineTo(gx + 4 + wind, gy - 5);
+      ctx.moveTo(gx - 3, gy); ctx.lineTo(gx - 5 + wind, gy - 4);
       ctx.stroke();
     }
+
+    // Battlefield ambient motes (drifting specks of light)
+    for (let i = 0; i < 8; i++) {
+      const mx = (G.cw * 0.1 + ((T * (0.8 + i * 0.3) + i * 73) % (G.cw * 0.8)));
+      const my = G.sky + 20 + M.sin(T * 0.4 + i * 1.7) * (G.h * 0.3) + i * (G.h / 10);
+      if (my > G.sky && my < G.sky + G.h) {
+        const twinkle = 0.3 + 0.7 * M.sin(T * 2.5 + i * 2.1);
+        ctx.globalAlpha = 0.08 * twinkle;
+        ctx.fillStyle = '#ffe880';
+        ctx.beginPath(); ctx.arc(mx, my, 2, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 0.03 * twinkle;
+        ctx.beginPath(); ctx.arc(mx, my, 6, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
 
     // Range circle for inspected unit
     if (ui.inspect && !ui.inspect.dead) {
@@ -1145,6 +1190,20 @@
         const ddx = s.x2 - s.x1;
         const ddy = (s.y2 - s.y1) - arc * M.PI * M.cos(k * M.PI);
         const a = M.atan2(ddy, ddx);
+        // Motion trail (fading line behind the arrow)
+        if (k > 0.05) {
+          const trailLen = 4;
+          ctx.lineWidth = 1;
+          for (let tr = 1; tr <= trailLen; tr++) {
+            const tk = M.max(0, k - tr * 0.025);
+            const tx = s.x1 + (s.x2 - s.x1) * tk;
+            const ty = s.y1 + (s.y2 - s.y1) * tk - arc * M.sin(tk * M.PI);
+            ctx.globalAlpha = 0.12 / tr;
+            ctx.strokeStyle = '#c8b878';
+            ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tx, ty); ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+        }
         // Impact flash for arced arrows near the target
         if (arc > 0 && k > 0.78) {
           const fk = (k - 0.78) / 0.22;
@@ -1172,12 +1231,22 @@
         ctx.stroke();
       }
     }
-    // AoE rings
+    // AoE rings (double ring with inner glow)
     for (const rg of b.rings) {
       const k = rg.t / rg.dur;
-      ctx.globalAlpha = 0.6 * (1 - k);
-      ctx.strokeStyle = rg.color; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r * (0.4 + 0.6 * k), 0, TAU); ctx.stroke();
+      const outerR = rg.r * (0.4 + 0.6 * k);
+      // Inner fill glow
+      ctx.globalAlpha = 0.12 * (1 - k);
+      ctx.fillStyle = rg.color;
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, outerR, 0, TAU); ctx.fill();
+      // Outer ring
+      ctx.globalAlpha = 0.65 * (1 - k);
+      ctx.strokeStyle = rg.color; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, outerR, 0, TAU); ctx.stroke();
+      // Inner bright ring
+      ctx.globalAlpha = 0.4 * (1 - k);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, outerR * 0.6, 0, TAU); ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
@@ -1233,22 +1302,35 @@
     // ── SPARKS (melee impact) ─────────────────────────────────────────
     for (const s of b.sparks) {
       const k = s.t / s.dur;
-      ctx.globalAlpha = (1 - k) * 0.9;
-      ctx.strokeStyle = s.color; ctx.lineWidth = 2;
+      // Longer, brighter streak
+      ctx.globalAlpha = (1 - k) * 0.95;
+      ctx.strokeStyle = s.color; ctx.lineWidth = 2.2;
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
-      ctx.lineTo(s.x - s.vx * 0.015, s.y - s.vy * 0.015);
+      ctx.lineTo(s.x - s.vx * 0.018, s.y - s.vy * 0.018);
       ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.globalAlpha = (1 - k) * 0.6;
-      ctx.beginPath(); ctx.arc(s.x, s.y, 1.5 * (1 - k), 0, TAU); ctx.fill();
+      // Hot white core
+      ctx.fillStyle = '#fff'; ctx.globalAlpha = (1 - k) * 0.75;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 2 * (1 - k), 0, TAU); ctx.fill();
+      // Fading ember glow
+      if (k < 0.4) {
+        ctx.globalAlpha = (0.4 - k) * 0.5;
+        ctx.fillStyle = s.color;
+        ctx.beginPath(); ctx.arc(s.x, s.y, 4 * (1 - k), 0, TAU); ctx.fill();
+      }
     }
 
     // ── DUST CLOUDS ───────────────────────────────────────────────────
     for (const d of b.dusts) {
       const k = d.t / d.dur;
-      ctx.globalAlpha = 0.35 * (1 - k);
+      const expand = 1 + k * 0.6;
+      ctx.globalAlpha = 0.35 * (1 - k * k);
       ctx.fillStyle = '#8a7a60';
-      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r * expand, 0, TAU); ctx.fill();
+      // Secondary lighter puff
+      ctx.globalAlpha = 0.15 * (1 - k);
+      ctx.fillStyle = '#b0a080';
+      ctx.beginPath(); ctx.arc(d.x + d.r * 0.5, d.y - d.r * 0.3, d.r * expand * 0.6, 0, TAU); ctx.fill();
     }
     ctx.globalAlpha = 1;
 
@@ -1271,6 +1353,17 @@
     ctx.fillStyle = '#0e1018'; ctx.fillRect(0, G.sky + G.h, G.cw, G.ch - G.sky - G.h);
     ctx.fillStyle = '#1a1e2c';
     for (let x = 0; x < G.cw; x += 22) ctx.fillRect(x + 2, G.sky + G.h, 14, 6);
+
+    // Battlefield vignette (darkened edges)
+    var vigL = ctx.createLinearGradient(camX, 0, camX + 60, 0);
+    vigL.addColorStop(0, 'rgba(6,8,16,.35)'); vigL.addColorStop(1, 'rgba(6,8,16,0)');
+    ctx.fillStyle = vigL; ctx.fillRect(camX, G.sky, 60, G.h);
+    var vigR = ctx.createLinearGradient(camX + vw, 0, camX + vw - 60, 0);
+    vigR.addColorStop(0, 'rgba(6,8,16,.35)'); vigR.addColorStop(1, 'rgba(6,8,16,0)');
+    ctx.fillStyle = vigR; ctx.fillRect(camX + vw - 60, G.sky, 60, G.h);
+    var vigT = ctx.createLinearGradient(0, G.sky, 0, G.sky + 30);
+    vigT.addColorStop(0, 'rgba(6,8,16,.2)'); vigT.addColorStop(1, 'rgba(6,8,16,0)');
+    ctx.fillStyle = vigT; ctx.fillRect(camX, G.sky, vw, 30);
 
     // ── FLOATING DAMAGE / GOLD NUMBERS ────────────────────────────────
     ctx.textAlign = 'center';

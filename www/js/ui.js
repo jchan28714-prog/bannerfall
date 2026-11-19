@@ -131,16 +131,120 @@
 
   /* ======================= 0. HOME SCREEN ======================= */
   const MODES = [
-    { id: 'novice',    label: 'Novice' },
-    { id: 'veteran',   label: 'Veteran' },
-    { id: 'legendary', label: 'Legendary' },
+    { id: 'novice',    label: 'Novice',    desc: 'More gold, weaker foes' },
+    { id: 'veteran',   label: 'Veteran',   desc: 'The standard challenge' },
+    { id: 'legendary', label: 'Legendary', desc: 'Brutal enemies, scarce gold' },
   ];
   if (!save.mode) save.mode = 'veteran';
 
+  /* ---- animated home background (canvas particles + floating banners) ---- */
+  var _homeAnim = null;
+  function _startHomeAnim(root) {
+    if (_homeAnim) { cancelAnimationFrame(_homeAnim.raf); _homeAnim = null; }
+    var cv = root.querySelector('#home-cv');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+
+    var particles = [];
+    for (var i = 0; i < 40; i++) {
+      particles.push({
+        x: M.random(), y: M.random(),
+        vx: (M.random() - 0.5) * 0.0003,
+        vy: -0.0002 - M.random() * 0.0004,
+        r: 1 + M.random() * 2.5,
+        a: 0.15 + M.random() * 0.35,
+        hue: M.random() < 0.6 ? 42 : (M.random() < 0.5 ? 20 : 55),
+      });
+    }
+    var banners = [];
+    var bannerColors = ['#4a78c2', '#3f9a6a', '#b5482f', '#a3a93a', '#c08a3e'];
+    for (var b = 0; b < 6; b++) {
+      banners.push({
+        x: 0.08 + M.random() * 0.84,
+        y: M.random(),
+        speed: 0.0001 + M.random() * 0.0003,
+        size: 10 + M.random() * 14,
+        color: bannerColors[b % bannerColors.length],
+        phase: M.random() * M.PI * 2,
+        a: 0.06 + M.random() * 0.08,
+      });
+    }
+
+    function resize() {
+      var w = root.clientWidth, h = root.clientHeight;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    }
+    resize();
+    var last = performance.now();
+
+    function frame(ts) {
+      _homeAnim.raf = requestAnimationFrame(frame);
+      var dt = M.min(0.05, (ts - last) / 1000); last = ts;
+      var w = cv.width, h = cv.height;
+      ctx.clearRect(0, 0, w, h);
+
+      var T = ts * 0.001;
+      // Subtle radial glow
+      var grd = ctx.createRadialGradient(w * 0.5, h * 0.35, 0, w * 0.5, h * 0.35, w * 0.6);
+      grd.addColorStop(0, 'rgba(232,197,102,.04)');
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, w, h);
+
+      // Drifting banners
+      for (var b = 0; b < banners.length; b++) {
+        var bn = banners[b];
+        bn.y -= bn.speed * dt * 60;
+        if (bn.y < -0.1) { bn.y = 1.1; bn.x = 0.08 + M.random() * 0.84; }
+        var bx = bn.x * w + M.sin(T * 0.5 + bn.phase) * 20 * dpr;
+        var by = bn.y * h;
+        var sz = bn.size * dpr;
+        ctx.globalAlpha = bn.a;
+        ctx.fillStyle = bn.color;
+        ctx.beginPath();
+        ctx.moveTo(bx - sz * 0.3, by - sz);
+        ctx.lineTo(bx + sz * 0.3, by - sz);
+        ctx.lineTo(bx + sz * 0.3, by + sz * 0.4);
+        ctx.lineTo(bx, by + sz * 0.1);
+        ctx.lineTo(bx - sz * 0.3, by + sz * 0.4);
+        ctx.closePath();
+        ctx.fill();
+        // Banner pole
+        ctx.strokeStyle = 'rgba(255,255,255,.08)';
+        ctx.lineWidth = 1 * dpr;
+        ctx.beginPath(); ctx.moveTo(bx - sz * 0.3, by - sz * 1.2); ctx.lineTo(bx - sz * 0.3, by + sz * 0.4); ctx.stroke();
+      }
+
+      // Floating particles
+      for (var i = 0; i < particles.length; i++) {
+        var p = particles[i];
+        p.x += p.vx * dt * 60;
+        p.y += p.vy * dt * 60;
+        if (p.y < -0.05) { p.y = 1.05; p.x = M.random(); }
+        if (p.x < -0.05) p.x = 1.05;
+        if (p.x > 1.05) p.x = -0.05;
+        var px = p.x * w, py = p.y * h;
+        var flicker = 0.5 + 0.5 * M.sin(T * 1.8 + i * 1.3);
+        ctx.globalAlpha = p.a * flicker;
+        ctx.fillStyle = 'hsl(' + p.hue + ',70%,70%)';
+        ctx.beginPath(); ctx.arc(px, py, p.r * dpr, 0, M.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    _homeAnim = { raf: requestAnimationFrame(frame) };
+  }
+  function _stopHomeAnim() {
+    if (_homeAnim) { cancelAnimationFrame(_homeAnim.raf); _homeAnim = null; }
+  }
+
   function renderHome() {
+    _stopHomeAnim();
     const root = $('#screen-home');
     const hasSave = save.last && BF.factionById(save.last);
     root.innerHTML =
+      '<canvas id="home-cv" class="home-bg-cv"></canvas>' +
       '<div class="home">' +
       '<img class="home-logo" src="img/logo.svg" alt="Bannerfall" width="180" height="180">' +
       '<h1>BANNERFALL</h1>' +
@@ -154,26 +258,31 @@
       '<div class="home-mode">' +
       '<span class="tag">Difficulty:</span>' +
       MODES.map(function (m) {
-        return '<button class="mode-btn' + (save.mode === m.id ? ' on' : '') + '" data-m="' + m.id + '">' + m.label + '</button>';
+        return '<button class="mode-btn' + (save.mode === m.id ? ' on' : '') + '" data-m="' + m.id + '" title="' + m.desc + '">' + m.label + '</button>';
       }).join('') +
       '</div>' +
       '<span class="home-ver">v1.0</span>' +
       '</div>';
 
+    _startHomeAnim(root);
+
     if (hasSave) {
       addRipple($('#home-continue'));
       $('#home-continue').addEventListener('click', function () {
+        _stopHomeAnim();
         Sound.play('ui'); renderMap(); renderLegions(); show('map');
       });
     }
 
     addRipple($('#home-new'));
     $('#home-new').addEventListener('click', function () {
+      _stopHomeAnim();
       Sound.play('ui'); zombieMode = false; renderLegions(); show('legion');
     });
 
     addRipple($('#home-zombie'));
     $('#home-zombie').addEventListener('click', function () {
+      _stopHomeAnim();
       Sound.play('ui'); zombieMode = true; renderLegions(); show('legion');
     });
 
@@ -205,13 +314,111 @@
   let pick = save.last || 'men';
   let zombieMode = false;
 
+  /* ---- faction-themed background gradient for legion screen ---- */
+  const FACTION_BG = {
+    men:     { a: 'rgba(30,48,90,.55)',  b: 'rgba(15,17,23,.95)', accent: '#4a78c2' },
+    elves:   { a: 'rgba(20,70,45,.55)',  b: 'rgba(15,17,23,.95)', accent: '#3f9a6a' },
+    orcs:    { a: 'rgba(80,24,12,.55)',  b: 'rgba(15,17,23,.95)', accent: '#b5482f' },
+    goblins: { a: 'rgba(50,55,18,.55)',  b: 'rgba(15,17,23,.95)', accent: '#a3a93a' },
+    dwarves: { a: 'rgba(75,55,20,.55)',  b: 'rgba(15,17,23,.95)', accent: '#c08a3e' },
+  };
+  var _legAnim = null;
+  function _startLegAnim(root) {
+    if (_legAnim) { cancelAnimationFrame(_legAnim.raf); _legAnim = null; }
+    var cv = root.querySelector('#leg-cv');
+    if (!cv) return;
+    var ctx = cv.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var curFaction = pick;
+    var fadeFrom = null, fadeTo = pick, fadeT = 1;
+
+    var sparks = [];
+    for (var i = 0; i < 24; i++) {
+      sparks.push({
+        x: M.random(), y: M.random(),
+        vx: (M.random() - 0.5) * 0.0004,
+        vy: -0.0003 - M.random() * 0.0005,
+        r: 1.5 + M.random() * 2,
+        phase: M.random() * M.PI * 2,
+      });
+    }
+    function resize() {
+      var w = root.clientWidth, h = root.clientHeight;
+      cv.width = w * dpr; cv.height = h * dpr;
+      cv.style.width = w + 'px'; cv.style.height = h + 'px';
+    }
+    resize();
+    var last = performance.now();
+
+    function frame(ts) {
+      _legAnim.raf = requestAnimationFrame(frame);
+      var dt = M.min(0.05, (ts - last) / 1000); last = ts;
+      var w = cv.width, h = cv.height;
+      var T = ts * 0.001;
+
+      // Detect faction change
+      if (pick !== curFaction) {
+        fadeFrom = curFaction; fadeTo = pick; fadeT = 0;
+        curFaction = pick;
+      }
+      if (fadeT < 1) fadeT = M.min(1, fadeT + dt * 1.8);
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw faction-colored gradient background
+      function drawFactionBg(fid, alpha) {
+        var fb = FACTION_BG[fid] || FACTION_BG.men;
+        ctx.globalAlpha = alpha;
+        var grd = ctx.createRadialGradient(w * 0.5, h * 0.2, 0, w * 0.5, h * 0.5, w * 0.7);
+        grd.addColorStop(0, fb.a);
+        grd.addColorStop(1, fb.b);
+        ctx.fillStyle = grd;
+        ctx.fillRect(0, 0, w, h);
+        // Accent glow at top
+        var glow = ctx.createRadialGradient(w * 0.5, 0, 0, w * 0.5, 0, w * 0.5);
+        glow.addColorStop(0, BF.hexA(fb.accent, 0.12));
+        glow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h * 0.5);
+      }
+
+      if (fadeT < 1 && fadeFrom) {
+        drawFactionBg(fadeFrom, 1 - fadeT);
+        drawFactionBg(fadeTo, fadeT);
+      } else {
+        drawFactionBg(fadeTo, 1);
+      }
+
+      // Floating sparks in faction color
+      var fb = FACTION_BG[curFaction] || FACTION_BG.men;
+      for (var i = 0; i < sparks.length; i++) {
+        var s = sparks[i];
+        s.x += s.vx * dt * 60;
+        s.y += s.vy * dt * 60;
+        if (s.y < -0.05) { s.y = 1.05; s.x = M.random(); }
+        if (s.x < -0.05) s.x = 1.05;
+        if (s.x > 1.05) s.x = -0.05;
+        var flicker = 0.5 + 0.5 * M.sin(T * 2 + s.phase);
+        ctx.globalAlpha = 0.25 * flicker;
+        ctx.fillStyle = fb.accent;
+        ctx.beginPath(); ctx.arc(s.x * w, s.y * h, s.r * dpr, 0, M.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    _legAnim = { raf: requestAnimationFrame(frame) };
+  }
+  function _stopLegAnim() {
+    if (_legAnim) { cancelAnimationFrame(_legAnim.raf); _legAnim = null; }
+  }
 
   function renderLegions() {
+    _stopLegAnim();
     const root = $('#screen-legion');
     const N = BF.FACTIONS.length;
     const STEP = 360 / N;
     const PERSPECTIVE = 500;
     root.innerHTML =
+      '<canvas id="leg-cv" class="leg-bg-cv"></canvas>' +
       '<div class="leg-header"><button class="icon-btn" id="leg-back">←</button><div><h1>BANNERFALL</h1><p>Choose your legion</p></div><div style="min-width:36px"></div></div>' +
       '<div class="leg-carousel-wrap" id="leg-carousel-wrap">' +
       BF.FACTIONS.map(function (f, i) {
@@ -233,6 +440,8 @@
         );
       }).join('') +
       '</div>';
+
+    _startLegAnim(root);
 
     var wrap = $('#leg-carousel-wrap');
     var cards = wrap.querySelectorAll('.lcard');
@@ -346,6 +555,7 @@
       btn.addEventListener('click', function (e) {
         if (totalDrag > 8) { e.stopPropagation(); return; }
         pick = btn.dataset.id; save.last = pick; persist();
+        _stopLegAnim();
         Sound.play('ui');
         if (zombieMode) {
           startZombieBattle();
@@ -374,7 +584,7 @@
     });
 
     addRipple($('#leg-back'));
-    $('#leg-back').addEventListener('click', function () { Sound.play('ui'); show('home'); });
+    $('#leg-back').addEventListener('click', function () { _stopLegAnim(); Sound.play('ui'); renderHome(); show('home'); });
   }
 
   function openLegionDetail(fid) {
@@ -1310,8 +1520,9 @@
   function startBattle(t) {
     const f = BF.factionById(save.last), c = camp(f.id);
     terr = t;
-    var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
-    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm });
+    var mm = save.mode === 'novice' ? 0.65 : save.mode === 'legendary' ? 1.5 : 1;
+    var goldMult = save.mode === 'novice' ? 1.3 : save.mode === 'legendary' ? 0.75 : 1;
+    B = new BF.Battle({ factionId: f.id, territory: t, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm, goldMult: goldMult });
     uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: B.zombie ? 'Survive!' : 'March to victory!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0 } };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     buildTray();
@@ -1583,8 +1794,9 @@
       hpScale: 1.2, dmgScale: 1.1, countScale: 1.3,
     };
     terr = zombieTerr;
-    var mm = save.mode === 'novice' ? 0.7 : save.mode === 'legendary' ? 1.4 : 1;
-    B = new BF.Battle({ factionId: f.id, territory: zombieTerr, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm, zombie: true });
+    var mm = save.mode === 'novice' ? 0.65 : save.mode === 'legendary' ? 1.5 : 1;
+    var goldMult = save.mode === 'novice' ? 1.3 : save.mode === 'legendary' ? 0.75 : 1;
+    B = new BF.Battle({ factionId: f.id, territory: zombieTerr, upgrades: c.upg, tribute: conqueredCount(c), starUpg: c.starUpg, modeMult: mm, goldMult: goldMult, zombie: true });
     uiS = { selected: null, sellMode: false, inspect: null, inspectUntil: 0, banner: { text: 'Survive!', t: 2.2 }, gateFlash: 0, abilityFlash: 0, siegeFlash: 0, cam: { x: 0, target: 0 } };
     speed = 1; paused = false; resultShown = false; lastWave = 0;
     buildTray();

@@ -95,6 +95,13 @@ h1, h2, h3 { font-family: var(--serif); font-weight: 600; margin: 0; letter-spac
 #screen-splash.fade-in.fade-in-go { opacity: 1; transition: opacity .8s ease; }
 #screen-splash.fade-out { opacity: 0; transition: opacity 1s ease; pointer-events: none; }
 
+/* ---------- animated background canvases ---------- */
+.home-bg-cv, .leg-bg-cv {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+}
+#screen-home .home, #screen-home .home-ver { position: relative; z-index: 1; }
+#screen-legion .leg-header, #screen-legion .leg-carousel-wrap { position: relative; z-index: 1; }
+
 /* ---------- home screen ---------- */
 .home { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 0; padding: 0 24px; }
 .home-logo { width: clamp(80px, 20vw, 140px); height: auto; aspect-ratio: 1; border-radius: 20%; margin-bottom: clamp(8px, 2vh, 16px); filter: drop-shadow(0 4px 18px rgba(201, 164, 92, .18)); }
