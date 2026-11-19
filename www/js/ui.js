@@ -938,31 +938,6 @@
       voidEl.textContent = 'THE VOID';
     }
 
-    // Adjacency roads (draw all unique pairs, using rotated positions)
-    const drawnEdges = new Set();
-    BF.TERRITORIES.forEach((t) => {
-      const tc = terrMap[t.id];
-      const x1 = tc && tc.mapX != null ? tc.mapX : t.x;
-      const y1 = tc && tc.mapY != null ? tc.mapY : t.y;
-      t.adj.forEach((adjId) => {
-        const key = [t.id, adjId].sort().join('|');
-        if (drawnEdges.has(key)) return;
-        drawnEdges.add(key);
-        const adj = BF.territoryById(adjId);
-        if (!adj) return;
-        const ac = terrMap[adjId];
-        const x2 = ac && ac.mapX != null ? ac.mapX : adj.x;
-        const y2 = ac && ac.mapY != null ? ac.mapY : adj.y;
-        const tConq = c.conquered[t.id] || t.id === c.homeId;
-        const aConq = c.conquered[adjId] || adjId === c.homeId;
-        const roadColor = (tConq && aConq) ? hexA(f.color, 0.5) : 'rgba(232,220,192,.13)';
-        const roadW = (tConq && aConq) ? 3 : 1.8;
-        svgEl('line', { x1, y1, x2, y2,
-          stroke: roadColor, 'stroke-width': roadW, 'stroke-linecap': 'round',
-          'stroke-dasharray': (tConq && aConq) ? '' : '3 6' }, svg);
-      });
-    });
-
     // Homeland marker (use rotated position from campaign data)
     const homeRaw = BF.territoryById(c.homeId);
     const homeCamp = terrMap[c.homeId];
@@ -970,16 +945,16 @@
     if (home) {
       const hg = svgEl('g', {}, svg);
       // Home pulse ring
-      svgEl('circle', { cx: home.x, cy: home.y, r: 26, fill: 'none', stroke: f.color, 'stroke-width': 2, class: 'pulse', opacity: 0.6 }, hg);
+      svgEl('circle', { cx: home.x, cy: home.y, r: 38, fill: 'none', stroke: f.color, 'stroke-width': 2.5, class: 'pulse', opacity: 0.6 }, hg);
       // Home territory circle (filled with player color)
-      svgEl('circle', { cx: home.x, cy: home.y, r: 18, fill: f.color, stroke: f.accent, 'stroke-width': 2.5 }, hg);
+      svgEl('circle', { cx: home.x, cy: home.y, r: 28, fill: f.color, stroke: f.accent, 'stroke-width': 3 }, hg);
       // Castle/flag icon path
       const hx = home.x, hy = home.y;
       svgEl('path', {
-        d: 'M'+(hx-5)+' '+(hy+6)+' V'+(hy-6)+' H'+(hx+6)+' L'+(hx+3)+' '+(hy-2)+' L'+(hx+6)+' '+(hy+3)+' H'+(hx-5),
+        d: 'M'+(hx-8)+' '+(hy+10)+' V'+(hy-10)+' H'+(hx+10)+' L'+(hx+5)+' '+(hy-3)+' L'+(hx+10)+' '+(hy+5)+' H'+(hx-8),
         fill: '#fff',
       }, hg);
-      const hl = svgEl('text', { x: home.x, y: home.y + 30, 'text-anchor': 'middle', fill: f.accent, 'font-size': 9.5, 'font-weight': 700 }, hg);
+      const hl = svgEl('text', { x: home.x, y: home.y + 42, 'text-anchor': 'middle', fill: f.accent, 'font-size': 11, 'font-weight': 700 }, hg);
       hl.textContent = home.name;
     }
 
@@ -993,17 +968,17 @@
       const open = unlocked(c, t);
       const owner = BF.factionById(t.owner) || BF.FACTIONS[0];
       const isFinal = !!t.final;
-      const r = isFinal ? 21 : 15;
+      const r = isFinal ? 30 : 24;
 
       const g = svgEl('g', { class: open || won ? 'node' : 'node locked', 'data-id': t.id }, svg);
 
       // Pulse ring for attackable territories
       if (open && !won) {
-        svgEl('circle', { cx: tx, cy: ty, r: r + 8, fill: 'none', stroke: '#e8c566', 'stroke-width': 2, class: 'pulse' }, g);
+        svgEl('circle', { cx: tx, cy: ty, r: r + 10, fill: 'none', stroke: '#e8c566', 'stroke-width': 2.5, class: 'pulse' }, g);
       }
 
       // Tap area
-      svgEl('circle', { cx: tx, cy: ty, r: r + 10, fill: 'transparent' }, g);
+      svgEl('circle', { cx: tx, cy: ty, r: r + 12, fill: 'transparent' }, g);
 
       // Territory circle — filled with faction color, opacity based on ownership
       let fillColor, strokeColor, fillOp;
@@ -1022,15 +997,15 @@
       if (isFinal) {
         const cx2 = tx, cy2 = ty;
         svgEl('path', {
-          d: 'M'+(cx2-10)+' '+(cy2+6)+' L'+(cx2-12)+' '+(cy2-7)+' L'+(cx2-4)+' '+(cy2-1)+' L'+cx2+' '+(cy2-11)+' L'+(cx2+4)+' '+(cy2-1)+' L'+(cx2+12)+' '+(cy2-7)+' L'+(cx2+10)+' '+(cy2+6)+' Z',
+          d: 'M'+(cx2-14)+' '+(cy2+8)+' L'+(cx2-17)+' '+(cy2-10)+' L'+(cx2-6)+' '+(cy2-2)+' L'+cx2+' '+(cy2-15)+' L'+(cx2+6)+' '+(cy2-2)+' L'+(cx2+17)+' '+(cy2-10)+' L'+(cx2+14)+' '+(cy2+8)+' Z',
           fill: won ? '#fff' : open ? '#e8c566' : '#3a4152',
         }, g);
       } else {
         const difficulty = Math.ceil(((t.index || 0) + 1) / 2);
         const numEl = svgEl('text', {
-          x: tx, y: ty + 4.5, 'text-anchor': 'middle',
+          x: tx, y: ty + 6, 'text-anchor': 'middle',
           fill: won ? '#fff' : open ? '#ece4d0' : '#4a5163',
-          'font-size': 11, 'font-weight': 700,
+          'font-size': 15, 'font-weight': 700,
         }, g);
         numEl.textContent = won ? '★'.repeat(Math.min(won, 3)) : (open ? String(difficulty) : '');
       }
@@ -1038,13 +1013,13 @@
       // Territory name label
       if (won || open) {
         const lbl = svgEl('text', {
-          x: tx, y: ty + r + 14, 'text-anchor': 'middle',
+          x: tx, y: ty + r + 16, 'text-anchor': 'middle',
           fill: won ? f.accent : open ? '#c9c2ad' : '#4a5163',
-          'font-size': won ? 9.5 : 9,
+          'font-size': won ? 11 : 10,
         }, g);
         lbl.textContent = t.name;
         if (won) {
-          const oLbl = svgEl('text', { x: tx, y: ty + r + 24, 'text-anchor': 'middle', fill: f.color, 'font-size': 8, opacity: 0.8 }, g);
+          const oLbl = svgEl('text', { x: tx, y: ty + r + 28, 'text-anchor': 'middle', fill: f.color, 'font-size': 9, opacity: 0.8 }, g);
           oLbl.textContent = '✦ ' + BF.factionById(save.last).short;
         }
       }
@@ -1055,26 +1030,36 @@
     // Pinch-to-zoom and pan on the map SVG
     (function() {
       const wrap = $('.mapwrap');
-      let vb = { x: vbX, y: vbY, w: vbW, h: vbH };
       const VB_BASE = { x: vbX, y: vbY, w: vbW, h: vbH };
       const MIN_ZOOM = 1, MAX_ZOOM = 3;
-      let zoom = 1;
-      let pointers = {};
-      let lastDist = 0, lastMid = null, dragging = false;
 
-      function applyVB() {
-        svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h);
-      }
+      // Start zoomed in on home territory
+      var initZoom = 2.2;
+      var homeZoomX = home ? home.x - (vbW / initZoom) / 2 : vbX;
+      var homeZoomY = home ? home.y - (vbH / initZoom) / 2 : vbY;
+      let vb = { x: homeZoomX, y: homeZoomY, w: vbW / initZoom, h: vbH / initZoom };
+      let zoom = initZoom;
+
       function clampVB() {
         vb.w = VB_BASE.w / zoom;
         vb.h = VB_BASE.h / zoom;
         vb.x = M.max(VB_BASE.x, M.min(VB_BASE.x + VB_BASE.w - vb.w, vb.x));
         vb.y = M.max(VB_BASE.y, M.min(VB_BASE.y + VB_BASE.h - vb.h, vb.y));
       }
+      clampVB();
+
+      function applyVB() {
+        svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h);
+      }
+      applyVB();
+
       function svgPt(e) {
         const r = svg.getBoundingClientRect();
         return { x: vb.x + ((e.clientX - r.left) / r.width) * vb.w, y: vb.y + ((e.clientY - r.top) / r.height) * vb.h };
       }
+
+      let pointers = {};
+      let lastDist = 0, lastMid = null, dragging = false;
 
       wrap.addEventListener('pointerdown', (e) => {
         pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
@@ -1112,7 +1097,7 @@
             clampVB(); applyVB();
           }
           lastDist = dist; lastMid = mid;
-        } else if (pts.length === 1 && zoom > 1) {
+        } else if (pts.length === 1) {
           const dx = e.clientX - lastMid.x, dy = e.clientY - lastMid.y;
           if (!dragging && M.hypot(dx, dy) > 5) {
             dragging = true;
@@ -1138,12 +1123,19 @@
       wrap.addEventListener('pointerup', ptrUp);
       wrap.addEventListener('pointercancel', ptrUp);
 
-      // Double-tap to reset zoom
+      // Double-tap to zoom out to full map (or back to home if already zoomed out)
       let lastTap = 0;
       wrap.addEventListener('click', (e) => {
         const now = Date.now();
-        if (now - lastTap < 300 && zoom > 1) {
-          zoom = 1; vb.x = VB_BASE.x; vb.y = VB_BASE.y; clampVB(); applyVB();
+        if (now - lastTap < 300) {
+          if (zoom > 1.1) {
+            zoom = 1; vb.x = VB_BASE.x; vb.y = VB_BASE.y; clampVB(); applyVB();
+          } else if (home) {
+            zoom = initZoom;
+            vb.x = home.x - (VB_BASE.w / zoom) / 2;
+            vb.y = home.y - (VB_BASE.h / zoom) / 2;
+            clampVB(); applyVB();
+          }
         }
         lastTap = now;
       });

@@ -378,7 +378,7 @@
         this._ring((G.viewW || G.cw) * 0.5, G.sky + G.h * 0.5, (G.viewW || G.cw) * 0.42, '#60c040');
       } else if (fid === 'orcs') {
         // Eruption: targeted damage — scorches all enemies
-        this._addShake(0.3);
+        this._addShake(0.5);
         for (const e of this.enemies) {
           if (!e.dead) {
             this._hurtEnemy(e, 28 + this.waveNow() * 2.5, e.x, e.y + 50);
@@ -387,7 +387,7 @@
         }
       } else if (fid === 'goblins') {
         // Acid Rain: targeted damage — melts all enemies
-        this._addShake(0.25);
+        this._addShake(0.4);
         for (const e of this.enemies) {
           if (!e.dead) {
             this._hurtEnemy(e, 22 + this.waveNow() * 2, e.x, e.y - 50);
@@ -429,7 +429,7 @@
       d.dead = true;
       this._spawnBlood(d.x, d.y, 8);
       this._spawnCorpse(d.x, d.y, -1, d.type, false);
-      this._addShake(0.08);
+      this._addShake(0.15);
     }
     _spawnBlood(x, y, count) {
       if (!this.fx) return;
@@ -474,7 +474,7 @@
     _hurtEnemy(e, dmg, fromX, fromY) {
       if (e.dead) return;
       e.hp -= dmg;
-      e.hit = 0.06;
+      e.hit = 0.12;
       const kbForce = Math.min(60, dmg * 0.4);
       this._applyKnockback(e, fromX != null ? fromX : e.x - 30, fromY != null ? fromY : e.y, kbForce);
       if (dmg > 20) this._spawnSparks(e.x, e.y, Math.min(6, Math.ceil(dmg / 15)), '#ffe080');
@@ -483,7 +483,7 @@
         this._spawnBlood(e.x, e.y, Math.min(12, Math.ceil(dmg / 8)));
         this._spawnCorpse(e.x, e.y, -1, e.role, true);
         this._spawnDust(e.x, e.y);
-        this._addShake(Math.min(0.15, dmg / 150));
+        this._addShake(Math.min(0.3, dmg / 100));
         this.kills++;
         if (this.zombie) this.zombieKills++;
         const g = Math.round(e.bounty * this.bountyMult);
@@ -500,7 +500,7 @@
       const starDef      = d.starDefMod != null ? d.starDefMod : 1;
       const actual = dmg * (1 - this.faction.mods.armor) * ironReduce * shieldReduce * starDef;
       d.hp -= actual;
-      d.hit = 0.06;
+      d.hit = 0.12;
       const kbForce = Math.min(40, actual * 0.3);
       this._applyKnockback(d, fromX != null ? fromX : d.x + 30, fromY != null ? fromY : d.y, kbForce);
       if (actual > 15) this._spawnSparks(d.x, d.y, Math.min(5, Math.ceil(actual / 12)), '#ff9060');
@@ -526,7 +526,7 @@
           if (e.dead) continue;
           if (dist(e.x, e.y, tgt.x, tgt.y) <= d.aoe) this._hurtEnemy(e, e === tgt ? dmg : d.dmg * 0.6, d.x, d.y);
         }
-        this._addShake(0.04);
+        this._addShake(0.08);
       } else {
         this._hurtEnemy(tgt, dmg, d.x, d.y);
       }
@@ -548,7 +548,7 @@
           if (d.dead) continue;
           if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? dmg : e.dmg * 0.6, e.x, e.y);
         }
-        this._addShake(0.03);
+        this._addShake(0.06);
       } else {
         this._hurtDef(tgt, dmg, e.x, e.y);
       }
@@ -825,16 +825,11 @@
       }
       this.defenders = this.defenders.filter((d) => !d.dead);
 
-      // ── Screen shake decay (smoothed to avoid strobing) ──
+      // ── Screen shake decay ──
       if (this.shake > 0) {
-        this.shake = Math.max(0, this.shake - dt * 4);
-        var targetSX = (Math.random() - 0.5) * this.shake * 4;
-        var targetSY = (Math.random() - 0.5) * this.shake * 3;
-        this.shakeX += (targetSX - this.shakeX) * Math.min(1, dt * 18);
-        this.shakeY += (targetSY - this.shakeY) * Math.min(1, dt * 18);
-      } else {
-        this.shakeX *= 0.8;
-        this.shakeY *= 0.8;
+        this.shake = Math.max(0, this.shake - dt * 3);
+        this.shakeX = (Math.random() - 0.5) * this.shake * 8;
+        this.shakeY = (Math.random() - 0.5) * this.shake * 6;
       }
 
       if (this.fx) {
