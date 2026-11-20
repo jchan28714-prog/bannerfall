@@ -640,9 +640,9 @@
           if (dx <= d.range && dist2 < bestDist) { bestDist = dist2; tgt = e; }
         }
 
-        // Ranged units must always stay behind melee front line
+        // Ranged units stay behind melee only when defending or retreating
         let rangedCap = 1e9;
-        if (d.ranged) {
+        if (d.ranged && this.stance !== 'attack') {
           let meleeFront = BF.SPAWN_X;
           for (const m of this.defenders) {
             if (!m.dead && !m.ranged && m.x > meleeFront) meleeFront = m.x;
@@ -657,8 +657,8 @@
             d.y += Math.sign(yDiff) * Math.min(Math.abs(yDiff), d.marchSpeed * 0.6 * dt);
             d.y = Math.max(G.sky + 14, Math.min(G.sky + G.h - 14, d.y));
           }
-          // Ranged pull back if ahead of melee
-          if (d.ranged && d.x > rangedCap + 5) {
+          // Ranged pull back if ahead of melee (only when defending/retreating)
+          if (d.ranged && this.stance !== 'attack' && d.x > rangedCap + 5) {
             d.x = Math.max(rangedCap, d.x - d.marchSpeed * 1.2 * dt);
           }
           if (d.cd <= 0) {
@@ -677,7 +677,7 @@
             marchLimit = BF.SPAWN_X + (d.ranged ? 250 : 200);
             if (d.ranged) marchLimit = Math.min(marchLimit, rangedCap);
           } else {
-            marchLimit = d.ranged ? rangedCap : siegeThresh;
+            marchLimit = siegeThresh;
           }
           if (!d.shielded) {
             if (d.x > marchLimit + 5) {
