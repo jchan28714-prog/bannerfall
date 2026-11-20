@@ -72,6 +72,7 @@
       this.stance = 'attack'; // 'attack' | 'defend' | 'retreat'
       this.castleArcherCd = 0;
       this.castleArcherLv = opts.starUpg && opts.starUpg['castle:archer'] || 0;
+      this.godArcherCd = 0;
       this.schedule = this._buildSchedule();
       this.next = 0;
       this.over = null;
@@ -287,7 +288,7 @@
         aoe: u.aoe || 0, ranged: u.range > 120, cost, cd: 0.35, hit: 0, atk: 0, dead: false,
         touchCd: 0, shielded: false, shieldDur: 0, rallied: false, rallyDur: 0,
         starDefMod: defBonus, frozenDur: 0,
-        kbx: 0, kby: 0,
+        kbx: 0, kby: 0, sheltered: false,
       };
       this.defenders.push(d);
       this.events.push('place');
@@ -413,7 +414,7 @@
     unitNear(x, y) {
       let best = null, bestDist = 32;
       for (const d of this.defenders) {
-        if (d.dead) continue;
+        if (d.dead || d.sheltered) continue;
         const dst = Math.hypot(x - d.x, y - d.y);
         if (dst < bestDist) { bestDist = dst; best = d; }
       }
@@ -545,7 +546,7 @@
       if (e.aoe) {
         this._ring(tgt.x, tgt.y, e.aoe, '#ff9a7a');
         for (const d of this.defenders) {
-          if (d.dead) continue;
+          if (d.dead || d.sheltered) continue;
           if (dist(d.x, d.y, tgt.x, tgt.y) <= e.aoe) this._hurtDef(d, d === tgt ? dmg : e.dmg * 0.6, e.x, e.y);
         }
         this._addShake(0.06);
@@ -582,11 +583,11 @@
         this.events.push('coin');
       }
 
-      // Castle archers: auto-fire from the castle at nearest enemies
-      if (this.castleArcherLv > 0) {
+      // Castle archers: auto-fire from the castle at nearest enemies (upgrade-based)
+      if (this.castleArcherLv > 0 && this.stance !== 'retreat') {
         this.castleArcherCd -= dt;
         if (this.castleArcherCd <= 0) {
-          this.castleArcherCd = 1.2; // fire rate
+          this.castleArcherCd = 1.2;
           const archerDmg = this._castleArcherDmg();
           const numArrows = Math.min(3 + this.castleArcherLv, 8);
           const fired = [];
@@ -601,6 +602,29 @@
             const shotY = G.sky + 10 + (i / Math.max(1, numArrows - 1)) * (G.h - 20);
             this._shot(BF.CASTLE_W - 4, shotY, e.x, e.y, 'arrow', '#ffe8a0', 0.18, 25);
             this._hurtEnemy(e, archerDmg, BF.CASTLE_W, shotY);
+          }
+        }
+      }
+
+      // God archers: powerful castle defense when units retreat inside
+      if (this.stance === 'retreat') {
+        this.godArcherCd -= dt;
+        if (this.godArcherCd <= 0) {
+          this.godArcherCd = 0.8;
+          const godDmg = this._castleArcherDmg() * 2.5;
+          const maxGodArrows = 6;
+          const targets = [];
+          for (const e of this.enemies) {
+            if (e.dead || targets.length >= maxGodArrows) continue;
+            if (e.x < BF.CASTLE_W || e.x > (G.cw || 800)) continue;
+            targets.push(e);
+          }
+          targets.sort((a, b) => a.x - b.x);
+          for (let i = 0; i < targets.length; i++) {
+            const e = targets[i];
+            const shotY = G.sky + 8 + (i / Math.max(1, maxGodArrows - 1)) * (G.h - 16);
+            this._shot(BF.CASTLE_W - 4, shotY, e.x, e.y, 'arrow', '#ffd700', 0.15, 30);
+            this._hurtEnemy(e, godDmg, BF.CASTLE_W, shotY);
           }
         }
       }
@@ -627,6 +651,20 @@
 
         // Frozen defenders cannot move or attack
         if (d.frozenDur > 0) continue;
+
+        // Retreat: march back to castle and shelter inside
+        if (this.stance === 'retreat') {
+          if (d.x > BF.SPAWN_X + 5) {
+            d.x -= d.marchSpeed * 1.5 * dt;
+          } else {
+            d.sheltered = true;
+          }
+          continue;
+        }
+        if (d.sheltered) {
+          d.sheltered = false;
+          d.x = BF.SPAWN_X;
+        }
 
         // Target: nearest enemy within engagement range (2D proximity)
         let tgt = null, bestDist = 1e9;
@@ -745,7 +783,7 @@
 
         let tgt = null, bestDist2 = 1e9;
         for (const d of this.defenders) {
-          if (d.dead) continue;
+          if (d.dead || d.sheltered) continue;
           const dx = e.x - d.x;
           if (dx < -20 || dx > e.range + 40) continue;
           const dy = Math.abs(e.y - d.y);
@@ -778,7 +816,7 @@
       // ── Knockback physics: apply velocity then decay ──
       const kbDecay = Math.pow(0.02, dt);
       for (const u of this.defenders.concat(this.enemies)) {
-        if (u.dead) continue;
+        if (u.dead || u.sheltered) continue;
         if (Math.abs(u.kbx) > 0.5 || Math.abs(u.kby) > 0.5) {
           u.x += u.kbx * dt;
           u.y += u.kby * dt;

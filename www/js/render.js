@@ -986,6 +986,7 @@
     // ── DEFENDERS (sorted by Y for depth) ──────────────────────────────
     const defs = b.defenders.slice().sort((a, c) => a.y - c.y);
     for (const d of defs) {
+      if (d.sheltered) continue;
       const ap = d.atk / 0.18;
       const wp = T * 4 + d.id * 0.7;
       const lunge = d.atk > 0 && !d.ranged ? 5 * (d.atk / 0.18) : 0;
