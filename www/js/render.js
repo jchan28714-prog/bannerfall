@@ -837,6 +837,33 @@
     }
   }
 
+  function drawGodArchers(ctx, h, factionColor, time) {
+    const cw = BF.CASTLE_W;
+    const count = 6;
+    const spacing = (h - 30) / (count + 1);
+    for (let i = 0; i < count; i++) {
+      const y = 15 + spacing * (i + 1);
+      const x = cw - 8;
+      const bob = M.sin(time * 3 + i * 1.2) * 2;
+      // Glowing gold aura
+      ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 6;
+      // Head
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath(); ctx.arc(x, y - 8 + bob, 4, 0, TAU); ctx.fill();
+      // Body
+      ctx.fillRect(x - 3, y - 4 + bob, 6, 10);
+      // Bow (larger)
+      ctx.strokeStyle = '#8a6520'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x + 7, y - 2 + bob, 7, M.PI * 0.4, M.PI * 1.6); ctx.stroke();
+      // Arrow string
+      ctx.strokeStyle = '#ffe880'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 7, y + 5 + bob); ctx.lineTo(x + 4, y - 2 + bob); ctx.lineTo(x + 7, y - 9 + bob);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
+
   /* ==========================================================================
      HP BAR helper
   ========================================================================== */
@@ -1164,7 +1191,11 @@
     // ── CASTLE GATE (draws over enemies that enter it) ─────────────────
     ctx.save(); ctx.translate(0, G.sky);
     drawCastle(ctx, G.h, b.baseHp, b.baseMax, ui.gateFlash, me.color, T, me.id);
-    drawCastleArchers(ctx, G.h, b.castleArcherLv, me.color, T);
+    if (b.stance === 'retreat') {
+      drawGodArchers(ctx, G.h, me.color, T);
+    } else {
+      drawCastleArchers(ctx, G.h, b.castleArcherLv, me.color, T);
+    }
     ctx.restore();
 
     // ── ENEMY FORTRESS (right side, mirrored castle) ─────────────────

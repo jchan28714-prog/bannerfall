@@ -613,10 +613,12 @@
           this.godArcherCd = 0.8;
           const godDmg = this._castleArcherDmg() * 2.5;
           const maxGodArrows = 6;
+          const fieldWidth = (G.cw || 504) - BF.CASTLE_W;
+          const strikeZone = BF.CASTLE_W + fieldWidth * 0.2;
           const targets = [];
           for (const e of this.enemies) {
             if (e.dead || targets.length >= maxGodArrows) continue;
-            if (e.x < BF.CASTLE_W || e.x > (G.cw || 800)) continue;
+            if (e.x < BF.CASTLE_W || e.x > strikeZone) continue;
             targets.push(e);
           }
           targets.sort((a, b) => a.x - b.x);
@@ -652,10 +654,10 @@
         // Frozen defenders cannot move or attack
         if (d.frozenDur > 0) continue;
 
-        // Retreat: march back to castle and shelter inside
+        // Retreat: rush back to castle and shelter inside
         if (this.stance === 'retreat') {
           if (d.x > BF.SPAWN_X + 5) {
-            d.x -= d.marchSpeed * 1.5 * dt;
+            d.x -= Math.max(d.marchSpeed * 3, 120) * dt;
           } else {
             d.sheltered = true;
           }
